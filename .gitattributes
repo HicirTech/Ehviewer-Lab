@@ -1,0 +1,31 @@
+# Keep line endings deterministic across platforms.
+#
+# Everything git detects as text is stored LF in the repository and checked out
+# LF in the worktree, so a checkout is byte-identical no matter who made it.
+# Without this, a clone made with core.autocrlf=true rewrites the whole tree to
+# CRLF, and every file then reads as modified against the LF blobs.
+* text=auto eol=lf
+
+# Windows launchers only run with CRLF.
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# Binary assets: never touch the bytes, never try to diff them as text.
+*.png   binary
+*.jpg   binary
+*.jpeg  binary
+*.gif   binary
+*.webp  binary
+*.ico   binary
+*.webm  binary
+*.mp3   binary
+*.ttf   binary
+*.otf   binary
+*.jar   binary
+*.aar   binary
+*.so    binary
+*.a     binary
+*.zip   binary
+*.apk   binary
+*.keystore binary
+*.jks   binary
