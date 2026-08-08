@@ -40,6 +40,11 @@ if (feed.version !== versionName)
   fail(`update.json version "${feed.version}" != build.gradle "${versionName}" - run bump-version first`);
 if (feed.versionCode !== versionCode)
   fail(`update.json versionCode ${feed.versionCode} != build.gradle ${versionCode}`);
+// The update dialog opens fileDownloadUrl directly, so a stale one sends users to
+// the wrong release. bump-version writes it; this catches a hand-edited feed.
+const expectedDownloadUrl = `https://github.com/HicirTech/Ehviewer-Lab/releases/tag/v${versionName}`;
+if (feed.updateContent?.fileDownloadUrl !== expectedDownloadUrl)
+  fail(`update.json fileDownloadUrl "${feed.updateContent?.fileDownloadUrl}" != "${expectedDownloadUrl}"`);
 
 // --- git state ---
 if (git("status", "--porcelain") !== "") fail("working tree not clean - commit or stash first");

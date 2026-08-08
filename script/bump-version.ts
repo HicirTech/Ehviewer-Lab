@@ -22,6 +22,7 @@ import { fileURLToPath } from "node:url";
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const gradlePath = resolve(root, "app/build.gradle");
 const feedPath = resolve(root, "feedauthor/update.json");
+const RELEASE_TAG_BASE = "https://github.com/HicirTech/Ehviewer-Lab/releases/tag";
 
 const args = process.argv.slice(2);
 const dryRun = args.includes("--dry-run");
@@ -61,11 +62,15 @@ const feed = JSON.parse(readFileSync(feedPath, "utf8"));
 feed.version = newName;
 feed.versionCode = newCode;
 feed.updateContent.title = `EhViewer@Lab ${newName}`;
+// Point at the release for exactly this version. release.ts tags v<versionName>,
+// so this resolves once the tag is pushed. "/releases/latest" would drift: the
+// dialog announces version X but the link would walk forward to X+1.
+feed.updateContent.fileDownloadUrl = `${RELEASE_TAG_BASE}/v${newName}`;
 if (notes.length > 0) feed.updateContent.content = notes;
 
 console.log(`versionName  ${oldName}  ->  ${newName}`);
 console.log(`versionCode  ${oldCode}  ->  ${newCode}`);
-console.log(`update feed  version/versionCode/title synced${notes.length ? `, ${notes.length} note line(s)` : " (content kept, edit manually if needed)"}`);
+console.log(`update feed  version/versionCode/title/fileDownloadUrl synced${notes.length ? `, ${notes.length} note line(s)` : " (content kept, edit manually if needed)"}`);
 
 if (dryRun) {
   console.log("dry run: nothing written");
