@@ -1,17 +1,15 @@
 {
-  "version": "2.0.2.3",
-  "versionCode": 111,
+  "version": "2.0.2.3-hl.1",
+  "versionCode": 1,
   "mustUpdate": false,
   "updateContent": {
-    "fileDownloadUrl": "",
-    "title": "新版发布2.0.2.3 建军节快乐~",
+    "fileDownloadUrl": "https://github.com/HicirTech/Ehviewer_With_SMB_Saver/releases/latest",
+    "title": "EhViewer@Lab 2.0.2.3-hl.1",
     "content": [
-      "修复页码显示延迟的问题",
-      "添加重置阅读进度功能以更新UI",
-      "更新 AboutFragment 以使用 setPreferencesFromResource，确保仅在满足条件时设置偏好项点击监听器",
-      "修复drawable赋值逻辑以避免潜在的空指针异常",
-      "增强图像解码错误处理，避免空值返回并记录警告",
-      "添加获取可编辑评论的功能，更新相关解析器和UI逻辑"
+      "首个 HomeLab 定位版本：独立包名 com.hicirtech.ehviewer，可与原版并装",
+      "SMB workflow：内网阅读 / 搜索 / 自动下载到 NAS / 内网画廊管理",
+      "修复大画廊首页加载缓慢与切换画廊卡死",
+      "自建 CI 与发布流程"
     ]
   }
 }
