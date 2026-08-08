@@ -639,15 +639,8 @@
     <string name="settings_about_issue_help">Ayuda con problemas</string>
     <string name="settings_about_license">Licencia</string>
     <string name="settings_about_license_summary">EhViewer es posible gracias a varios proyectos de código abierto</string>
-    <string name="settings_about_donate">Donar</string>
-    <string name="settings_about_donate_message">Su donación no puede traerle ningún privilegio. Pero me ayuda a mantener esta aplicación.</string>
-    <string name="settings_about_donate_alipay">Alipay</string>
-    <string name="settings_about_donate_paypal">PayPal</string>
-    <string name="settings_about_donate_open">Abrir</string>
-    <string name="settings_about_donate_copy">Copiar correo</string>
     <string name="settings_save_image_aliPay">Guardar código QR de Alipay</string>
     <string name="settings_save_image_weChat">Guardar código QR de WeChat</string>
-    <string name="settings_about_donate_copied">Copiado</string>
     <string name="settings_privacy_enable_analytics">Habilitar analytics</string>
     <string name="settings_privacy_about_analytics">Acerca de analytics</string>
     <string name="settings_about_version">Versión de compilación</string>
@@ -812,7 +805,6 @@
     <string name="settings_eh_theme_dark">Oscuro</string>
     <string name="settings_eh_theme_black">Negro</string>
     <string name="settings_eh_apply_nav_bar_theme_color">Aplicar color del tema a la barra de navegación</string>
-    <string name="settings_about_donate_guide">Guía de apoyo</string>
 
     <!--  排行榜  -->
     <string name="gallery_toplists">Listas principales de galerías</string>

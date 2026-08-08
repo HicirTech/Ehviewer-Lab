@@ -33,7 +33,6 @@
     <string name="settings_advanced_domain_fronting_summary">หลีกเลี่ยงการบล็อก SNI</string>
     <string name="settings_advanced_url_replace_title">ปลอมแปลง URL, ต้องปิด SNI</string>
     <string name="settings_advanced_url_replace_summary">ปลอมแปลง URL (ต้องรีสตาร์ท, เปิดใช้งานแล้วฟังก์ชันบัญชีจะไม่ทำงาน)</string>
-    <string name="settings_about_donate_guide">คู่มือการสนับสนุน</string>
     <string name="share_favorites_dialog_title">แชร์รายการโปรด</string>
     <string name="share_favorites_dialog_message">แชร์รายการโปรด %s หรือไม่?</string>
     <string name="add_favorites_dialog_message">เพิ่มรายการโปรด %s หรือไม่?</string>
@@ -673,15 +672,8 @@
     <string name="settings_about_help">ช่วยเหลือ</string>
     <string name="settings_about_license">ใบอนุญาต</string>
     <string name="settings_about_license_summary">EhViewer ต้องขอขอบคุณโครงการโอเพ่นซอร์สหลายๆโครงการเป็นอย่างสูง</string>
-    <string name="settings_about_donate">บริจาค</string>
-    <string name="settings_about_donate_message">เงินบริจาคของคุณจะไม่ได้บริการพิเศษ แต่จะทำให้แอปพัฒนาไปได้ไกลมากขึ้น</string>
-    <string name="settings_about_donate_alipay">Alipay</string>
-    <string name="settings_about_donate_paypal">PayPal</string>
-    <string name="settings_about_donate_open">เปิดลิงค์</string>
-    <string name="settings_about_donate_copy">คัดลอก</string>
     <string name="settings_save_image_aliPay">บันทึกรหัส QR Alipay</string>
     <string name="settings_save_image_weChat">บันทึกรหัส QR WeChat</string>
-    <string name="settings_about_donate_copied">คัดลอกแล้ว</string>
     <string name="settings_privacy_enable_analytics">เปิดการวิเคราะห์ข้อมูล</string>
     <string name="settings_privacy_about_analytics">เกี่ยวกับการวิเคราะห์ข้อมูล</string>
     <string name="settings_about_version">เวอร์ชั่นแอป</string>

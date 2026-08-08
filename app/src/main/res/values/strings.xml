@@ -32,7 +32,6 @@
     <string name="settings_advanced_domain_fronting_summary">绕过 SNI 封锁</string>
     <string name="settings_advanced_url_replace_title">url伪装,需关闭SNI</string>
     <string name="settings_advanced_url_replace_summary">url伪装(需重启，开启后账户功能失效)</string>
-    <string name="settings_about_donate_guide">支持指南</string>
     <string name="share_favorites_dialog_title">分享收藏</string>
     <string name="share_favorites_dialog_message">分享收藏 %s ？</string>
     <string name="add_favorites_dialog_message">添加收藏 %s ？</string>
@@ -829,15 +828,10 @@
     <string name="settings_about_issue_help">Issue Help</string>
     <string name="settings_about_license">License</string>
     <string name="settings_about_license_summary">EhViewer is made possible thanks to many open source projects</string>
-    <string name="settings_about_donate">Donate</string>
-    <string name="settings_about_donate_message">Your donation can not bring you any privileges. But it helps me maintain this app.</string>
-    <string name="settings_about_donate_alipay">Alipay</string>
-    <string name="settings_about_donate_paypal">PayPal</string>
-    <string name="settings_about_donate_open">Open</string>
-    <string name="settings_about_donate_copy">CopyEmail</string>
+    <string name="settings_about_upstream">Upstream / Origin</string>
+    <string name="settings_about_upstream_summary" translatable="false">xiaojieonly/Ehviewer_CN_SXJ</string>
     <string name="settings_save_image_aliPay">保存支付宝二维码</string>
     <string name="settings_save_image_weChat">保存微信二维码</string>
-    <string name="settings_about_donate_copied">Copied</string>
     <string name="settings_privacy_enable_analytics">Enable analytics</string>
     <string name="settings_privacy_about_analytics">About analytics</string>
     <string name="settings_about_version">Build version</string>

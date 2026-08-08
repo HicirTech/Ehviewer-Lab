@@ -66,9 +66,11 @@
         android:key="close_auto_updates"
         android:title="@string/settings_close_automatic_updates" />
 
-    <Preference
-        android:key="donate"
-        android:title="@string/settings_about_donate"
-        app:allowDividerAbove="true" />
+    <com.hippo.preference.UrlPreference
+        android:key="upstream"
+        android:summary="@string/settings_about_upstream_summary"
+        android:title="@string/settings_about_upstream"
+        app:allowDividerAbove="true"
+        app:url="https://github.com/xiaojieonly/Ehviewer_CN_SXJ" />
 
 </PreferenceScreen>

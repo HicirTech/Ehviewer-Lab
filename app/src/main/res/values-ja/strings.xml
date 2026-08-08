@@ -32,7 +32,6 @@
     <string name="settings_advanced_domain_fronting_summary">SNI ブロックをバイパスします</string>
     <string name="settings_advanced_url_replace_title">URL マスカレード、SNI を OFF にする必要があります</string>
     <string name="settings_advanced_url_replace_summary">URL の偽装 (再起動が必要です。開くとアカウント機能が無効になります)</string>
-    <string name="settings_about_donate_guide">サポートガイド</string>
     <string name="share_favorites_dialog_title">お気に入りを共有</string>
     <string name="share_favorites_dialog_message">お気に入り「%s」を共有しますか？</string>
     <string name="add_favorites_dialog_message">お気に入り「%s」を追加しますか？</string>
@@ -638,15 +637,8 @@
     <string name="settings_about_issue_help">問題解決のヘルプ</string>
     <string name="settings_about_license">オープンソースライセンス</string>
     <string name="settings_about_license_summary">いろんなオープンソースプロジェクトなしで、EhViewerが生まれることはありません</string>
-    <string name="settings_about_donate">寄付</string>
-    <string name="settings_about_donate_message">寄付していただいても追加の機能を解禁したりはありませんが、このアプリの開発を支援できます</string>
-    <string name="settings_about_donate_alipay">AliPay</string>
-    <string name="settings_about_donate_paypal">PayPal</string>
-    <string name="settings_about_donate_open">開く</string>
-    <string name="settings_about_donate_copy">コピー</string>
     <string name="settings_save_image_aliPay">AliPay の QR コードを保存</string>
     <string name="settings_save_image_weChat">WeChat の QR コードを保存</string>
-    <string name="settings_about_donate_copied">コピーしました</string>
     <string name="settings_privacy_enable_analytics">データ統計に参加</string>
     <string name="settings_privacy_about_analytics">データ統計について</string>
     <string name="settings_about_version">バージョン</string>

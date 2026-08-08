@@ -667,14 +667,6 @@
     <string name="settings_about_issue_help">问题帮助</string>
     <string name="settings_about_license">开源许可</string>
     <string name="settings_about_license_summary">EhViewer 的诞生离不开许多开源项目</string>
-    <string name="settings_about_donate">捐赠</string>
-    <string name="settings_about_donate_message">你的捐赠不能为你带来特权，但能帮助我继续维护这个应用。</string>
-    <string name="settings_about_donate_alipay">邮箱</string>
-    <string name="settings_about_donate_paypal">PayPal</string>
-    <string name="settings_about_donate_guide">支持指南</string>
-    <string name="settings_about_donate_open">打开</string>
-    <string name="settings_about_donate_copy">复制邮箱</string>
-    <string name="settings_about_donate_copied">已复制</string>
     <string name="settings_privacy_enable_analytics">启用数据统计</string>
     <string name="settings_privacy_about_analytics">关于数据统计</string>
     <string name="settings_about_version">版本号</string>
@@ -1062,4 +1054,5 @@
     <string name="settings_smb_field_unset">点击设置</string>
     <string name="settings_smb_field_unset_password">点击设置密码</string>
 
+    <string name="settings_about_upstream">上游 / 原项目</string>
 </resources>

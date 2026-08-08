@@ -33,7 +33,6 @@
     <string name="settings_advanced_domain_fronting_summary">Contourner le blocage SNI</string>
     <string name="settings_advanced_url_replace_title">Déguisement d\'URL, nécessite de fermer SNI</string>
     <string name="settings_advanced_url_replace_summary">Déguisement d\'URL (redémarrage requis, les fonctionnalités de compte seront désactivées après activation)</string>
-    <string name="settings_about_donate_guide">Guide de soutien</string>
     <string name="share_favorites_dialog_title">Partager les favoris</string>
     <string name="share_favorites_dialog_message">Partager les favoris %s ?</string>
     <string name="add_favorites_dialog_message">Ajouter aux favoris %s ?</string>
@@ -637,7 +636,6 @@
     <string name="settings_about_issue_help">Aide pour les problèmes</string>
     <string name="settings_about_license">Licence</string>
     <string name="settings_about_license_summary">EhViewer ne peut être né qu\'à grâce de beaucoup de projets Open Source.</string>
-    <string name="settings_about_donate">Faire un don</string>
     <string name="settings_privacy_enable_analytics">Activer l\'analyse</string>
     <string name="settings_privacy_about_analytics">A propos de l\'analyse</string>
     <string name="settings_about_version">Numéro de version</string>
@@ -804,12 +802,6 @@
     <string name="settings_eh_theme_black">Noir</string>
     <string name="settings_eh_apply_nav_bar_theme_color">Appli. la couleur du théme à la barre de navi.</string>
     <string name="settings_eh_theme_auto_switch">Suivre le mode sombre du système</string>
-    <string name="settings_about_donate_message">Faire un don ne verrouille aucune fonction cachée, mais vous m\'aiderez à maintenir cette application.</string>
-    <string name="settings_about_donate_alipay">Alipay</string>
-    <string name="settings_about_donate_paypal">PayPal</string>
-    <string name="settings_about_donate_open">Ouvrir</string>
-    <string name="settings_about_donate_copy">Copier</string>
-    <string name="settings_about_donate_copied">Copiée</string>
     <string name="settings_eh_identity_cookies">Voir les cookies</string>
     <string name="settings_eh_identity_cookies_summary">Les cookies qui sont utilisés pour vous identifier</string>
     <string name="settings_eh_identity_cookies_signed">Tout le monde peut utiliser les cookies de ce compte pour s\'y connecter.&lt;br&gt;&lt;b&gt;GARDEZ-LES BIEN !&lt;/b&gt;&lt;br&gt;&lt;br&gt;%s</string>
