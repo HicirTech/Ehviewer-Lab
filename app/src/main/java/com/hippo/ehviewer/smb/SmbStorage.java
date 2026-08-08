@@ -371,11 +371,66 @@ public final class SmbStorage {
         return count;
     }
 
+    /**
+     * Opens the spider-info file for writing.
+     *
+     * <p>Writes to a sibling temp file and renames it over the target on close instead of
+     * truncating the target in place. A truncate-open of an existing {@code .ehviewer} can be
+     * refused by the server with ACCESS_DENIED while creating a new file in the same folder and
+     * renaming it over the target both succeed — observed against the reference NAS, and it
+     * applies even to an {@code .ehviewer} just created there, so it is not an ownership artefact
+     * of how the gallery arrived. Without this, every attempt to persist reading progress failed
+     * and the failure was only visible in the log.
+     *
+     * <p>The rename is also the safer shape in its own right: a failed or partial write leaves the
+     * previous spider info untouched rather than truncating it, and losing that file costs the
+     * gallery its pTokens.
+     */
     @Nullable
     public static OutputStream openSpiderInfoOutputStream(@NonNull GalleryInfo info) {
         try {
-            SmbFile file = new SmbFile(getGalleryDir(info), SPIDER_INFO_FILE);
-            return file.getOutputStream();
+            SmbFile dir = getGalleryDir(info);
+            final SmbFile target = new SmbFile(dir, SPIDER_INFO_FILE);
+            final SmbFile temp = new SmbFile(dir, SPIDER_INFO_FILE + ".tmp");
+            final OutputStream out = temp.getOutputStream();
+            return new OutputStream() {
+                private boolean closed;
+
+                @Override
+                public void write(int b) throws IOException {
+                    out.write(b);
+                }
+
+                @Override
+                public void write(@NonNull byte[] b, int off, int len) throws IOException {
+                    out.write(b, off, len);
+                }
+
+                @Override
+                public void flush() throws IOException {
+                    out.flush();
+                }
+
+                @Override
+                public void close() throws IOException {
+                    if (closed) {
+                        return;
+                    }
+                    closed = true;
+                    out.close();
+                    try {
+                        temp.renameTo(target, true);
+                    } catch (Throwable e) {
+                        Log.e(TAG, "Failed to publish SMB spider_info gid=" + info.gid, e);
+                        try {
+                            temp.delete();
+                        } catch (Throwable ignored) {
+                            // Best effort; a stale temp file is harmless.
+                        }
+                        throw new IOException("Failed to publish spider info", e);
+                    }
+                }
+            };
         } catch (Throwable e) {
             Log.e(TAG, "Failed to open SMB spider_info output gid=" + info.gid, e);
             return null;
