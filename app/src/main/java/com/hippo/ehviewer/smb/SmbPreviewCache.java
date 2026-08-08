@@ -182,6 +182,7 @@ public final class SmbPreviewCache {
         if (target.isFile() && target.length() > 0) {
             return;
         }
+        long tPerf0 = android.os.SystemClock.elapsedRealtime();
         SmbFile remote = SmbStorage.findSmbImageFileForPreview(lookup, index);
         if (remote == null) {
             return;
@@ -206,6 +207,8 @@ public final class SmbPreviewCache {
             //noinspection ResultOfMethodCallIgnored
             tmp.delete();
         }
+        android.util.Log.i("SmbPerf", "preview idx=" + index + " gid=" + lookup.gid + " bytes=" + target.length()
+                + " " + (android.os.SystemClock.elapsedRealtime() - tPerf0) + "ms thr=" + Thread.currentThread().getName());
     }
 
     private static void closeQuietly(@Nullable java.io.Closeable c) {

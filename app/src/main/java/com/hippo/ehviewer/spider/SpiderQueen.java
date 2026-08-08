@@ -965,8 +965,10 @@ public final class SpiderQueen implements Runnable {
     }
 
     private void runInternal() {
+        long tPerf = android.os.SystemClock.elapsedRealtime();
         // Read spider info
         SpiderInfo spiderInfo = readSpiderInfoFromLocal();
+        Log.i("SmbPerf", "queen readSpiderInfoFromLocal " + (android.os.SystemClock.elapsedRealtime() - tPerf) + "ms null=" + (spiderInfo == null));
 
         // Check interrupted
         if (Thread.currentThread().isInterrupted()) {
@@ -990,7 +992,9 @@ public final class SpiderQueen implements Runnable {
         }
 
         // Write spider info to file
+        tPerf = android.os.SystemClock.elapsedRealtime();
         writeSpiderInfoToLocal(spiderInfo);
+        Log.i("SmbPerf", "queen writeSpiderInfoToLocal " + (android.os.SystemClock.elapsedRealtime() - tPerf) + "ms");
 
         // Check interrupted
         if (Thread.currentThread().isInterrupted()) {
