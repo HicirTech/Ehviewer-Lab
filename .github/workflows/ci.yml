@@ -1,0 +1,55 @@
+# EhViewer@Lab CI — build + unit tests on every PR and main push.
+# Replaces the upstream workflows, which only triggered on BiLi_PC_Gamer and
+# therefore never ran in this repository (and never ran tests anywhere).
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Set up Gradle (with caching)
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Accept Android SDK licenses
+        run: yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null || true
+
+      - name: Build debug APK
+        run: ./gradlew :app:assembleAppReleaseDebug --no-daemon
+
+      # Not a hard gate yet: 14 inherited upstream test defects are fixed on the
+      # branch for issue #21 but not merged. Flip continue-on-error to false once
+      # #21 lands and the suite is green.
+      - name: Unit tests
+        id: tests
+        continue-on-error: true
+        run: ./gradlew :app:testAppReleaseDebugUnitTest --no-daemon
+
+      - name: Upload test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-reports
+          path: app/build/reports/tests/
+          if-no-files-found: ignore
+
+      - name: Upload debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: ehviewer-lab-debug
+          path: app/build/outputs/apk/appRelease/debug/*.apk

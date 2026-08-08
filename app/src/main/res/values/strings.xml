@@ -58,7 +58,7 @@
     <string name="settings_eh_system_theme">系统主题</string>
 
 
-    <string name="app_name">EhViewer</string>
+    <string name="app_name">EhViewer@Lab</string>
 
     <string name="site_e" translatable="false">e-hentai</string>
     <string name="site_ex" translatable="false">exhentai</string>
@@ -816,10 +816,10 @@
     <string name="settings_advanced_wifi_client_summary">Receive migration data from Wi Fi hotspots</string>
 
     <string name="settings_about">About</string>
-    <string name="settings_about_declaration" translatable="false">EhViewer</string>
-    <string name="settings_about_declaration_summary">EhViewer is not affiliated with E-Hentai.org in any way</string>
+    <string name="settings_about_declaration" translatable="false">EhViewer@Lab</string>
+    <string name="settings_about_declaration_summary">A HomeLab-oriented EhViewer fork. Not affiliated with E-Hentai.org in any way</string>
     <string name="settings_about_author">Author</string>
-    <string name="settings_about_author_summary" translatable="false">SXJ_LonelyDog &lt;xiaojieonly$foxmail.com&gt;</string>
+    <string name="settings_about_author_summary" translatable="false">HicirTech · upstream: SXJ_LonelyDog</string>
     <string name="settings_about_telegram" translatable="false">Telegram</string>
     <string name="settings_about_latest_release">Latest release</string>
     <string name="settings_about_website">Website</string>

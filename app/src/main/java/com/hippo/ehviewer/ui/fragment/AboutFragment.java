@@ -63,11 +63,6 @@ public class AboutFragment extends BasePreferenceFragmentCompat
     public void onCreatePreferences(@Nullable Bundle savedInstanceState, @Nullable String rootKey) {
         setPreferencesFromResource(R.xml.about_settings, null);
 
-        Preference author = findPreference(KEY_AUTHOR);
-        if (author != null) {
-            author.setSummary(getString(R.string.settings_about_author_summary).replace('$', '@'));
-            author.setOnPreferenceClickListener(this);
-        }
 
         Preference donate = findPreference(KEY_DONATE);
         if (donate != null) {
@@ -84,10 +79,7 @@ public class AboutFragment extends BasePreferenceFragmentCompat
     public boolean onPreferenceClick(Preference preference) {
         String key = preference.getKey();
         Activity activity =getActivity();
-        if (KEY_AUTHOR.equals(key)&&activity!=null) {
-            AppHelper.sendEmail(activity, EhApplication.getDeveloperEmail(),
-                    "About EhViewer", null);
-        } else if (KEY_DONATE.equals(key)) {
+        if (KEY_DONATE.equals(key)) {
             showDonationDialog();
         } else if (KEY_CHECK_FOR_UPDATES.equals(key)&&activity!=null) {
 //            Settings.setCheckUpdate(false);

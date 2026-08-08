@@ -16,7 +16,7 @@
 
 <resources>
 
-    <string name="app_name">EhViewer</string>
+    <string name="app_name">EhViewer@Lab</string>
 
     <!-- Theme -->
     <string name="theme_light">亮色主题</string>
@@ -657,7 +657,7 @@
     <string name="settings_advanced_wifi_client_summary">接收来自WiFi热点的迁移数据</string>
 
     <string name="settings_about">更新与支持</string>
-    <string name="settings_about_declaration_summary">EhViewer 与 E-Hentai.org 无任何联系</string>
+    <string name="settings_about_declaration_summary">面向 HomeLab 的 EhViewer 分支，与 E-Hentai.org 无任何联系</string>
     <string name="settings_about_author">作者</string>
     <string name="settings_about_latest_release">最新版本</string>
     <string name="settings_about_website">网站</string>
