@@ -27,9 +27,8 @@
     <string name="cleanup_toplists">Cleanup Toplists</string>
     <string name="rating_reviewing_toplists">Rating&#038;Reviewing Toplists</string>
 
-    <string name="settings_about_donate_guide">guide</string>
 
-    <string name="app_name">EhViewer</string>
+    <string name="app_name">EhViewer@Lab</string>
 
     <string name="site_e" translatable="false">e-hentai</string>
     <string name="site_ex" translatable="false">exhentai</string>
@@ -646,13 +645,6 @@
     <string name="settings_about_help">Help</string>
     <string name="settings_about_license">License</string>
     <string name="settings_about_license_summary">EhViewer is made possible thanks to many open source projects</string>
-    <string name="settings_about_donate">Donate</string>
-    <string name="settings_about_donate_message">Your donation can not bring you any privileges. But it helps me maintain this app.</string>
-    <string name="settings_about_donate_alipay">Alipay</string>
-    <string name="settings_about_donate_paypal">PayPal</string>
-    <string name="settings_about_donate_open">Open</string>
-    <string name="settings_about_donate_copy">Copy</string>
-    <string name="settings_about_donate_copied">Copied</string>
     <string name="settings_privacy_enable_analytics">Enable analytics</string>
     <string name="settings_privacy_about_analytics">About analytics</string>
     <string name="settings_about_version">Build version</string>

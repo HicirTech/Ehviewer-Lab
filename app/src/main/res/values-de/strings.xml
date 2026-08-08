@@ -35,7 +35,6 @@
     <string name="settings_advanced_domain_fronting_summary">SNI-Blockierung umgehen</string>
     <string name="settings_advanced_url_replace_title">URL-Verschleierung, SNI muss deaktiviert sein</string>
     <string name="settings_advanced_url_replace_summary">URL-Verschleierung (Neustart erforderlich, Kontofunktionen werden nach Aktivierung deaktiviert)</string>
-    <string name="settings_about_donate_guide">guide</string>
     <string name="share_favorites_dialog_title">Favoriten teilen</string>
     <string name="share_favorites_dialog_message">Favoriten %s teilen?</string>
     <string name="add_favorites_dialog_message">Favoriten %s hinzufügen?</string>
@@ -44,7 +43,7 @@
     <string name="network_remind">VPN wurde erkannt, bitte achte auf deine Netzwerksicherheit</string>
     <string name="no_blicklist">Hier ist die schwarze Liste</string>
 
-    <string name="app_name">EhViewer</string>
+    <string name="app_name">EhViewer@Lab</string>
     <string name="homepage">Startseite</string>
     <string name="subscription">Gefolgte Etiketten</string>
     <string name="whats_hot">Top-Listen</string>
@@ -645,7 +644,6 @@
     <string name="settings_about_issue_help">Problemhilfe</string>
     <string name="settings_about_license">Lizenzen</string>
     <string name="settings_about_license_summary">EhViewer wurde dank vieler Open Source-Projekte entwicklt.</string>
-    <string name="settings_about_donate">Spenden</string>
     <string name="settings_privacy_enable_analytics">Analyse aktivieren</string>
     <string name="settings_privacy_about_analytics">Über die Analyse</string>
     <string name="settings_about_version">Versionnummer</string>
@@ -694,14 +692,8 @@
     <string name="settings_eh_theme_dark">Dunkel</string>
     <string name="settings_eh_theme_black">Schwarz</string>
     <string name="settings_eh_apply_nav_bar_theme_color">Theme-Farbe in Navigation-Bar anwenden</string>
-    <string name="settings_about_donate_message">Du bekommest kein Privileg davon. Deine Spende hilft mir dabei, diese App instand zu halten.</string>
-    <string name="settings_about_donate_alipay">Alipay</string>
-    <string name="settings_about_donate_paypal">PayPal</string>
-    <string name="settings_about_donate_open">Öffnen</string>
     <string name="settings_save_image_aliPay">Alipay-QR-Code speichern</string>
     <string name="settings_save_image_weChat">WeChat-QR-Code speichern</string>
-    <string name="settings_about_donate_copy">E-Mail kopieren</string>
-    <string name="settings_about_donate_copied">Kopiert</string>
     <string name="settings_close_automatic_updates">Automatische Updates deaktivieren</string>
     <string name="settings_eh_identity_cookies">Konto-Cookies</string>
     <string name="settings_eh_identity_cookies_summary">Die Cookies, die dich angemeldet halten.</string>

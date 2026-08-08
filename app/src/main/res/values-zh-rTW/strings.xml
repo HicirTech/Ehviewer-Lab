@@ -17,7 +17,7 @@
 
 <resources>
 
-    <string name="app_name">EhViewer</string>
+    <string name="app_name">EhViewer@Lab</string>
 
     <string name="site_e" translatable="false">e-hentai</string>
     <string name="site_ex" translatable="false">exhentai</string>
@@ -656,7 +656,7 @@
 
     <string name="settings_about">關於</string>
     <string name="settings_about_declaration" translatable="false">EhViewer</string>
-    <string name="settings_about_declaration_summary">EhViewer 與 E-Hentai.org 無任何聯繫</string>
+    <string name="settings_about_declaration_summary">面向 HomeLab 的 EhViewer 分支，與 E-Hentai.org 無任何聯繫</string>
     <string name="settings_about_author">作者</string>
     <string name="settings_about_author_summary" translatable="false">SXJ_LonelyDog &lt;xiaojieonly$foxmail.com&gt;</string>
     <string name="settings_about_telegram" translatable="false">Telegram</string>
@@ -668,16 +668,8 @@
     <string name="settings_about_issue_help">問題說明</string>
     <string name="settings_about_license">授權</string>
     <string name="settings_about_license_summary">EhViewer 的誕生離不開許多開源專案</string>
-    <string name="settings_about_donate">贊助</string>
-    <string name="settings_about_donate_message">您的贊助將不會替您產生任何特權，但能夠幫助我能夠繼續維護這個程式。</string>
-    <string name="settings_about_donate_alipay">支付寶</string>
-    <string name="settings_about_donate_paypal">PayPal</string>
-    <string name="settings_about_donate_guide">支持指南</string>
-    <string name="settings_about_donate_open">開啟</string>
-    <string name="settings_about_donate_copy">複製</string>
     <string name="settings_save_image_aliPay">儲存支付寶二維碼</string>
     <string name="settings_save_image_weChat">儲存微信二維碼</string>
-    <string name="settings_about_donate_copied">已複製</string>
     <string name="settings_privacy_enable_analytics">啟用資料統計</string>
     <string name="settings_privacy_about_analytics">關於資料統計</string>
     <string name="settings_about_version">版本號碼</string>
@@ -1067,4 +1059,5 @@
     <string name="settings_smb_field_unset">點擊設定</string>
     <string name="settings_smb_field_unset_password">點擊設定密碼</string>
 
+    <string name="settings_about_upstream">上游 / 原專案</string>
 </resources>

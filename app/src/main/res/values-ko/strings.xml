@@ -33,7 +33,6 @@
     <string name="settings_advanced_domain_fronting_summary">SNI 차단 우회</string>
     <string name="settings_advanced_url_replace_title">URL 위장, SNI를 닫아야 함</string>
     <string name="settings_advanced_url_replace_summary">URL 위장 (재시작 필요, 활성화 후 계정 기능이 작동하지 않음)</string>
-    <string name="settings_about_donate_guide">지원 가이드</string>
     <string name="share_favorites_dialog_title">즐겨찾기 공유</string>
     <string name="share_favorites_dialog_message">즐겨찾기 %s을(를) 공유하시겠습니까?</string>
     <string name="add_favorites_dialog_message">즐겨찾기에 %s을(를) 추가하시겠습니까?</string>
@@ -43,7 +42,7 @@
 
     <string name="no_blicklist">여기는 차단 목록입니다</string>
 
-    <string name="app_name">EhViewer</string>
+    <string name="app_name">EhViewer@Lab</string>
 
     <!-- Theme -->
     <string name="theme_light">밝은 테마</string>
@@ -696,15 +695,8 @@
     <string name="settings_about_issue_help">문제 도움말</string>
     <string name="settings_about_license">라이선스</string>
     <string name="settings_about_license_summary">EhViewer는 많은 오픈 소스 프로젝트 덕분에 만들 수 있었습니다.</string>
-    <string name="settings_about_donate">후원</string>
-    <string name="settings_about_donate_message">후원은 특권을 가져다주지 않습니다. 하지만 이 앱을 유지하는 데 도움이 됩니다.</string>
-    <string name="settings_about_donate_alipay">알리페이</string>
-    <string name="settings_about_donate_paypal">PayPal</string>
-    <string name="settings_about_donate_open">열기</string>
-    <string name="settings_about_donate_copy">이메일 복사</string>
     <string name="settings_save_image_aliPay">알리페이 QR 코드 저장</string>
     <string name="settings_save_image_weChat">위챗 QR 코드 저장</string>
-    <string name="settings_about_donate_copied">클립보드에 복사했습니다.</string>
     <string name="settings_privacy_enable_analytics">데이터 분석 사용</string>
     <string name="settings_privacy_about_analytics">데이터 분석 정보</string>
     <string name="settings_about_version">빌드 버전</string>
