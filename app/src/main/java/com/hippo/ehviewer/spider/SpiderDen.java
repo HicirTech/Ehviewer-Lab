@@ -578,6 +578,14 @@ public final class SpiderDen {
 
     @Nullable
     private InputStreamPipe openDownloadInputStreamPipeReadOnly(int index) {
+        // Upstream added this read-only variant for "sync download while reading"; it must route
+        // through the remote backend like every other storage entry point, otherwise SMB galleries
+        // fall through to getDownloadDir() — which deliberately returns null when a remote backend
+        // is active — and every page read yields a null pipe.
+        GallerySpiderStorage remote = remoteStorage();
+        if (remote != null) {
+            return remote.openImageInputStreamPipe(index);
+        }
         UniFile dir = getDownloadDir();
         if (dir == null) {
             return null;
