@@ -319,6 +319,7 @@ public final class SmbStorage {
      * Performs SMB I/O — must be called from a worker thread.
      */
     public static boolean isGalleryComplete(@NonNull GalleryInfo info) {
+        long tPerf = SystemClock.elapsedRealtime();
         try {
             SmbFile galleryDir = getGalleryDir(info);
             SmbFile metadata = new SmbFile(galleryDir, METADATA_FILE);
@@ -345,8 +346,14 @@ public final class SmbStorage {
                 return false;
             }
             int saved = countSavedImages(galleryDir, declaredPages);
+            Log.i("SmbPerf", "isGalleryComplete gid=" + info.gid + " saved=" + saved + "/" + declaredPages
+                    + " " + (SystemClock.elapsedRealtime() - tPerf) + "ms thr=" + Thread.currentThread().getName());
             return saved >= declaredPages;
         } catch (Throwable e) {
+            // A transient failure here (congested transport, timeout) must be visible: returning
+            // false silently turns into a full re-download of a complete gallery.
+            Log.w("SmbPerf", "isGalleryComplete gid=" + info.gid + " EXCEPTION after "
+                    + (SystemClock.elapsedRealtime() - tPerf) + "ms: " + e);
             return false;
         }
     }
@@ -452,7 +459,10 @@ public final class SmbStorage {
                 Log.i("SmbPerf", "spiderInfo.read gid=" + info.gid + " missing " + (SystemClock.elapsedRealtime() - t0) + "ms");
                 return null;
             }
-            InputStream in = file.getInputStream();
+            // SpiderInfo.read() parses this stream one byte at a time (IOUtils.readAsciiLine).
+            // Unbuffered, every byte is its own SMB READ round trip: a 924-page .ehviewer
+            // (~28KB) measured 63 seconds to parse. Buffering turns that into one round trip.
+            InputStream in = new java.io.BufferedInputStream(file.getInputStream(), 64 * 1024);
             Log.i("SmbPerf", "spiderInfo.read gid=" + info.gid + " " + (SystemClock.elapsedRealtime() - t0) + "ms");
             return in;
         } catch (Throwable e) {
@@ -536,7 +546,9 @@ public final class SmbStorage {
                     InputStream remote = null;
                     OutputStream local = null;
                     try {
-                        remote = file.getInputStream();
+                        // Buffered so the 16KB copy loop drains a 256KB prefetch instead of
+                        // issuing one small SMB READ per chunk.
+                        remote = new java.io.BufferedInputStream(file.getInputStream(), 256 * 1024);
                         local = new java.io.FileOutputStream(tempFile);
                         IOUtils.copy(remote, local);
                     } finally {
@@ -690,7 +702,8 @@ public final class SmbStorage {
                     long t0 = SystemClock.elapsedRealtime();
                     long tOpen;
                     try {
-                        remote = file.getInputStream();
+                        // Buffered for the same reason as the cover path above.
+                        remote = new java.io.BufferedInputStream(file.getInputStream(), 256 * 1024);
                         tOpen = SystemClock.elapsedRealtime();
                         local = new java.io.FileOutputStream(tempFile);
                         IOUtils.copy(remote, local);
