@@ -29,7 +29,7 @@ android {
         applicationId "com.hicirtech.ehviewer"
         minSdkVersion 23
         //noinspection ExpiredTargetSdkVersion
-        targetSdkVersion 30
+        targetSdkVersion 35
         versionCode 1
         versionName "2.0.2.3-hl.1"
         vectorDrawables.useSupportLibrary = true
