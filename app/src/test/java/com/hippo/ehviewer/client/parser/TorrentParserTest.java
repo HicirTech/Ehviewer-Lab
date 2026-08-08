@@ -36,6 +36,15 @@ import org.robolectric.annotation.Config;
 @RunWith(RobolectricTestRunner.class)
 public class TorrentParserTest {
 
+    /**
+     * Gallery title shared by both torrents in the fixture. Written with unicode escapes so the
+     * source file stays pure ASCII and does not depend on the compiler's default encoding.
+     */
+    private static final String BASE_NAME =
+            "[Uniyaa (Ikinari Mojio)] Hatsuiku ga Yokute Oshi ni Yowai Osananajimi ga Ki ni Natte "
+                    + "Shikatanai (Kohen) \uFE31 I Can't Stop Thinking About My Childhood Friend "
+                    + "Who\u2019s Such a Pushover. (Part 2) [English] [Sonarin\u8FEB] [Digital]";
+
     @Test
     public void testParse() throws IOException {
         InputStream resource = TorrentParserTest.class.getResourceAsStream("torrentList.html");
@@ -49,6 +58,10 @@ public class TorrentParserTest {
         assertEquals("2026-04-26 05:14", result[1].posted);
         assertEquals("https://ehtracker.org/get/3905209/96d5199ddac01181000340a59bb84c218faf0b16.torrent", result[0].url);
         assertEquals("https://ehtracker.org/get/3905209/713846c3ddf05826d4443790a5b6619eae734d71.torrent", result[1].url);
+        // The name must be the full file name, HTML-unescaped (&#039; -> ') and free of any
+        // stray markup whitespace.
+        assertEquals(BASE_NAME + ".zip", result[0].name);
+        assertEquals(BASE_NAME + "-1280x.zip", result[1].name);
         assertTrue(result[0].name.contains("Part 2"));
         assertTrue(result[1].name.contains("1280x"));
     }
