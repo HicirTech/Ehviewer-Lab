@@ -153,8 +153,12 @@ class AppHelper {
             val parts2 = version2.split("\\.".toRegex()).toTypedArray()
             val length = parts1.size.coerceAtLeast(parts2.size)
             for (i in 0 until length) {
-                val part1 = if (i < parts1.size) parts1[i].toInt() else 0
-                val part2 = if (i < parts2.size) parts2[i].toInt() else 0
+                // Segments may carry non-numeric suffixes (this fork's versionName is
+                // "<upstream>-hl.<n>", so one segment is e.g. "3-hl"). Compare the leading
+                // digits and never throw: toInt() here crashed the app on launch from the
+                // update checker's background thread.
+                val part1 = if (i < parts1.size) parts1[i].takeWhile { it.isDigit() }.toIntOrNull() ?: 0 else 0
+                val part2 = if (i < parts2.size) parts2[i].takeWhile { it.isDigit() }.toIntOrNull() ?: 0 else 0
                 if (part1 < part2) {
                     return -1
                 } else if (part1 > part2) {
