@@ -104,6 +104,9 @@ public final class SpiderQueen implements Runnable {
     public static final int STATE_FINISHED = 2;
     public static final int STATE_FAILED = 3;
     public static final int DECODE_THREAD_NUM = 2;
+    // A cache eviction only needs one re-fetch to recover; more than this means the page is not
+    // going to become openable.
+    private static final int MAX_DECODE_RETRY = 2;
     public static final String SPIDER_INFO_FILENAME = ".ehviewer";
 
     public static final String SPIDER_INFO_BACKUP_DIR = "backupDir";
@@ -148,6 +151,10 @@ public final class SpiderQueen implements Runnable {
     private final ConcurrentHashMap<Integer, String> mPageErrorMap = new ConcurrentHashMap<>();
     // Store page download percent
     private final ConcurrentHashMap<Integer, Float> mPagePercentMap = new ConcurrentHashMap<>();
+    // How many times the decoder has re-requested a page because openInputStreamPipe returned
+    // null. Bounds what used to be an unbounded reset-and-retry loop; cleared once the page opens
+    // or is failed, so a later genuine cache eviction can still recover.
+    private final ConcurrentHashMap<Integer, Integer> mDecodeRetryMap = new ConcurrentHashMap<>();
     private final List<OnSpiderListener> mSpiderListeners = new ArrayList<>();
     private final int mWorkerMaxCount;
     private final int mPreloadNumber;
@@ -1844,12 +1851,27 @@ public final class SpiderQueen implements Runnable {
                 InputStreamPipe pipe = mSpiderDen.openInputStreamPipe(index);
                 if (pipe == null) {
                     resetDecodeIndex();
-                    // Can't find the file, it might be removed from cache,
-                    // Reset it state and request it
+                    // Resetting to STATE_NONE and re-requesting only makes sense when the page
+                    // genuinely went away (a cache eviction race). If storage still claims the
+                    // page is there, or we already retried, the pipe will not start working on
+                    // its own: re-requesting just marks it finished again and re-queues this
+                    // decode, spinning forever while the reader shows an endless spinner.
+                    boolean claimsPresent = mSpiderDen.contain(index);
+                    int tries = mDecodeRetryMap.merge(index, 1, Integer::sum);
+                    if (claimsPresent || tries > MAX_DECODE_RETRY) {
+                        Log.w(TAG, "openInputStreamPipe returned null for index " + index
+                                + " (contain=" + claimsPresent + ", tries=" + tries
+                                + "); failing the page instead of retrying");
+                        mDecodeRetryMap.remove(index);
+                        updatePageState(index, STATE_FAILED,
+                                GetText.getString(R.string.error_reading_failed));
+                        continue;
+                    }
                     updatePageState(index, STATE_NONE, null);
                     request(index, false, false, false);
                     continue;
                 }
+                mDecodeRetryMap.remove(index);
 
                 Image image = null;
                 String error = null;
