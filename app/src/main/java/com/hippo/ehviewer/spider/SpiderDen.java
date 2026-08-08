@@ -293,6 +293,16 @@ public final class SpiderDen {
     public InputStream openSpiderInfoInputStream(String filename) {
         GallerySpiderStorage remote = remoteStorage();
         if (remote != null) {
+            // Never touch the remote backend from the main thread. GalleryActivity.onCreate calls
+            // getStartPage() -> readSpiderInfoFromLocal() on main; jcifs then dies mid-request with
+            // NetworkOnMainThreadException, which can leave the shared SMB transport with a
+            // dangling pending request — after which every SMB call from any thread blocks and the
+            // reader never shows a page. Returning null sends the caller to the spider-info cache,
+            // which is what the exception path degenerated to anyway, minus the poisoned transport.
+            if (Looper.getMainLooper().getThread() == Thread.currentThread()) {
+                android.util.Log.w("SpiderDen", "skip remote spider-info read on main thread gid=" + mGid);
+                return null;
+            }
             return remote.openSpiderInfoInputStream();
         }
         UniFile dir = getDownloadDir();

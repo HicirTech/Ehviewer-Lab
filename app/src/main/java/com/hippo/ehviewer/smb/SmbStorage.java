@@ -161,6 +161,7 @@ public final class SmbStorage {
     // Package-private: SmbMetadata resolves the same per-gallery dir for its writes.
     @NonNull
     static SmbFile getGalleryDir(@NonNull GalleryInfo info) throws IOException {
+        long t0 = SystemClock.elapsedRealtime();
         CIFSContext cifs = buildContext();
         SmbFile shareRoot = new SmbFile(buildSmbUrl(), cifs);
         if (!shareRoot.exists()) {
@@ -170,6 +171,7 @@ public final class SmbStorage {
         if (!galleryDir.exists()) {
             galleryDir.mkdirs();
         }
+        Log.i("SmbPerf", "getGalleryDir gid=" + info.gid + " " + (SystemClock.elapsedRealtime() - t0) + "ms thr=" + Thread.currentThread().getName());
         return galleryDir;
     }
 
@@ -217,11 +219,13 @@ public final class SmbStorage {
             return cached.names;
         }
         Set<String> names = new HashSet<>();
+        long tList = SystemClock.elapsedRealtime();
         try {
             String[] list = resolveGalleryDir(info).list();
             if (list != null) {
                 Collections.addAll(names, list);
             }
+            Log.i("SmbPerf", "list gid=" + info.gid + " n=" + names.size() + " " + (SystemClock.elapsedRealtime() - tList) + "ms thr=" + Thread.currentThread().getName());
         } catch (Throwable e) {
             // Folder may not exist yet (gallery not saved) — treat as empty, cache the miss so we
             // don't re-probe a missing dir on every page.
@@ -418,8 +422,10 @@ public final class SmbStorage {
                     }
                     closed = true;
                     out.close();
+                    long tPub = SystemClock.elapsedRealtime();
                     try {
                         temp.renameTo(target, true);
+                        Log.i("SmbPerf", "spiderInfo.publish gid=" + info.gid + " " + (SystemClock.elapsedRealtime() - tPub) + "ms");
                     } catch (Throwable e) {
                         Log.e(TAG, "Failed to publish SMB spider_info gid=" + info.gid, e);
                         try {
@@ -439,13 +445,18 @@ public final class SmbStorage {
 
     @Nullable
     public static InputStream openSpiderInfoInputStream(@NonNull GalleryInfo info) {
+        long t0 = SystemClock.elapsedRealtime();
         try {
             SmbFile file = new SmbFile(getGalleryDir(info), SPIDER_INFO_FILE);
             if (!file.exists()) {
+                Log.i("SmbPerf", "spiderInfo.read gid=" + info.gid + " missing " + (SystemClock.elapsedRealtime() - t0) + "ms");
                 return null;
             }
-            return file.getInputStream();
+            InputStream in = file.getInputStream();
+            Log.i("SmbPerf", "spiderInfo.read gid=" + info.gid + " " + (SystemClock.elapsedRealtime() - t0) + "ms");
+            return in;
         } catch (Throwable e) {
+            Log.i("SmbPerf", "spiderInfo.read gid=" + info.gid + " FAILED " + (SystemClock.elapsedRealtime() - t0) + "ms: " + e);
             return null;
         }
     }
@@ -676,14 +687,19 @@ public final class SmbStorage {
                     tempFile = java.io.File.createTempFile("smb_img_", null, dir);
                     InputStream remote = null;
                     OutputStream local = null;
+                    long t0 = SystemClock.elapsedRealtime();
+                    long tOpen;
                     try {
                         remote = file.getInputStream();
+                        tOpen = SystemClock.elapsedRealtime();
                         local = new java.io.FileOutputStream(tempFile);
                         IOUtils.copy(remote, local);
                     } finally {
                         IOUtils.closeQuietly(remote);
                         IOUtils.closeQuietly(local);
                     }
+                    Log.i("SmbPerf", "materialize idx=" + index + " bytes=" + tempFile.length()
+                            + " open=" + (tOpen - t0) + "ms copy=" + (SystemClock.elapsedRealtime() - tOpen) + "ms thr=" + Thread.currentThread().getName());
                     fis = new java.io.FileInputStream(tempFile);
                     return fis;
                 }
