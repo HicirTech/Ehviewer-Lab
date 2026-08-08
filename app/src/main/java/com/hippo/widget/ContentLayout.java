@@ -31,6 +31,8 @@ import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.core.view.ViewCompat;
+import androidx.core.view.WindowInsetsCompat;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.hippo.android.resource.AttrResources;
@@ -95,6 +97,19 @@ public class ContentLayout extends FrameLayout {
         mRefreshLayout = mContentView.findViewById(R.id.refresh_layout);
         mFastScroller = mContentView.findViewById(R.id.fast_scroller);
         mRecyclerView = mRefreshLayout.findViewById(R.id.recycler_view);
+
+        // When the host lays the window out edge to edge (MainActivity does; see issue #32)
+        // the navigation bar overlaps the bottom of the list. Pad the RecyclerView by that
+        // inset instead of letting the window shrink: the list already sets
+        // clipToPadding=false, so rows keep drawing all the way to the screen edge while
+        // the last one can still scroll clear of the bar. A shrunken window would instead
+        // leave a windowBackground strip under the rows, which is the colour block itself.
+        // Hosts that keep the legacy inset dispatch a zero bottom inset here, so this is a
+        // no-op for them.
+        ViewCompat.setOnApplyWindowInsetsListener(this, (v, insets) -> {
+            setFitPaddingBottom(insets.getInsets(WindowInsetsCompat.Type.systemBars()).bottom);
+            return insets;
+        });
 
         mFastScroller.attachToRecyclerView(mRecyclerView);
         HandlerDrawable drawable = new HandlerDrawable();

@@ -220,11 +220,27 @@
     <!-- ========= -->
     <!-- App Theme -->
     <!-- ========= -->
-    <style name="AppTheme.Main" parent="AppTheme.NoActionBar.Translucent" />
+    <!--
+      MainActivity opts back IN to edge-to-edge. Its scenes put a content surface
+      (contentColorPrimary) against the screen edge, so the legacy layout left a
+      windowBackground strip below the list that reads as a colour block (issue #32).
+      Drawing edge to edge lets the rows fill that strip instead; MainActivity takes over
+      the drawer's inset handling and ContentLayout pads its RecyclerView.
 
-    <style name="AppTheme.Main.Dark" parent="AppTheme.Dark.NoActionBar.Translucent" />
+      The other activities keep the legacy inset: they sit on windowBackground, so their
+      strip already matches and there is nothing to gain from moving them.
+    -->
+    <style name="AppTheme.Main" parent="AppTheme.NoActionBar.Translucent">
+        <item name="android:windowOptOutEdgeToEdgeEnforcement" tools:targetApi="35">false</item>
+    </style>
 
-    <style name="AppTheme.Main.Black" parent="AppTheme.Black.NoActionBar.Translucent" />
+    <style name="AppTheme.Main.Dark" parent="AppTheme.Dark.NoActionBar.Translucent">
+        <item name="android:windowOptOutEdgeToEdgeEnforcement" tools:targetApi="35">false</item>
+    </style>
+
+    <style name="AppTheme.Main.Black" parent="AppTheme.Black.NoActionBar.Translucent">
+        <item name="android:windowOptOutEdgeToEdgeEnforcement" tools:targetApi="35">false</item>
+    </style>
 
     <style name="AppTheme.Toolbar" parent="AppTheme.NoActionBar" />
 
