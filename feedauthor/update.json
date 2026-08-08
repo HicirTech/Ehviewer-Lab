@@ -3,7 +3,7 @@
   "versionCode": 1,
   "mustUpdate": false,
   "updateContent": {
-    "fileDownloadUrl": "https://github.com/HicirTech/Ehviewer_With_SMB_Saver/releases/latest",
+    "fileDownloadUrl": "https://github.com/HicirTech/Ehviewer-Lab/releases/latest",
     "title": "EhViewer@Lab 2.0.2.3-hl.1",
     "content": [
       "首个 HomeLab 定位版本：独立包名 com.hicirtech.ehviewer，可与原版并装",

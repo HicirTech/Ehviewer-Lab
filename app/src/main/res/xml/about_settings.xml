@@ -28,14 +28,14 @@
         android:summary="@string/settings_about_author_summary"
         android:title="@string/settings_about_author"
         app:allowDividerAbove="true"
-        app:url="https://github.com/HicirTech/Ehviewer_With_SMB_Saver" />
+        app:url="https://github.com/HicirTech/Ehviewer-Lab" />
 
 
     <com.hippo.preference.UrlPreference
         android:key="latest_release"
         android:title="@string/settings_about_latest_release"
         app:allowDividerAbove="true"
-        app:url="https://github.com/HicirTech/Ehviewer_With_SMB_Saver/releases" />
+        app:url="https://github.com/HicirTech/Ehviewer-Lab/releases" />
 
     <com.hippo.preference.UrlPreference
         android:ellipsize="end"
@@ -43,7 +43,7 @@
         android:singleLine="true"
         android:title="@string/settings_about_issue_help"
         app:allowDividerAbove="true"
-        app:url="https://github.com/HicirTech/Ehviewer_With_SMB_Saver/issues" />
+        app:url="https://github.com/HicirTech/Ehviewer-Lab/issues" />
 
     <com.hippo.preference.ActivityPreference
         android:key="license"

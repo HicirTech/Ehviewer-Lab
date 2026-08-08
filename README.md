@@ -31,4 +31,4 @@ merge 上游后基底随之更新、后缀归 1。
 - 原始项目：seven332/EhViewer
 - 许可证：Apache-2.0（见 [LICENSE](LICENSE)，第三方声明见 NOTICE）
 
-问题反馈：[Issues](https://github.com/HicirTech/Ehviewer_With_SMB_Saver/issues)
+问题反馈：[Issues](https://github.com/HicirTech/Ehviewer-Lab/issues)

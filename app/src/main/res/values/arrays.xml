@@ -403,7 +403,7 @@
 
     <string-array name="update_metadata">
         <item>update_json</item>
-        <item>https://raw.githubusercontent.com/HicirTech/Ehviewer_With_SMB_Saver/main/feedauthor/update.json</item>
+        <item>https://raw.githubusercontent.com/HicirTech/Ehviewer-Lab/main/feedauthor/update.json</item>
     </string-array>
 
 
