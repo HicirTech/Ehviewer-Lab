@@ -232,10 +232,10 @@ public class EhApplication extends RecordingApplication {
             }
         }.executeOnExecutor(IoThreadPoolExecutor.Companion.getInstance());
 
-        // Check app update
-        update();
-
-        // Update version code
+        // Record the running version so future one-time migrations have an anchor to
+        // compare against. Nothing reads it today: the only consumer used to be an
+        // upstream migration that re-armed the reader guide for versionCode < 52, which
+        // fires on every launch for this fork because our versionCode restarts at 1.
         try {
             PackageInfo pi = getPackageManager().getPackageInfo(getPackageName(), 0);
             Settings.putVersionCode(pi.versionCode);
@@ -268,13 +268,6 @@ public class EhApplication extends RecordingApplication {
 
     public EhCookieStore getmEhCookieStore() {
         return mEhCookieStore;
-    }
-
-    private void update() {
-        int version = Settings.getVersionCode();
-        if (version < 52) {
-            Settings.putGuideGallery(true);
-        }
     }
 
     public void clearMemoryCache() {
