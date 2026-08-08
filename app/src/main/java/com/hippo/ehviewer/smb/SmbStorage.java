@@ -1015,11 +1015,24 @@ public final class SmbStorage {
                 if (name.endsWith("/")) {
                     name = name.substring(0, name.length() - 1);
                 }
+                // Sort key: folder CREATION time, i.e. when the download created the folder.
+                // The previous key, lastModified(), gets bumped by reading - persisting the
+                // reading progress renames .ehviewer inside the folder, which touches the
+                // directory mtime - so any gallery you read jumped to the top of the
+                // "recently downloaded" order on the next refresh. createTime comes from the
+                // same directory enumeration, so it stays free of extra round-trips.
                 long mtime;
                 try {
-                    mtime = child.lastModified();
+                    mtime = child.createTime();
                 } catch (Throwable ignored) {
                     mtime = 0L;
+                }
+                if (mtime == 0L) {
+                    try {
+                        mtime = child.lastModified();
+                    } catch (Throwable ignored) {
+                        mtime = 0L;
+                    }
                 }
                 refs.add(new GalleryRef(name, mtime));
             }
