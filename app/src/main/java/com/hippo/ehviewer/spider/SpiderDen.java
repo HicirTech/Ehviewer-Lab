@@ -567,7 +567,19 @@ public final class SpiderDen {
     public InputStreamPipe openDownloadInputStreamPipe(int index) {
         GallerySpiderStorage remote = remoteStorage();
         if (remote != null) {
-            return remote.openImageInputStreamPipe(index);
+            InputStreamPipe pipe = remote.openImageInputStreamPipe(index);
+            if (pipe != null) {
+                return pipe;
+            }
+            // Fall back to the cache, mirroring the copyFromCacheToDownloadDir bridge the
+            // phone-storage path below already has. Without this the remote branch is the
+            // only storage route with no cache fallback, and that gap is reachable from the
+            // reader: SpiderQueen is a per-gid singleton whose mode is shared, so when
+            // SmbDirectDownloader obtains the same queen in MODE_DOWNLOAD it flips the
+            // reader's den too. Every read then resolves to the share alone, and any page
+            // the download has not uploaded yet fails with error_reading_failed even though
+            // it is sitting in the cache.
+            return openCacheInputStreamPipe(index);
         }
         UniFile dir = getDownloadDir();
         if (dir == null) {
