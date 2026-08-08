@@ -21,6 +21,25 @@ merge 上游后基底随之更新、后缀归 1。
 ./gradlew :app:testAppReleaseDebugUnitTest
 ```
 
+## 发版
+
+需要 [Bun](https://bun.sh)（Windows / Linux / macOS 均可）。
+
+```sh
+# 1. 提版本：hl.N +1，并同步更新源 feedauthor/update.json
+bun script/bump-version.ts --notes "更新说明一" --notes "更新说明二"
+#    合并了上游后改用：bun script/bump-version.ts --base <上游版本>
+
+# 2. review + 提交 + 合并到 main
+
+# 3. 在 main 上打 tag 触发签名发布（脚本会先做一致性与同步检查）
+bun script/release.ts
+```
+
+`release.ts` 会校验：工作区干净、在 main 且与远端同步、update.json 与
+build.gradle 版本一致、tag 未存在——全部通过才推 tag，由 CI 出签名 APK
+挂到 GitHub Release。两个脚本都支持 `--dry-run`。
+
 
 ## 特别鸣谢 
 本项目是基于 [xiaojieonly/Ehviewer_CN_SXJ](https://github.com/xiaojieonly/Ehviewer_CN_SXJ) 的二次开发, 没他就没我
