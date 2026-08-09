@@ -3,7 +3,6 @@
     xmlns:tools="http://schemas.android.com/tools">
 
     <uses-permission android:name="android.permission.INTERNET" />
-    <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
@@ -15,20 +14,35 @@
     <uses-permission android:name="android.permission.USE_BIOMETRIC" />
     <uses-permission android:name="android.permission.USE_FINGERPRINT" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" /> <!-- Android 14+ 前台服务类型 -->
-    <uses-permission android:name="android.permission.CAMERA" /> <!-- 用于获取wifi状态 -->
-    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" /> <!-- 使用系统自带下载器 -->
-    <uses-permission android:name="android.permission.ACCESS_DOWNLOAD_MANAGER" /> <!-- 自动安装apk -->
-    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+    <!-- Android 14+ 前台服务类型,对应 SmbDownloadService / DownloadService 的 dataSync -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
+    <!-- WiFi 传输功能读取连接信息(WiFiClientActivity) -->
+    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
+
+    <!--
+      play-services-measurement-api(经 firebase-analytics 传递引入)会注入这两个广告 ID 权限。
+      本应用不做广告也不做归因,而且仓库里没有 google-services.json,Firebase 插件根本不会启用,
+      analytics 实际是惰性的 —— 却仍会让侧载安装界面出现"广告 ID"字样。合并阶段移除。
+    -->
+    <uses-permission
+        android:name="android.permission.ACCESS_ADSERVICES_AD_ID"
+        tools:node="remove" />
+    <uses-permission
+        android:name="android.permission.ACCESS_ADSERVICES_ATTRIBUTION"
+        tools:node="remove" />
+    <!-- 同源:广告 ID 本体,以及 Play 安装来源归因服务的绑定权限。都不需要。 -->
+    <uses-permission
+        android:name="com.google.android.gms.permission.AD_ID"
+        tools:node="remove" />
+    <uses-permission
+        android:name="com.google.android.finsky.permission.BIND_GET_INSTALL_REFERRER_SERVICE"
+        tools:node="remove" />
 
     <uses-feature
         android:glEsVersion="0x00020000"
         android:required="true" /> <!-- 鼠标适配 -->
     <uses-feature
         android:name="android.hardware.type.pc"
-        android:required="false" />
-    <uses-feature
-        android:name="android.hardware.camera"
         android:required="false" />
 
     <application
