@@ -153,6 +153,18 @@ public final class SmbStorage {
         }
     }
 
+    /**
+     * The share URL galleries live under. {@link #buildSmbUrl} is the configured share path itself,
+     * which now holds {@code download/} alongside whatever else the share needs to carry — the
+     * per-client download state (#59) and the gallery index (#16) are siblings of the galleries,
+     * not entries among them.
+     */
+    @NonNull
+    private static String galleryRootUrl() {
+        return SmbPaths.buildGalleryRootUrl(buildSmbUrl());
+    }
+
+    /** The configured share path itself. Only connectivity checks and directory setup use this. */
     @NonNull
     private static String buildSmbUrl() {
         return SmbPaths.buildShareUrl(
@@ -180,11 +192,11 @@ public final class SmbStorage {
     static SmbFile getGalleryDir(@NonNull GalleryInfo info) throws IOException {
         long t0 = SystemClock.elapsedRealtime();
         CIFSContext cifs = buildContext();
-        SmbFile shareRoot = new SmbFile(buildSmbUrl(), cifs);
-        if (!shareRoot.exists()) {
-            shareRoot.mkdirs();
+        SmbFile galleryRoot = new SmbFile(galleryRootUrl(), cifs);
+        if (!galleryRoot.exists()) {
+            galleryRoot.mkdirs();
         }
-        SmbFile galleryDir = new SmbFile(shareRoot, SmbPaths.buildGalleryFolderName(info) + "/");
+        SmbFile galleryDir = new SmbFile(galleryRoot, SmbPaths.buildGalleryFolderName(info) + "/");
         if (!galleryDir.exists()) {
             galleryDir.mkdirs();
         }
@@ -201,8 +213,8 @@ public final class SmbStorage {
     @NonNull
     private static SmbFile resolveGalleryDir(@NonNull GalleryInfo info) throws IOException {
         CIFSContext cifs = buildContext();
-        SmbFile shareRoot = new SmbFile(buildSmbUrl(), cifs);
-        return new SmbFile(shareRoot, SmbPaths.buildGalleryFolderName(info) + "/");
+        SmbFile galleryRoot = new SmbFile(galleryRootUrl(), cifs);
+        return new SmbFile(galleryRoot, SmbPaths.buildGalleryFolderName(info) + "/");
     }
 
     /**
@@ -759,7 +771,24 @@ public final class SmbStorage {
         }
     }
 
-    public static void testConnection() throws IOException {
+    /**
+     * Verifies the configured share is reachable, and sets up the directory galleries live in.
+     *
+     * <p>Checks the share path itself, not {@code download/} — the share being reachable is the
+     * thing being tested, and {@code download/} legitimately does not exist until something
+     * creates it.
+     *
+     * <p>This is also where that directory gets created, because pressing "test connection" is
+     * when the user finishes configuring the share, and a write problem is far more useful
+     * reported here than at the first download. Creation failing is not a connection failure
+     * though: a read-only share browses perfectly well, so it comes back as a warning rather than
+     * an exception.
+     *
+     * @return {@code null} when everything is in place, otherwise a user-facing warning to show
+     *         alongside the success message.
+     */
+    @Nullable
+    public static String testConnection() throws IOException {
         String host = Settings.getSmbHost();
         String shareName = Settings.getSmbShareName();
 
@@ -775,6 +804,18 @@ public final class SmbStorage {
             throw new IOException(EhApplication.getInstance()
                     .getString(R.string.smb_test_error_share_not_accessible));
         }
+
+        try {
+            SmbFile galleryRoot = new SmbFile(galleryRootUrl(), cifs);
+            if (!galleryRoot.exists()) {
+                galleryRoot.mkdirs();
+            }
+        } catch (Throwable e) {
+            Log.w(TAG, "Share is reachable but " + SmbPaths.GALLERY_DIR + "/ could not be created", e);
+            return EhApplication.getInstance()
+                    .getString(R.string.smb_test_warn_gallery_dir, SmbPaths.GALLERY_DIR);
+        }
+        return null;
     }
 
     public static void syncDownloadedGallery(@NonNull Context context, @NonNull DownloadInfo info) throws IOException {
@@ -788,12 +829,12 @@ public final class SmbStorage {
         }
 
         CIFSContext cifs = buildContext();
-        SmbFile shareRoot = new SmbFile(buildSmbUrl(), cifs);
-        if (!shareRoot.exists()) {
-            shareRoot.mkdirs();
+        SmbFile galleryRoot = new SmbFile(galleryRootUrl(), cifs);
+        if (!galleryRoot.exists()) {
+            galleryRoot.mkdirs();
         }
 
-        SmbFile galleryDir = new SmbFile(shareRoot, SmbPaths.buildGalleryFolderName(info) + "/");
+        SmbFile galleryDir = new SmbFile(galleryRoot, SmbPaths.buildGalleryFolderName(info) + "/");
         if (!galleryDir.exists()) {
             galleryDir.mkdirs();
         }
@@ -934,11 +975,11 @@ public final class SmbStorage {
         List<SmbSortMode.Entry> entries = new ArrayList<>();
         try {
             CIFSContext cifs = buildContext();
-            SmbFile shareRoot = new SmbFile(buildSmbUrl(), cifs);
-            if (!shareRoot.exists() || !shareRoot.isDirectory()) {
+            SmbFile galleryRoot = new SmbFile(galleryRootUrl(), cifs);
+            if (!galleryRoot.exists() || !galleryRoot.isDirectory()) {
                 return new ArrayList<>();
             }
-            SmbFile[] children = shareRoot.listFiles();
+            SmbFile[] children = galleryRoot.listFiles();
             if (children == null) {
                 return new ArrayList<>();
             }
@@ -1028,11 +1069,11 @@ public final class SmbStorage {
         }
         try {
             CIFSContext cifs = buildContext();
-            SmbFile shareRoot = new SmbFile(buildSmbUrl(), cifs);
-            if (!shareRoot.exists() || !shareRoot.isDirectory()) {
+            SmbFile galleryRoot = new SmbFile(galleryRootUrl(), cifs);
+            if (!galleryRoot.exists() || !galleryRoot.isDirectory()) {
                 return refs;
             }
-            SmbFile[] children = shareRoot.listFiles();
+            SmbFile[] children = galleryRoot.listFiles();
             if (children == null) {
                 return refs;
             }
@@ -1089,8 +1130,8 @@ public final class SmbStorage {
         }
         try {
             CIFSContext cifs = buildContext();
-            SmbFile shareRoot = new SmbFile(buildSmbUrl(), cifs);
-            SmbFile folder = new SmbFile(shareRoot, ref.folderName + "/");
+            SmbFile galleryRoot = new SmbFile(galleryRootUrl(), cifs);
+            SmbFile folder = new SmbFile(galleryRoot, ref.folderName + "/");
             SmbFile metadata = new SmbFile(folder, METADATA_FILE);
             if (!metadata.exists()) {
                 return null;

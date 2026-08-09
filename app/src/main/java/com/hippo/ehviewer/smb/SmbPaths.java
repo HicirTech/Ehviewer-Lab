@@ -63,6 +63,24 @@ public final class SmbPaths {
     }
 
     /**
+     * Galleries live one level down from the configured share path, rather than directly in it.
+     *
+     * <p>They used to sit at the top, which left nowhere to put anything else: the shared download
+     * state (#59) and the gallery index (#16) would have landed among them, and the enumeration
+     * would have had to tell them apart from galleries every time. A directory of their own keeps
+     * those as siblings the gallery listing never sees.
+     */
+    public static final String GALLERY_DIR = "download";
+
+    /** The share URL galleries are enumerated from: the configured path plus {@link #GALLERY_DIR}. */
+    @NonNull
+    public static String buildGalleryRootUrl(@NonNull String shareUrl) {
+        return shareUrl.endsWith("/")
+                ? shareUrl + GALLERY_DIR + "/"
+                : shareUrl + "/" + GALLERY_DIR + "/";
+    }
+
+    /**
      * The per-gallery folder name on the share: {@code <gid>-<title>}, sanitised to a filesystem-safe
      * string. Falls back to {@code "gallery"} when the gallery has no title.
      */

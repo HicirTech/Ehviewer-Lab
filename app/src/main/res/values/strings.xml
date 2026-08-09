@@ -735,6 +735,7 @@
     <string name="settings_smb_password_summary">Optional, leave empty for guest access</string>
     <string name="settings_smb_test">Test Connection</string>
     <string name="settings_smb_test_success">SMB connection successful!</string>
+    <string name="smb_test_warn_gallery_dir">Connected, but the “%1$s” folder could not be created — the share may be read-only.</string>
     <string name="settings_smb_test_failed">SMB connection failed: %s</string>
     <string name="settings_smb_category_advanced">Advanced</string>
     <string name="settings_smb_disable_signing">Disable SMB Signing</string>
