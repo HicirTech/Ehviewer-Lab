@@ -45,7 +45,6 @@ public class UserImageChange implements PermissionCallBack {
     public static final int CHANGE_AVATAR = 1;
     public static final int TAKE_CAMERA = 101;
     public static final int PICK_PHOTO = 102;
-    public static final int REQUEST_CAMERA_PERMISSION = 1;
     public static final int REQUEST_STORAGE_PERMISSION = 2;
 
     @NonNull
@@ -165,11 +164,17 @@ public class UserImageChange implements PermissionCallBack {
             imageUri = Uri.fromFile(outputImage);
         }
 
-        PermissionRequester.request(activity, Manifest.permission.CAMERA,
-                activity.getString(R.string.request_camera_permission),
-                REQUEST_CAMERA_PERMISSION, this);
+        // No CAMERA permission is requested on purpose: the photo is taken by the system
+        // camera app via ACTION_IMAGE_CAPTURE, which does not require it. Declaring the
+        // permission would make the platform demand it be granted before allowing this very
+        // intent -- a gate we would be creating for ourselves. See #54.
+        launchCamera();
+    }
 
-
+    private void launchCamera() {
+        Intent intent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
+        intent.putExtra(MediaStore.EXTRA_OUTPUT, imageUri);
+        activity.startActivityForResult(intent, TAKE_CAMERA);
     }
 
     private void startAlbum() {
@@ -296,11 +301,6 @@ public class UserImageChange implements PermissionCallBack {
      */
     @Override
     public void agree(int permissionCode) {
-        if (permissionCode == REQUEST_CAMERA_PERMISSION) {
-            Intent intent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
-            intent.putExtra(MediaStore.EXTRA_OUTPUT, imageUri);
-            activity.startActivityForResult(intent, TAKE_CAMERA);
-        }
         if (permissionCode == REQUEST_STORAGE_PERMISSION) {
             Intent intent = new Intent(Intent.ACTION_GET_CONTENT);
             intent.setType("image/*");
