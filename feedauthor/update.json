@@ -1,15 +1,16 @@
 {
-  "version": "2.0.2.3-hl.4",
-  "versionCode": 4,
+  "version": "2.0.2.3-hl.5",
+  "versionCode": 5,
   "mustUpdate": false,
   "updateContent": {
-    "fileDownloadUrl": "https://github.com/HicirTech/Ehviewer-Lab/releases/tag/v2.0.2.3-hl.4",
-    "title": "EhViewer@Lab 2.0.2.3-hl.4",
+    "fileDownloadUrl": "https://github.com/HicirTech/Ehviewer-Lab/releases/tag/v2.0.2.3-hl.5",
+    "title": "EhViewer@Lab 2.0.2.3-hl.5",
     "content": [
-      "SMB 写入提速 13 倍(0.5 → 6.4 MB/s):此前每页的写入被切成 4KB 碎片请求。整体下载快多少仍取决于 e-hentai,实测写入只占单页耗时的 7.6%",
-      "Local Inventory 支持长按删除画廊(物理删除 SMB 上的文件夹,带二次确认)",
-      "删除后一并清理该画廊的预览缓存与封面缓存,正在下载的画廊会先取消再删",
-      "内部:debug 版在桌面和「关于」页带明确标识,不再和正式版长得一样"
+      "【破坏性变更】SMB 上的画廊现在读写 <共享路径>/download/ 而不是共享路径本身。升级后请把共享里现有的 <画廊ID>-<标题> 文件夹全部移入 download/,否则本地库会是空的 —— 不会自动迁移",
+      "腾出这一层是为了后续把下载状态和画廊索引放到共享上,让它们成为画廊的同级目录而不是混在画廊里",
+      "「测试连接」现在会顺带创建 download/(已存在则不动)。只读共享上创建失败不算连接失败,只在成功提示后附一行说明",
+      "本地库不再把共享自带的目录当成画廊(@eaDir、#recycle、lost+found 等),此前它们会虚增页数、还会各花一次无用的网络往返",
+      "修正:本地库的画廊总数此前会随排序方式变化,四种排序现在一致"
     ]
   }
 }
