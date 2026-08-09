@@ -81,23 +81,12 @@ public final class SmbAutoDownloadManager {
         }
 
         final Context appContext = context.getApplicationContext();
-        // Auto-download path is fired from GalleryView.render() (render thread) and the
-        // manual path is fired from a dialog click (main thread). Always post the toast
-        // through SimpleHandler so we never call Toast.makeText().show() off the main
-        // thread, which throws "Can't toast on a thread that has not called
-        // Looper.prepare()".
-        SimpleHandler.getInstance().post(() -> Toast.makeText(appContext,
-                appContext.getString(R.string.smb_save_started,
-                        galleryInfo.title != null ? galleryInfo.title
-                                : ("gid " + galleryInfo.gid)),
-                Toast.LENGTH_SHORT).show());
 
         IoThreadPoolExecutor.Companion.getInstance().execute(() -> {
             try {
                 if (SmbStorage.isGalleryComplete(galleryInfo)) {
                     pendingGids.remove(galleryInfo.gid);
-                    SimpleHandler.getInstance().post(() -> Toast.makeText(appContext,
-                            R.string.smb_save_already_complete, Toast.LENGTH_SHORT).show());
+                    toast(appContext, appContext.getString(R.string.smb_save_already_complete));
                     return;
                 }
                 // Another device may already be on it. Checked here rather than in the downloader
@@ -105,8 +94,7 @@ public final class SmbAutoDownloadManager {
                 // because there is already an SMB round trip on this thread to share.
                 if (SmbDirectDownloader.getInstance().isClaimedElsewhere(galleryInfo.gid)) {
                     pendingGids.remove(galleryInfo.gid);
-                    SimpleHandler.getInstance().post(() -> Toast.makeText(appContext,
-                            R.string.smb_save_claimed_elsewhere, Toast.LENGTH_SHORT).show());
+                    toast(appContext, appContext.getString(R.string.smb_save_claimed_elsewhere));
                     return;
                 }
                 try {
@@ -114,12 +102,33 @@ public final class SmbAutoDownloadManager {
                 } catch (Throwable e) {
                     Log.w(TAG, "Failed to write skeleton metadata gid=" + galleryInfo.gid, e);
                 }
+                // Announced only now, once the gates are behind us. Saying it up front read as an
+                // answer -- and then the real one arrived a moment later contradicting it, so a
+                // gallery another device already had looked like it had started and then changed
+                // its mind. The cost is that nothing is said for a round trip or two; the dialog
+                // closing already acknowledges the tap.
+                toast(appContext, appContext.getString(R.string.smb_save_started,
+                        galleryInfo.title != null ? galleryInfo.title
+                                : ("gid " + galleryInfo.gid)));
                 SimpleHandler.getInstance().post(() ->
                         SmbDirectDownloader.getInstance().start(appContext, galleryInfo));
             } catch (Throwable e) {
                 pendingGids.remove(galleryInfo.gid);
                 Log.e(TAG, "enqueueInternal failed gid=" + galleryInfo.gid, e);
+                // Previously this said nothing at all, so an unreachable share left the user with
+                // a "save started" and then silence forever.
+                toast(appContext, appContext.getString(R.string.smb_save_failed));
             }
         });
+    }
+
+    /**
+     * Both callers reach here off the main thread -- the auto path from
+     * {@code GalleryView.render()}, the manual one from an IO task -- and
+     * {@code Toast.makeText().show()} throws anywhere without a prepared Looper.
+     */
+    private static void toast(@NonNull Context appContext, @NonNull String text) {
+        SimpleHandler.getInstance().post(() ->
+                Toast.makeText(appContext, text, Toast.LENGTH_SHORT).show());
     }
 }

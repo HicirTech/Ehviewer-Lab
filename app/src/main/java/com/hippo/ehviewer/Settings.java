@@ -954,28 +954,47 @@ public class Settings {
     /**
      * This installation's identity among the devices sharing the SMB share.
      *
-     * <p>Generated once and kept forever: it names this device's file under {@code state/}, so
-     * losing it would orphan the tasks that file holds and make this device look like a new one.
-     * Deliberately separate from the display name below — renaming the device must not change
-     * which file is its own.
+     * <p>Names this device's file under {@code state/}, so it has to be stable and it has to be
+     * unique. The display name below is neither: two tablets of the same model both default to
+     * {@code SM-X926B} and would write the same file, overwriting each other's queues — and
+     * renaming a device would abandon its old file, leaving claims nobody can clear until they go
+     * stale.
+     *
+     * <p>{@code ANDROID_ID} is what the platform offers for exactly this. Since Android 8 it is
+     * scoped to the app's signing key, the user and the device, so it identifies this installation
+     * and nothing broader — and unlike a value we generate ourselves it survives clearing the app's
+     * data, which would otherwise orphan whatever this device had published.
+     *
+     * <p>The fallback is only for the cases where it is unusable: absent, or the well-known
+     * duplicate that some old devices returned for everyone. It is stored, because a value we made
+     * up is worth nothing if we forget it.
      */
     public static final String KEY_SMB_CLIENT_ID = "smb_client_id";
 
-    /**
-     * Returns this installation's client id, creating it on first use.
-     *
-     * <p>Synchronized because the first call can come from any thread, and two threads racing here
-     * would hand out two different identities for the same device — the second of which would
-     * abandon whatever the first had already published.
-     */
+    /** Android 2.2 shipped a bug that gave a great many devices this same id. */
+    private static final String BROKEN_ANDROID_ID = "9774d56d682e549c";
+
     @NonNull
     public static synchronized String getSmbClientId() {
-        String value = getString(KEY_SMB_CLIENT_ID, null);
-        if (value == null || value.isEmpty()) {
-            value = java.util.UUID.randomUUID().toString();
-            putString(KEY_SMB_CLIENT_ID, value);
+        String androidId = null;
+        try {
+            androidId = android.provider.Settings.Secure.getString(
+                    sContext.getContentResolver(), android.provider.Settings.Secure.ANDROID_ID);
+        } catch (Throwable ignored) {
+            // No content resolver worth the name; fall through to the stored id.
         }
-        return value;
+        if (androidId != null) {
+            androidId = androidId.trim();
+            if (!androidId.isEmpty() && !BROKEN_ANDROID_ID.equals(androidId)) {
+                return androidId;
+            }
+        }
+        String stored = getString(KEY_SMB_CLIENT_ID, null);
+        if (stored == null || stored.isEmpty()) {
+            stored = java.util.UUID.randomUUID().toString();
+            putString(KEY_SMB_CLIENT_ID, stored);
+        }
+        return stored;
     }
 
     /**
