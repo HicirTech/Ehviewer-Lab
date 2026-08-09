@@ -7,6 +7,7 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
 import com.hippo.ehviewer.EhApplication;
+import com.hippo.ehviewer.Settings;
 import com.hippo.ehviewer.R;
 import com.hippo.ehviewer.client.data.GalleryInfo;
 import com.hippo.ehviewer.spider.SpiderQueen;
@@ -21,6 +22,10 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Standalone background downloader for "Save to SMB" galleries.
@@ -55,6 +60,13 @@ public final class SmbDirectDownloader {
     private final LinkedHashMap<Long, GalleryInfo> paused = new LinkedHashMap<>();
     /** Last seen progress per gid so notification updates survive listener churn. */
     private final Map<Long, int[]> progress = new HashMap<>();
+    /**
+     * When this device took each gallery on. Published so another device can tell whose claim on
+     * the same gallery is the more recent one; see {@code SmbDownloadState.merge}.
+     */
+    private final Map<Long, Long> claimedAt = new HashMap<>();
+    /** For a gallery taken over from a device that went away, who it was taken from. */
+    private final Map<Long, String> takenOverFrom = new HashMap<>();
     /** Move-to-SMB batches in flight. Shares the same foreground notification surface. */
     private final Map<Integer, MoveBatch> moveBatches = new HashMap<>();
     private int nextMoveBatchId = 1;
@@ -89,6 +101,9 @@ public final class SmbDirectDownloader {
             // Pulling a paused job back is treated as "enqueue".
             paused.remove(info.gid);
             queue.put(info.gid, info);
+            if (!claimedAt.containsKey(info.gid)) {
+                claimedAt.put(info.gid, System.currentTimeMillis());
+            }
             shouldStartService = service == null;
         }
         if (shouldStartService) {
@@ -101,6 +116,15 @@ public final class SmbDirectDownloader {
         }
         SimpleHandler.getInstance().post(this::pumpOnMainThread);
         notifyObservers();
+        // Publish as soon as the claim is made. Not a guarantee that it lands before the download
+        // starts -- this hands the write to another thread while the job is posted to the main one,
+        // and neither waits for the other -- so two devices deciding on the same gallery within a
+        // second or so of each other can still both begin it. Closing that window entirely would
+        // need the lock this design gets its speed by not taking. What this does buy is the common
+        // case, and the one where nothing else would publish for a while: a gallery queued behind
+        // an active job triggers no startJob, so without this its claim would wait for the next
+        // heartbeat.
+        publishState();
     }
 
     // ---------- Task monitor API ----------
@@ -138,6 +162,121 @@ public final class SmbDirectDownloader {
                 try { o.onTasksChanged(); } catch (Throwable ignored) {}
             }
         });
+    }
+
+    // ---------- Publishing to the share (#59) ----------
+
+    /**
+     * How often this device refreshes its file under {@code state/} while it has work.
+     *
+     * <p>This is both the heartbeat and how progress reaches the other devices — the write carries
+     * the current finished/total and, by happening at all, tells everyone this device is still
+     * here. Progress is deliberately <em>not</em> published per page: a write costs about 64 ms
+     * against the share, and a three-hundred page gallery would spend most of a minute on it for a
+     * number nobody is watching that closely.
+     *
+     * <p>Comfortably inside {@link SmbDownloadStateStore#STALE_AFTER_MS}, so several beats can be
+     * missed — a congested share, a moment of bad WiFi — before anyone concludes this device died
+     * and offers its downloads to someone else.
+     */
+    private static final long HEARTBEAT_INTERVAL_MS = 20_000L;
+
+    /**
+     * Publishing runs on one thread of its own, which is what keeps two writes from overlapping:
+     * each task snapshots the queue when it runs rather than when it was scheduled, so the last
+     * write to reach the share is always the newest state rather than whichever happened to finish
+     * last.
+     */
+    private final ScheduledExecutorService publisher =
+            Executors.newSingleThreadScheduledExecutor(r -> {
+                Thread t = new Thread(r, "smb-state-publisher");
+                t.setDaemon(true);
+                return t;
+            });
+    @Nullable
+    private ScheduledFuture<?> heartbeat;
+
+    /**
+     * Writes this device's queue to the share, and starts or stops the heartbeat to match whether
+     * there is anything left to beat about.
+     *
+     * <p>Called at every structural change — something queued, started, paused, resumed, cancelled
+     * or finished — because those are what another device needs to see promptly. An enqueue in
+     * particular has to land before the download does, since a claim nobody can see is a claim that
+     * does not prevent anyone downloading the same gallery twice.
+     */
+    private void publishState() {
+        syncHeartbeat();
+        try {
+            publisher.execute(this::publishNow);
+        } catch (Throwable e) {
+            // Only if the executor is shutting down, which it never does in practice.
+            Log.w(TAG, "Could not schedule a state publish", e);
+        }
+    }
+
+    private void publishNow() {
+        if (!SmbStorage.isConfigured()) {
+            return;
+        }
+        try {
+            SmbDownloadStateStore.writeSelf(snapshotClientState());
+        } catch (Throwable e) {
+            // Failing to publish costs visibility to other devices, nothing local. The next beat
+            // carries the same state, so there is nothing to recover here.
+            Log.w(TAG, "Failed to publish download state", e);
+        }
+    }
+
+    private void syncHeartbeat() {
+        boolean hasWork;
+        synchronized (lock) {
+            hasWork = !queue.isEmpty() || !active.isEmpty() || !paused.isEmpty();
+        }
+        synchronized (publisher) {
+            if (hasWork && heartbeat == null) {
+                heartbeat = publisher.scheduleWithFixedDelay(this::publishNow,
+                        HEARTBEAT_INTERVAL_MS, HEARTBEAT_INTERVAL_MS, TimeUnit.MILLISECONDS);
+            } else if (!hasWork && heartbeat != null) {
+                heartbeat.cancel(false);
+                heartbeat = null;
+            }
+        }
+    }
+
+    /**
+     * This device's queue as the share should see it.
+     *
+     * <p>Package-private so a test can read what would have been published without a share to
+     * publish to.
+     */
+    @NonNull
+    SmbDownloadState.ClientState snapshotClientState() {
+        List<SmbDownloadState.Task> tasks = new ArrayList<>();
+        synchronized (lock) {
+            for (ActiveJob job : active.values()) {
+                tasks.add(taskFor(job.info, SmbDownloadState.TaskState.ACTIVE));
+            }
+            for (GalleryInfo gi : queue.values()) {
+                tasks.add(taskFor(gi, SmbDownloadState.TaskState.QUEUED));
+            }
+            for (GalleryInfo gi : paused.values()) {
+                tasks.add(taskFor(gi, SmbDownloadState.TaskState.PAUSED));
+            }
+        }
+        return new SmbDownloadState.ClientState(
+                Settings.getSmbClientId(), Settings.getSmbDeviceName(), tasks);
+    }
+
+    /** Caller holds {@code lock}. */
+    private SmbDownloadState.Task taskFor(@NonNull GalleryInfo info,
+                                          @NonNull SmbDownloadState.TaskState state) {
+        int[] p = progress.get(info.gid);
+        int finished = p != null ? p[0] : 0;
+        int total = p != null && p[1] > 0 ? p[1] : info.pages;
+        Long claimed = claimedAt.get(info.gid);
+        return new SmbDownloadState.Task(info.gid, info.token, info.title, state,
+                finished, total, claimed != null ? claimed : 0L, takenOverFrom.get(info.gid));
     }
 
     /**
@@ -188,6 +327,8 @@ public final class SmbDirectDownloader {
             GalleryInfo wasPaused = paused.remove(gid);
             ActiveJob j = active.remove(gid);
             progress.remove(gid);
+            claimedAt.remove(gid);
+            takenOverFrom.remove(gid);
             if (j != null) {
                 jobToRelease = j;
                 infoForDelete = j.info;
@@ -224,6 +365,7 @@ public final class SmbDirectDownloader {
         // drop every subsequent enqueue until the app restarts.
         SmbAutoDownloadManager.getInstance().clearPending(gid);
         notifyObservers();
+        publishState();
         updateNotification();
         // Promote a queued job if a slot opened up.
         SimpleHandler.getInstance().post(this::pumpOnMainThread);
@@ -263,6 +405,7 @@ public final class SmbDirectDownloader {
             }
         }
         notifyObservers();
+        publishState();
         updateNotification();
         SimpleHandler.getInstance().post(this::pumpOnMainThread);
     }
@@ -349,6 +492,9 @@ public final class SmbDirectDownloader {
             // arrives (which can take many seconds for big galleries on slow SMB shares).
             updateNotification();
             notifyObservers();
+            // Queued -> active. Worth its own write: another device seeing "active" knows this one
+            // is really working on it, not merely intending to.
+            publishState();
         } catch (IllegalStateException e) {
             // A regular DownloadManager download is already in progress for this gid.
             // We must NOT leave the gid marked or its concurrent phone download would
@@ -366,11 +512,16 @@ public final class SmbDirectDownloader {
         synchronized (lock) {
             job = active.remove(info.gid);
             progress.remove(info.gid);
+            claimedAt.remove(info.gid);
+            takenOverFrom.remove(info.gid);
         }
         if (job == null) {
             return;
         }
         Log.i(TAG, "SMB direct download finished gid=" + info.gid);
+        // Drop the claim promptly: the gallery is on the share now, and leaving it listed would
+        // have other devices think it is still being worked on.
+        publishState();
         // Allow re-enqueue after a normal finish (e.g. user wants to re-download to
         // overwrite, or a future feature triggers another save).
         SmbAutoDownloadManager.getInstance().clearPending(info.gid);

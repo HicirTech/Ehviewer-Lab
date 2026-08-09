@@ -47,6 +47,7 @@ import org.robolectric.shadow.api.Shadow;
                 SmbDirectDownloaderTest.ShadowSpiderQueen.class,
                 SmbDirectDownloaderTest.ShadowSmbDownloadService.class,
                 SmbDirectDownloaderTest.ShadowSmbStorage.class,
+                SmbDirectDownloaderTest.ShadowSmbDownloadStateStore.class,
         },
         instrumentedPackages = {"com.hippo.ehviewer.spider", "com.hippo.ehviewer.smb"})
 public class SmbDirectDownloaderTest {
@@ -123,6 +124,24 @@ public class SmbDirectDownloaderTest {
         }
     }
 
+    /**
+     * Catches what would have gone to {@code state/} on the share (#59), so the published view can
+     * be asserted without one. Only the newest matters — each write replaces this device's file.
+     */
+    @Implements(SmbDownloadStateStore.class)
+    public static class ShadowSmbDownloadStateStore {
+
+        @Implementation
+        protected static boolean writeSelf(SmbDownloadState.ClientState state) {
+            published.set(state);
+            return true;
+        }
+    }
+
+    /** The last state published, or null if nothing has been. */
+    static final java.util.concurrent.atomic.AtomicReference<SmbDownloadState.ClientState> published =
+            new java.util.concurrent.atomic.AtomicReference<>();
+
     private static GalleryInfo gallery(long gid) {
         GalleryInfo info = new GalleryInfo();
         info.gid = gid;
@@ -134,6 +153,38 @@ public class SmbDirectDownloaderTest {
     /** Runs whatever the downloader posted to the main thread. */
     private void drain() {
         shadowOf(Looper.getMainLooper()).idle();
+    }
+
+    /**
+     * Waits for the next publish. Publishing runs on its own thread rather than the looper, so
+     * draining the main thread is not enough to see it.
+     */
+    private SmbDownloadState.ClientState awaitPublished() {
+        drain();
+        long deadline = System.currentTimeMillis() + 3_000L;
+        while (System.currentTimeMillis() < deadline) {
+            SmbDownloadState.ClientState s = published.get();
+            if (s != null) {
+                return s;
+            }
+            try {
+                Thread.sleep(10);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                break;
+            }
+            drain();
+        }
+        throw new AssertionError("nothing was published within 3s");
+    }
+
+    private SmbDownloadState.Task publishedTask(SmbDownloadState.ClientState state, long gid) {
+        for (SmbDownloadState.Task t : state.tasks) {
+            if (t.gid == gid) {
+                return t;
+            }
+        }
+        throw new AssertionError("gallery " + gid + " was not published");
     }
 
     private List<SmbDirectDownloader.TaskSnapshot> tasks() {
@@ -155,6 +206,16 @@ public class SmbDirectDownloaderTest {
         calls.clear();
         obtainThrows = false;
         deleteLatch = new CountDownLatch(1);
+        published.set(null);
+        // Publishing short-circuits unless a share is configured, so give it one. Nothing connects
+        // to it — the store is shadowed — but isConfigured() reads these two straight from Settings.
+        com.hippo.ehviewer.Settings.initialize(context);
+        com.hippo.ehviewer.Settings.putString(
+                com.hippo.ehviewer.Settings.KEY_SMB_HOST, "10.0.0.1");
+        com.hippo.ehviewer.Settings.putString(
+                com.hippo.ehviewer.Settings.KEY_SMB_SHARE_NAME, "share");
+        com.hippo.ehviewer.Settings.putString(
+                com.hippo.ehviewer.Settings.KEY_SMB_DEVICE_NAME, "test device");
     }
 
     @After
@@ -357,5 +418,105 @@ public class SmbDirectDownloaderTest {
         drain();
 
         assertTrue(calls.contains("startService"));
+    }
+
+    // --- what this device publishes to the share (#59) --------------------------------------------
+    //
+    // The point of publishing is that other devices can see it, so what matters is that the file
+    // says what this device is actually doing. These read what would have been written.
+
+    /**
+     * A claim has to be published before the download starts, or another device can begin the same
+     * gallery in the window between deciding to download it and saying so.
+     */
+    @Test
+    public void publishes_theClaimWhenAGalleryIsQueued() {
+        SmbDirectDownloader.getInstance().start(context, gallery(1));
+
+        SmbDownloadState.ClientState state = awaitPublished();
+        SmbDownloadState.Task t = publishedTask(state, 1);
+        assertEquals(SmbDownloadState.TaskState.ACTIVE, t.state);
+        assertEquals("task fixture 1", t.title);
+        assertTrue("a claim needs a time, or nobody can tell whose is newer", t.claimedAt > 0);
+    }
+
+    /** Whoever is looking needs to know which device this is, not just its id. */
+    @Test
+    public void publishes_thisDevicesIdentity() {
+        SmbDirectDownloader.getInstance().start(context, gallery(1));
+
+        SmbDownloadState.ClientState state = awaitPublished();
+        assertEquals(com.hippo.ehviewer.Settings.getSmbClientId(), state.clientId);
+        assertEquals("test device", state.deviceName);
+        assertEquals(SmbDownloadState.SCHEMA_VERSION, state.schemaVersion);
+    }
+
+    /** Only one job runs at a time, so the second gallery should show as waiting rather than running. */
+    @Test
+    public void publishes_queuedAndActiveDistinctly() {
+        SmbDirectDownloader.getInstance().start(context, gallery(1));
+        SmbDirectDownloader.getInstance().start(context, gallery(2));
+
+        SmbDownloadState.ClientState state = awaitPublished();
+        assertEquals(SmbDownloadState.TaskState.ACTIVE, publishedTask(state, 1).state);
+        assertEquals(SmbDownloadState.TaskState.QUEUED, publishedTask(state, 2).state);
+    }
+
+    @Test
+    public void publishes_pausedTasks() {
+        SmbDirectDownloader.getInstance().start(context, gallery(1));
+        drain();
+        published.set(null);
+        SmbDirectDownloader.getInstance().pause(1);
+
+        assertEquals(SmbDownloadState.TaskState.PAUSED,
+                publishedTask(awaitPublished(), 1).state);
+    }
+
+    /**
+     * A cancelled gallery must stop being claimed. Leaving it listed would have the other devices
+     * believe this one is still working on something it has abandoned — and since a live claim
+     * blocks them from starting it, nobody would ever download it again.
+     */
+    @Test
+    public void publishes_theRemovalWhenATaskIsCancelled() {
+        SmbDirectDownloader.getInstance().start(context, gallery(1));
+        drain();
+        published.set(null);
+        SmbDirectDownloader.getInstance().cancel(1);
+
+        SmbDownloadState.ClientState state = awaitPublished();
+        for (SmbDownloadState.Task t : state.tasks) {
+            assertFalse("gallery 1 is still claimed after being cancelled", t.gid == 1);
+        }
+    }
+
+    /**
+     * A gallery queued behind an active job starts nothing, so nothing else would announce it.
+     * Without the publish at enqueue its claim would sit unseen until the next heartbeat, and for
+     * those twenty seconds another device would be free to start the same download.
+     */
+    @Test
+    public void publishes_aClaimEvenWhenNoJobStarts() {
+        SmbDirectDownloader.getInstance().start(context, gallery(1));
+        awaitPublished();                 // gallery 1 is active; only one job runs at a time
+        published.set(null);
+
+        SmbDirectDownloader.getInstance().start(context, gallery(2));
+
+        assertEquals(SmbDownloadState.TaskState.QUEUED,
+                publishedTask(awaitPublished(), 2).state);
+    }
+
+    /** The claim is the device's own; re-queuing the same gallery must not restart its clock. */
+    @Test
+    public void publishes_aStableClaimTimeAcrossUpdates() {
+        SmbDirectDownloader.getInstance().start(context, gallery(1));
+        long first = publishedTask(awaitPublished(), 1).claimedAt;
+
+        published.set(null);
+        SmbDirectDownloader.getInstance().start(context, gallery(2));
+
+        assertEquals(first, publishedTask(awaitPublished(), 1).claimedAt);
     }
 }
