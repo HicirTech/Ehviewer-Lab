@@ -236,4 +236,26 @@ public final class SmbPreviewCache {
             }
         }
     }
+
+    /**
+     * Cancels any prefetch and deletes the cached preview files for one gallery. Called when the
+     * gallery is deleted from the share: the local copies would otherwise linger until the whole
+     * cache directory is cleared, and be served for a gallery that no longer exists.
+     *
+     * <p>Files are named {@code <gid>-<index>} in one flat directory (see
+     * {@link #cacheFileFor}), so this filters the listing by prefix.
+     */
+    public static void evictGallery(long gid) {
+        cancelGallery(gid);
+        String prefix = gid + "-";
+        File[] files = cacheDir().listFiles();
+        if (files == null) {
+            return;
+        }
+        for (File f : files) {
+            if (f.getName().startsWith(prefix) && !f.delete()) {
+                Log.w(TAG, "Failed to delete cached preview " + f);
+            }
+        }
+    }
 }

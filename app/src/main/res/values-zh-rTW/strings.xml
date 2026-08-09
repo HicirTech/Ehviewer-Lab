@@ -994,6 +994,10 @@
     <string name="local_inventory_sort_posted_date">發佈時間（由新到舊）</string>
     <string name="local_inventory_sort_title_az">標題（A–Z）</string>
     <string name="local_inventory_sort_category">類別</string>
+    <string name="local_inventory_delete">從 SMB 共享刪除</string>
+    <string name="local_inventory_delete_confirm_title">刪除這本畫廊?</string>
+    <string name="local_inventory_delete_confirm_message">「%s」將從 SMB 共享上抹掉,無法復原。</string>
+    <string name="local_inventory_delete_failed">沒能從 SMB 共享刪除</string>
 
     <string name="smb_download_channel_name">SMB 儲存</string>
     <string name="smb_download_notif_title">正在儲存至 SMB</string>
