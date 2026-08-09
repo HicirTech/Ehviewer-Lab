@@ -647,6 +647,11 @@ public final class SmbStorage {
             final SmbFile finalTarget = target;
             return new OutputStreamPipe() {
                 private OutputStream os;
+                // SPIKE ONLY — attributing a page's wall clock between the e-hentai fetch and the
+                // share write. Not for merge.
+                private long tOpen;
+                private long writeNanos;
+                private long bytes;
 
                 @Override
                 public void obtain() {
@@ -668,7 +673,44 @@ public final class SmbStorage {
                     // link does 6.4. Buffering here rather than widening SpiderQueen's array keeps
                     // the fix inside the smb package: SpiderQueen is upstream code and already the
                     // recurring conflict point on every upstream merge.
-                    os = new java.io.BufferedOutputStream(finalTarget.getOutputStream(), SMB_IO_BUFFER);
+                    final OutputStream buffered =
+                            new java.io.BufferedOutputStream(finalTarget.getOutputStream(), SMB_IO_BUFFER);
+                    tOpen = SystemClock.elapsedRealtime();
+                    writeNanos = 0;
+                    bytes = 0;
+                    // SPIKE ONLY: outermost so it times what SpiderQueen's loop actually experiences,
+                    // including the occasional flush through to the share.
+                    os = new OutputStream() {
+                        @Override
+                        public void write(int b) throws IOException {
+                            long t = System.nanoTime();
+                            buffered.write(b);
+                            writeNanos += System.nanoTime() - t;
+                            bytes++;
+                        }
+
+                        @Override
+                        public void write(@NonNull byte[] b, int off, int len) throws IOException {
+                            long t = System.nanoTime();
+                            buffered.write(b, off, len);
+                            writeNanos += System.nanoTime() - t;
+                            bytes += len;
+                        }
+
+                        @Override
+                        public void flush() throws IOException {
+                            long t = System.nanoTime();
+                            buffered.flush();
+                            writeNanos += System.nanoTime() - t;
+                        }
+
+                        @Override
+                        public void close() throws IOException {
+                            long t = System.nanoTime();
+                            buffered.close();
+                            writeNanos += System.nanoTime() - t;
+                        }
+                    };
                     return os;
                 }
 
@@ -676,6 +718,12 @@ public final class SmbStorage {
                 public void close() {
                     IOUtils.closeQuietly(os);
                     os = null;
+                    long wall = SystemClock.elapsedRealtime() - tOpen;
+                    long writeMs = writeNanos / 1_000_000L;
+                    Log.i("SmbSplit", "page idx=" + index + " bytes=" + bytes
+                            + " wall=" + wall + "ms  smbWrite=" + writeMs + "ms"
+                            + "  fetch=" + (wall - writeMs) + "ms"
+                            + "  smbShare=" + (wall > 0 ? (100 * writeMs / wall) : 0) + "%");
                 }
             };
         } catch (Throwable e) {
