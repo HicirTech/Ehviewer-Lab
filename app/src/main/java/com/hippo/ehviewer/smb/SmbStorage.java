@@ -946,6 +946,12 @@ public final class SmbStorage {
                 if (!child.isDirectory()) {
                     continue;
                 }
+                // Same gate as listGalleryRefs, so both orderings agree on which folders are
+                // galleries at all. Also saves the exists() round trip below on every foreign
+                // directory the share happens to carry.
+                if (!SmbPaths.isGalleryFolderName(trimTrailingSlash(child.getName()))) {
+                    continue;
+                }
                 SmbFile metadata = new SmbFile(child, METADATA_FILE);
                 if (!metadata.exists()) {
                     continue;
@@ -1036,9 +1042,13 @@ public final class SmbStorage {
                 if (!child.isDirectory()) {
                     continue;
                 }
-                String name = child.getName();
-                if (name.endsWith("/")) {
-                    name = name.substring(0, name.length() - 1);
+                String name = trimTrailingSlash(child.getName());
+                // Not every directory here is a gallery — see SmbPaths.isGalleryFolderName. Foreign
+                // ones used to be counted as galleries, which inflated the page count (a page could
+                // come out empty) and cost a wasted round trip each when readGalleryInfo went
+                // looking for their metadata.
+                if (!SmbPaths.isGalleryFolderName(name)) {
+                    continue;
                 }
                 // Sort key: folder CREATION time, i.e. when the download created the folder.
                 // The previous key, lastModified(), gets bumped by reading - persisting the
@@ -1098,6 +1108,12 @@ public final class SmbStorage {
             Log.e(TAG, "Failed to read SMB gallery metadata: " + ref.folderName, e);
             return null;
         }
+    }
+
+    /** jcifs reports directory names with a trailing slash; the gallery folder name has none. */
+    @NonNull
+    private static String trimTrailingSlash(@NonNull String name) {
+        return name.endsWith("/") ? name.substring(0, name.length() - 1) : name;
     }
 
     private static String readAll(InputStream is) throws IOException {
