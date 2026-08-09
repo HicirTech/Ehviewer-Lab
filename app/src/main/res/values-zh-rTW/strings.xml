@@ -1015,6 +1015,7 @@
     <string name="smb_test_error_share_not_accessible">無法存取共享</string>
     <string name="smb_save_started">已開始儲存至 SMB：%s</string>
     <string name="smb_save_already_complete">已儲存至 SMB，略過</string>
+    <string name="smb_save_claimed_elsewhere">另一台裝置正在把這本下載到 SMB 共享</string>
     <string name="smb_save_not_configured">尚未設定 SMB</string>
     <string name="smb_download_tasks">SMB 下載任務</string>
     <string name="smb_download_tasks_empty">暫無 SMB 下載任務</string>

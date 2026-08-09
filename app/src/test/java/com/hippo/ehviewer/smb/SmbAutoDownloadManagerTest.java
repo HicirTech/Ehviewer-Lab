@@ -51,6 +51,7 @@ import org.robolectric.shadow.api.Shadow;
                 SmbAutoDownloadManagerTest.ShadowSmbMetadata.class,
                 SmbAutoDownloadManagerTest.ShadowSpiderQueen.class,
                 SmbAutoDownloadManagerTest.ShadowSmbDownloadService.class,
+                SmbAutoDownloadManagerTest.ShadowSmbDownloadStateStore.class,
         },
         instrumentedPackages = {"com.hippo.ehviewer.smb", "com.hippo.ehviewer.spider"})
 public class SmbAutoDownloadManagerTest {
@@ -107,6 +108,26 @@ public class SmbAutoDownloadManagerTest {
 
         @Implementation
         protected void removeOnSpiderListener(SpiderQueen.OnSpiderListener l) {}
+    }
+
+    /**
+     * The enqueue path now asks the share whether another device already claimed the gallery (#59).
+     * That is not what this test is about, and left unshadowed it would reach for a real connection
+     * -- SmbStorage is faked here, so isConfigured() says yes -- and take long enough to outlast
+     * the pump. An empty share means nobody else has claimed anything.
+     */
+    @Implements(SmbDownloadStateStore.class)
+    public static class ShadowSmbDownloadStateStore {
+
+        @Implementation
+        protected static List<SmbDownloadState.Published> readAll() {
+            return new ArrayList<>();
+        }
+
+        @Implementation
+        protected static boolean writeSelf(SmbDownloadState.ClientState state) {
+            return true;
+        }
     }
 
     @Implements(SmbDownloadService.class)

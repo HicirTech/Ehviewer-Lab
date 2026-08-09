@@ -195,6 +195,9 @@ public final class SmbDirectDownloader {
             });
     @Nullable
     private ScheduledFuture<?> heartbeat;
+    /** Restoring is a once-per-process affair, whichever entry point asks for it first. */
+    private final java.util.concurrent.atomic.AtomicBoolean restoreStarted =
+            new java.util.concurrent.atomic.AtomicBoolean();
 
     /**
      * Writes this device's queue to the share, and starts or stops the heartbeat to match whether
@@ -244,6 +247,119 @@ public final class SmbDirectDownloader {
         }
     }
 
+    // ---------- Reading the share back (#59) ----------
+
+    /**
+     * Restores this device's queue from the share, once per process.
+     *
+     * <p>The queue outlives the process because it lives on the share, but nothing brings it back
+     * on its own — so the entry points that would want it ask for it, and it happens in the
+     * background with observers notified when it lands.
+     *
+     * <p>What comes back is filtered through everyone else's state first. While this device was
+     * away another may have taken a task over, and the only way to learn that is to look: the
+     * claimer wrote it into its own file and could not touch this one. Whatever was lost is dropped
+     * from this device's file here, which is what stops a takeover leaving two devices claiming the
+     * same gallery for good.
+     *
+     * <p>Paused tasks stay paused — the user put them there. Anything else comes back queued,
+     * including what was mid-download when the process died, since nothing is running now.
+     */
+    public void ensureRestored() {
+        if (!restoreStarted.compareAndSet(false, true)) {
+            return;
+        }
+        if (!SmbStorage.isConfigured()) {
+            return;
+        }
+        try {
+            publisher.execute(this::restoreNow);
+        } catch (Throwable e) {
+            Log.w(TAG, "Could not schedule a restore", e);
+        }
+    }
+
+    private void restoreNow() {
+        final String selfId = Settings.getSmbClientId();
+        final List<SmbDownloadState.Task> mine;
+        try {
+            List<SmbDownloadState.Published> all = SmbDownloadStateStore.readAll();
+            SmbDownloadState.ClientState self = null;
+            for (SmbDownloadState.Published p : all) {
+                if (p.state.clientId.equals(selfId)) {
+                    self = p.state;
+                    break;
+                }
+            }
+            if (self == null) {
+                return;   // nothing of ours has ever been published
+            }
+            mine = SmbDownloadState.withoutTakenOver(
+                    self, SmbDownloadState.merge(all));
+        } catch (Throwable e) {
+            Log.e(TAG, "Failed to restore download state", e);
+            return;
+        }
+        if (mine.isEmpty()) {
+            // Everything we had is gone -- taken over, or finished elsewhere. Say so, so our file
+            // stops advertising claims we no longer hold.
+            publishState();
+            return;
+        }
+        final Context ctx = appContext != null ? appContext : EhApplication.getInstance();
+        SimpleHandler.getInstance().post(() -> {
+            for (SmbDownloadState.Task t : mine) {
+                GalleryInfo info = new GalleryInfo();
+                info.gid = t.gid;
+                info.token = t.token;
+                info.title = t.title;
+                info.pages = t.total;
+                synchronized (lock) {
+                    if (active.containsKey(t.gid) || queue.containsKey(t.gid)
+                            || paused.containsKey(t.gid)) {
+                        continue;   // already back, by whatever route
+                    }
+                    claimedAt.put(t.gid, t.claimedAt);
+                    if (t.takenOverFrom != null) {
+                        takenOverFrom.put(t.gid, t.takenOverFrom);
+                    }
+                }
+                if (t.state == SmbDownloadState.TaskState.PAUSED) {
+                    synchronized (lock) {
+                        paused.put(t.gid, info);
+                    }
+                } else {
+                    start(ctx, info);
+                }
+            }
+            notifyObservers();
+            publishState();
+        });
+    }
+
+    /**
+     * Whether some other device that is still alive has already claimed this gallery.
+     *
+     * <p>The check that stops two devices downloading the same thing. Performs SMB I/O; call from a
+     * worker thread.
+     */
+    public boolean isClaimedElsewhere(long gid) {
+        if (!SmbStorage.isConfigured()) {
+            return false;
+        }
+        try {
+            return SmbDownloadState.isClaimedByAnotherLiveClient(
+                    SmbDownloadState.merge(SmbDownloadStateStore.readAll()),
+                    gid, Settings.getSmbClientId());
+        } catch (Throwable e) {
+            // Unreachable share, unreadable files: let the download proceed. Downloading something
+            // twice wastes bandwidth; refusing to download because the check failed loses the
+            // gallery, which is worse.
+            Log.w(TAG, "Could not check whether gid=" + gid + " is claimed elsewhere", e);
+            return false;
+        }
+    }
+
     /**
      * This device's queue as the share should see it.
      *
@@ -285,6 +401,8 @@ public final class SmbDirectDownloader {
      */
     @NonNull
     public List<TaskSnapshot> snapshotTasks() {
+        // Whoever is asking wants the whole queue, including whatever outlived the last process.
+        ensureRestored();
         List<TaskSnapshot> out = new ArrayList<>();
         synchronized (lock) {
             for (ActiveJob job : active.values()) {

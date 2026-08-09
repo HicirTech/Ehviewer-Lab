@@ -100,6 +100,15 @@ public final class SmbAutoDownloadManager {
                             R.string.smb_save_already_complete, Toast.LENGTH_SHORT).show());
                     return;
                 }
+                // Another device may already be on it. Checked here rather than in the downloader
+                // because this is the one place a gallery enters the queue from outside, and
+                // because there is already an SMB round trip on this thread to share.
+                if (SmbDirectDownloader.getInstance().isClaimedElsewhere(galleryInfo.gid)) {
+                    pendingGids.remove(galleryInfo.gid);
+                    SimpleHandler.getInstance().post(() -> Toast.makeText(appContext,
+                            R.string.smb_save_claimed_elsewhere, Toast.LENGTH_SHORT).show());
+                    return;
+                }
                 try {
                     SmbMetadata.writeMetadataSkeleton(galleryInfo);
                 } catch (Throwable e) {

@@ -519,6 +519,7 @@
     <string name="smb_test_error_share_not_accessible">Share not accessible</string>
     <string name="smb_save_started">SMB save started: %s</string>
     <string name="smb_save_already_complete">Already saved to SMB, skipping</string>
+    <string name="smb_save_claimed_elsewhere">Another device is already downloading this to the SMB share</string>
     <string name="smb_save_not_configured">SMB is not configured</string>
     <string name="smb_download_tasks">SMB Download Tasks</string>
     <string name="smb_download_tasks_empty">No SMB download tasks</string>

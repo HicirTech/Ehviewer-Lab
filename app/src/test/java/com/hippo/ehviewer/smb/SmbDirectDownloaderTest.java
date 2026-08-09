@@ -136,7 +136,17 @@ public class SmbDirectDownloaderTest {
             published.set(state);
             return true;
         }
+
+        /** What the share is pretending to hold. */
+        @Implementation
+        protected static List<SmbDownloadState.Published> readAll() {
+            return new ArrayList<>(onShare);
+        }
     }
+
+    /** Set by a test to stage what other devices -- and a previous run of this one -- published. */
+    static final List<SmbDownloadState.Published> onShare =
+            Collections.synchronizedList(new ArrayList<>());
 
     /** The last state published, or null if nothing has been. */
     static final java.util.concurrent.atomic.AtomicReference<SmbDownloadState.ClientState> published =
@@ -148,6 +158,67 @@ public class SmbDirectDownloaderTest {
         info.title = "task fixture " + gid;
         info.pages = 10;
         return info;
+    }
+
+    private static void setAppContext(Context context) {
+        try {
+            java.lang.reflect.Field f = SmbDirectDownloader.class.getDeclaredField("appContext");
+            f.setAccessible(true);
+            f.set(SmbDirectDownloader.getInstance(), context);
+        } catch (Exception e) {
+            throw new AssertionError("could not latch the app context", e);
+        }
+    }
+
+    private static void resetRestoreFlag() {
+        try {
+            java.lang.reflect.Field f =
+                    SmbDirectDownloader.class.getDeclaredField("restoreStarted");
+            f.setAccessible(true);
+            ((java.util.concurrent.atomic.AtomicBoolean)
+                    f.get(SmbDirectDownloader.getInstance())).set(false);
+        } catch (Exception e) {
+            throw new AssertionError("could not reset the restore flag", e);
+        }
+    }
+
+    /** A state file as some device left it on the share. */
+    private static SmbDownloadState.Published onShare(String clientId, boolean alive,
+                                                      SmbDownloadState.Task... tasks) {
+        return new SmbDownloadState.Published(
+                new SmbDownloadState.ClientState(clientId, clientId, java.util.Arrays.asList(tasks)),
+                alive);
+    }
+
+    private static SmbDownloadState.Task stateTask(long gid, SmbDownloadState.TaskState st,
+                                                   long claimedAt) {
+        return new SmbDownloadState.Task(gid, "tok" + gid, "restored " + gid, st, 0, 10,
+                claimedAt, null);
+    }
+
+    private String selfId() {
+        return com.hippo.ehviewer.Settings.getSmbClientId();
+    }
+
+    /**
+     * Waits for a restore to finish.
+     *
+     * <p>Polling the task list cannot do this: a test that expects nothing to come back would see
+     * an empty list before the restore had even started and pass without testing anything. The
+     * publisher is single-threaded and FIFO, so a marker submitted behind the restore only runs
+     * once the restore has returned.
+     */
+    private void awaitRestore() {
+        try {
+            java.lang.reflect.Field f = SmbDirectDownloader.class.getDeclaredField("publisher");
+            f.setAccessible(true);
+            java.util.concurrent.ExecutorService ex =
+                    (java.util.concurrent.ExecutorService) f.get(SmbDirectDownloader.getInstance());
+            ex.submit(() -> { }).get(3, TimeUnit.SECONDS);
+        } catch (Exception e) {
+            throw new AssertionError("restore did not finish", e);
+        }
+        drain();   // and then whatever it posted to the main thread
     }
 
     /** Runs whatever the downloader posted to the main thread. */
@@ -207,6 +278,15 @@ public class SmbDirectDownloaderTest {
         obtainThrows = false;
         deleteLatch = new CountDownLatch(1);
         published.set(null);
+        onShare.clear();
+        // The downloader is a process-wide singleton and restores once per process, so without
+        // this only the first test would ever exercise it. Reflection rather than a production
+        // seam, the same way SpiderDenRoutingTest reaches SpiderDen.sCache.
+        resetRestoreFlag();
+        // appContext is latched by whichever start() runs first and then lives on the singleton
+        // for the rest of the process, so without setting it here a restore-only test would pass
+        // or fail depending on what ran before it.
+        setAppContext(context);
         // Publishing short-circuits unless a share is configured, so give it one. Nothing connects
         // to it — the store is shadowed — but isConfigured() reads these two straight from Settings.
         com.hippo.ehviewer.Settings.initialize(context);
@@ -506,6 +586,176 @@ public class SmbDirectDownloaderTest {
 
         assertEquals(SmbDownloadState.TaskState.QUEUED,
                 publishedTask(awaitPublished(), 2).state);
+    }
+
+    // --- coming back from the share (#59) ---------------------------------------------------------
+    //
+    // The queue outlives the process because it lives on the share. What comes back has to be
+    // filtered through what everyone else published in the meantime, because a device that was
+    // away cannot be told its work was taken over -- it has to notice.
+
+    @Test
+    public void restore_bringsBackWhatWasQueued() {
+        onShare.add(onShare(selfId(), true,
+                stateTask(1, SmbDownloadState.TaskState.QUEUED, 100)));
+
+        SmbDirectDownloader.getInstance().ensureRestored();
+        awaitRestore();
+        assertEquals(1, tasks().size());
+
+        assertEquals(1, tasks().get(0).gid);
+    }
+
+    /** The user paused it deliberately; coming back online is not a reason to override that. */
+    @Test
+    public void restore_leavesPausedTasksPaused() {
+        onShare.add(onShare(selfId(), true,
+                stateTask(1, SmbDownloadState.TaskState.PAUSED, 100)));
+
+        SmbDirectDownloader.getInstance().ensureRestored();
+        awaitRestore();
+        assertEquals(1, tasks().size());
+
+        assertEquals(SmbDirectDownloader.TaskSnapshot.State.PAUSED, stateOf(1));
+    }
+
+    /** Nothing is running now, so a download the process died in the middle of is simply waiting. */
+    @Test
+    public void restore_treatsAnInterruptedDownloadAsWaiting() {
+        onShare.add(onShare(selfId(), true,
+                stateTask(1, SmbDownloadState.TaskState.ACTIVE, 100)));
+
+        SmbDirectDownloader.getInstance().ensureRestored();
+        awaitRestore();
+        assertEquals(1, tasks().size());
+
+        assertFalse("it should not come back still marked as running",
+                stateOf(1) == SmbDirectDownloader.TaskSnapshot.State.PAUSED);
+    }
+
+    /** Somebody else picked it up while we were gone. It is theirs now. */
+    @Test
+    public void restore_dropsWhatALiveDeviceTookOver() {
+        onShare.add(onShare(selfId(), true,
+                stateTask(1, SmbDownloadState.TaskState.QUEUED, 100)));
+        onShare.add(onShare("other", true,
+                stateTask(1, SmbDownloadState.TaskState.ACTIVE, 900)));
+
+        SmbDirectDownloader.getInstance().ensureRestored();
+        awaitRestore();
+        assertEquals(0, tasks().size());
+    }
+
+    /** A dead device's claim takes nothing from us, however recent it looks. */
+    @Test
+    public void restore_keepsWhatOnlyADeadDeviceClaims() {
+        onShare.add(onShare(selfId(), true,
+                stateTask(1, SmbDownloadState.TaskState.QUEUED, 100)));
+        onShare.add(onShare("other", false,
+                stateTask(1, SmbDownloadState.TaskState.ACTIVE, 900)));
+
+        SmbDirectDownloader.getInstance().ensureRestored();
+        awaitRestore();
+        assertEquals(1, tasks().size());
+    }
+
+    /** Another device's queue is not ours to adopt. */
+    @Test
+    public void restore_ignoresOtherDevicesTasks() {
+        onShare.add(onShare("other", true,
+                stateTask(7, SmbDownloadState.TaskState.QUEUED, 100)));
+
+        SmbDirectDownloader.getInstance().ensureRestored();
+        awaitRestore();
+
+        assertTrue("gallery 7 belongs to another device", tasks().isEmpty());
+    }
+
+    @Test
+    public void restore_survivesAShareWithNothingOfOurs() {
+        SmbDirectDownloader.getInstance().ensureRestored();
+        awaitRestore();
+
+        assertTrue(tasks().isEmpty());
+    }
+
+    /** Once per process, whichever entry point asks first. */
+    @Test
+    public void restore_happensOnlyOnce() {
+        onShare.add(onShare(selfId(), true,
+                stateTask(1, SmbDownloadState.TaskState.QUEUED, 100)));
+
+        SmbDirectDownloader.getInstance().ensureRestored();
+        awaitRestore();
+        assertEquals(1, tasks().size());
+        SmbDirectDownloader.getInstance().cancel(1);
+        drain();
+
+        SmbDirectDownloader.getInstance().ensureRestored();
+        awaitRestore();
+        assertTrue("a cancelled task must not be restored again", tasks().isEmpty());
+    }
+
+    /** The claim time is the original one, not the moment of restoring. */
+    @Test
+    public void restore_keepsTheOriginalClaimTime() {
+        onShare.add(onShare(selfId(), true,
+                stateTask(1, SmbDownloadState.TaskState.QUEUED, 4242)));
+
+        SmbDirectDownloader.getInstance().ensureRestored();
+        awaitRestore();
+        assertEquals(1, tasks().size());
+
+        assertEquals(4242L, publishedTask(awaitPublished(), 1).claimedAt);
+    }
+
+    /**
+     * After cleaning, this device has to say so. Its file still advertises claims it no longer
+     * holds, and until it is rewritten those keep other devices from starting the galleries.
+     */
+    @Test
+    public void restore_republishesAfterEverythingWasTakenOver() {
+        onShare.add(onShare(selfId(), true,
+                stateTask(1, SmbDownloadState.TaskState.QUEUED, 100)));
+        onShare.add(onShare("other", true,
+                stateTask(1, SmbDownloadState.TaskState.ACTIVE, 900)));
+
+        SmbDirectDownloader.getInstance().ensureRestored();
+
+        assertTrue("our file should have been rewritten empty",
+                awaitPublished().tasks.isEmpty());
+    }
+
+    // --- not downloading what another device already is -------------------------------------------
+
+    @Test
+    public void claimedElsewhere_trueForALiveOtherDevice() {
+        onShare.add(onShare("other", true,
+                stateTask(5, SmbDownloadState.TaskState.ACTIVE, 100)));
+
+        assertTrue(SmbDirectDownloader.getInstance().isClaimedElsewhere(5));
+    }
+
+    @Test
+    public void claimedElsewhere_falseForOurOwnClaim() {
+        onShare.add(onShare(selfId(), true,
+                stateTask(5, SmbDownloadState.TaskState.ACTIVE, 100)));
+
+        assertFalse(SmbDirectDownloader.getInstance().isClaimedElsewhere(5));
+    }
+
+    /** Otherwise a device that crashed would make the gallery undownloadable everywhere. */
+    @Test
+    public void claimedElsewhere_falseForADeadDevice() {
+        onShare.add(onShare("other", false,
+                stateTask(5, SmbDownloadState.TaskState.ACTIVE, 100)));
+
+        assertFalse(SmbDirectDownloader.getInstance().isClaimedElsewhere(5));
+    }
+
+    @Test
+    public void claimedElsewhere_falseWhenNobodyHasIt() {
+        assertFalse(SmbDirectDownloader.getInstance().isClaimedElsewhere(5));
     }
 
     /** The claim is the device's own; re-queuing the same gallery must not restart its clock. */

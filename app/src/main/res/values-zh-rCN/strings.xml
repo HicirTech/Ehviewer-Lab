@@ -1011,6 +1011,7 @@
     <string name="smb_test_error_share_not_accessible">无法访问共享</string>
     <string name="smb_save_started">已开始保存到 SMB：%s</string>
     <string name="smb_save_already_complete">已保存到 SMB，跳过</string>
+    <string name="smb_save_claimed_elsewhere">另一台设备正在把这本下载到 SMB 共享</string>
     <string name="smb_save_not_configured">尚未配置 SMB</string>
     <string name="smb_download_tasks">SMB 下载任务</string>
     <string name="smb_download_tasks_empty">暂无 SMB 下载任务</string>
