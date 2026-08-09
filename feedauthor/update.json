@@ -1,17 +1,15 @@
 {
-  "version": "2.0.2.3-hl.3",
-  "versionCode": 3,
+  "version": "2.0.2.3-hl.4",
+  "versionCode": 4,
   "mustUpdate": false,
   "updateContent": {
-    "fileDownloadUrl": "https://github.com/HicirTech/Ehviewer-Lab/releases/tag/v2.0.2.3-hl.3",
-    "title": "EhViewer@Lab 2.0.2.3-hl.3",
+    "fileDownloadUrl": "https://github.com/HicirTech/Ehviewer-Lab/releases/tag/v2.0.2.3-hl.4",
+    "title": "EhViewer@Lab 2.0.2.3-hl.4",
     "content": [
-      "修复 SMB 自动下载时阅读新画廊会出现特定页加载失败",
-      "修复非全屏界面底部常驻的不透明色块",
-      "修复阅读器新手引导每次启动重复弹出",
-      "「更新」改为打开本版本对应的 release 页(此前跳到上游仓库 README)",
-      "精简权限:移除相机、安装应用、下载管理器,以及 Firebase 注入的广告 ID 权限",
-      "内部:补齐 126 项单元测试,CI 现在会因测试失败挡住合并"
+      "SMB 写入提速 13 倍(0.5 → 6.4 MB/s):此前每页的写入被切成 4KB 碎片请求。整体下载快多少仍取决于 e-hentai,实测写入只占单页耗时的 7.6%",
+      "Local Inventory 支持长按删除画廊(物理删除 SMB 上的文件夹,带二次确认)",
+      "删除后一并清理该画廊的预览缓存与封面缓存,正在下载的画廊会先取消再删",
+      "内部:debug 版在桌面和「关于」页带明确标识,不再和正式版长得一样"
     ]
   }
 }
