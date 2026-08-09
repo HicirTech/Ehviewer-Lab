@@ -71,4 +71,39 @@ public final class SmbPaths {
         String title = (info.title == null || info.title.isEmpty()) ? "gallery" : info.title;
         return FileUtils.sanitizeFilename(info.gid + "-" + title);
     }
+
+    /**
+     * Whether a directory sitting among the galleries is one of ours.
+     *
+     * <p>A share root is never only galleries. NAS software leaves its own directories there —
+     * {@code @eaDir} on Synology, {@code #recycle}, {@code lost+found}, {@code .snapshot} — and
+     * most of them do not begin with a dot, so "skip hidden entries" would not have caught them.
+     * Treating them as galleries inflates the page count and spends an SMB round trip each,
+     * looking for a {@code metadata.json} that was never going to be there.
+     *
+     * <p>The test is the {@code <gid>-} prefix that {@link #buildGalleryFolderName} always
+     * produces. It is safe to rely on: {@code sanitizeFilename} only strips forbidden characters
+     * and truncates at the tail, and neither digits nor {@code -} are forbidden, so the prefix
+     * survives whatever the title does. And it costs nothing — the name is already in hand from
+     * the directory enumeration, with no extra round trip.
+     *
+     * <p>Deliberately not a regex: this runs once per folder on every listing.
+     */
+    public static boolean isGalleryFolderName(@Nullable String name) {
+        if (name == null || name.isEmpty()) {
+            return false;
+        }
+        int dash = name.indexOf('-');
+        // At least one digit before the dash, and something after it.
+        if (dash <= 0 || dash == name.length() - 1) {
+            return false;
+        }
+        for (int i = 0; i < dash; i++) {
+            char c = name.charAt(i);
+            if (c < '0' || c > '9') {
+                return false;
+            }
+        }
+        return true;
+    }
 }
