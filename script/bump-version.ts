@@ -18,11 +18,11 @@
 import { readFileSync, writeFileSync } from "node:fs";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
+import { applyGradleVersion, nextVersion, parseGradleVersion, syncFeed } from "./version.ts";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const gradlePath = resolve(root, "app/build.gradle");
 const feedPath = resolve(root, "feedauthor/update.json");
-const RELEASE_TAG_BASE = "https://github.com/HicirTech/Ehviewer-Lab/releases/tag";
 
 const args = process.argv.slice(2);
 const dryRun = args.includes("--dry-run");
@@ -41,35 +41,20 @@ function fail(msg: string): never {
 
 let gradle = readFileSync(gradlePath, "utf8");
 
-const codeMatch = gradle.match(/versionCode (\d+)/);
-const nameMatch = gradle.match(/versionName "([^"]+)"/);
-if (!codeMatch || !nameMatch) fail("versionCode/versionName not found in app/build.gradle");
+// The rules live in ./version.ts so they can be tested without a repository; see #44.
+let current, next;
+try {
+  current = parseGradleVersion(gradle);
+  next = nextVersion(current, base);
+} catch (e) {
+  fail((e as Error).message);
+}
 
-const oldCode = Number(codeMatch[1]);
-const oldName = nameMatch[1];
-const parsed = oldName.match(/^(.*)-hl\.(\d+)$/);
-if (!parsed && !base) fail(`versionName "${oldName}" is not <base>-hl.<N>; use --base to set one`);
+gradle = applyGradleVersion(gradle, next);
+const feed = syncFeed(JSON.parse(readFileSync(feedPath, "utf8")), next, notes);
 
-const newCode = oldCode + 1;
-const newName = base ? `${base}-hl.1` : `${parsed![1]}-hl.${Number(parsed![2]) + 1}`;
-if (base && !/^\d+(\.\d+)*$/.test(base)) fail(`--base "${base}" does not look like a version`);
-
-gradle = gradle
-  .replace(/versionCode \d+/, `versionCode ${newCode}`)
-  .replace(/versionName "[^"]+"/, `versionName "${newName}"`);
-
-const feed = JSON.parse(readFileSync(feedPath, "utf8"));
-feed.version = newName;
-feed.versionCode = newCode;
-feed.updateContent.title = `EhViewer@Lab ${newName}`;
-// Point at the release for exactly this version. release.ts tags v<versionName>,
-// so this resolves once the tag is pushed. "/releases/latest" would drift: the
-// dialog announces version X but the link would walk forward to X+1.
-feed.updateContent.fileDownloadUrl = `${RELEASE_TAG_BASE}/v${newName}`;
-if (notes.length > 0) feed.updateContent.content = notes;
-
-console.log(`versionName  ${oldName}  ->  ${newName}`);
-console.log(`versionCode  ${oldCode}  ->  ${newCode}`);
+console.log(`versionName  ${current.name}  ->  ${next.name}`);
+console.log(`versionCode  ${current.code}  ->  ${next.code}`);
 console.log(`update feed  version/versionCode/title/fileDownloadUrl synced${notes.length ? `, ${notes.length} note line(s)` : " (content kept, edit manually if needed)"}`);
 
 if (dryRun) {

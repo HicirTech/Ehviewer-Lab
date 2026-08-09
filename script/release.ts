@@ -14,6 +14,7 @@
 import { readFileSync } from "node:fs";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
+import { feedInconsistency, parseGradleVersion, tagFor } from "./version.ts";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const dryRun = process.argv.includes("--dry-run");
@@ -32,19 +33,20 @@ function fail(msg: string): never {
 }
 
 // --- consistency: build.gradle vs update feed ---
-const gradle = readFileSync(resolve(root, "app/build.gradle"), "utf8");
-const versionName = gradle.match(/versionName "([^"]+)"/)?.[1] ?? fail("versionName not found");
-const versionCode = Number(gradle.match(/versionCode (\d+)/)?.[1] ?? fail("versionCode not found"));
+// The rules live in ./version.ts so they can be tested without a repository; see #44.
+// The update dialog opens fileDownloadUrl directly, so a stale one sends users to the
+// wrong release. bump-version writes it; this catches a hand-edited feed.
+let version;
+try {
+  version = parseGradleVersion(readFileSync(resolve(root, "app/build.gradle"), "utf8"));
+} catch (e) {
+  fail((e as Error).message);
+}
+const versionName = version.name;
+const versionCode = version.code;
 const feed = JSON.parse(readFileSync(resolve(root, "feedauthor/update.json"), "utf8"));
-if (feed.version !== versionName)
-  fail(`update.json version "${feed.version}" != build.gradle "${versionName}" - run bump-version first`);
-if (feed.versionCode !== versionCode)
-  fail(`update.json versionCode ${feed.versionCode} != build.gradle ${versionCode}`);
-// The update dialog opens fileDownloadUrl directly, so a stale one sends users to
-// the wrong release. bump-version writes it; this catches a hand-edited feed.
-const expectedDownloadUrl = `https://github.com/HicirTech/Ehviewer-Lab/releases/tag/v${versionName}`;
-if (feed.updateContent?.fileDownloadUrl !== expectedDownloadUrl)
-  fail(`update.json fileDownloadUrl "${feed.updateContent?.fileDownloadUrl}" != "${expectedDownloadUrl}"`);
+const inconsistency = feedInconsistency(feed, version);
+if (inconsistency) fail(inconsistency);
 
 // --- git state ---
 if (git("status", "--porcelain") !== "") fail("working tree not clean - commit or stash first");
@@ -54,7 +56,7 @@ git("fetch", "origin", "main", "--tags");
 if (git("rev-parse", "HEAD") !== git("rev-parse", "origin/main"))
   fail("local main is not in sync with origin/main - pull/push first");
 
-const tag = `v${versionName}`;
+const tag = tagFor(versionName);
 const existing = Bun.spawnSync(["git", "rev-parse", "--verify", "--quiet", `refs/tags/${tag}`], { cwd: root });
 if (existing.exitCode === 0) fail(`tag ${tag} already exists`);
 
