@@ -35,6 +35,9 @@ android {
         vectorDrawables.useSupportLibrary = true
         resourceConfigurations += ['zh', 'zh-rCN', 'zh-rHK', 'zh-rTW', 'es', 'ja', 'ko', 'fr', 'de', 'th']
         testOptions.unitTests.includeAndroidResources = true
+        // Instrumented tests. Currently only the SMB spike probe lives in src/androidTest — it
+        // talks to a real share and is deliberately NOT part of CI.
+        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         multiDexEnabled true
         ndk {
             moduleName "native-lib"
@@ -212,6 +215,11 @@ dependencies {
     // OpenSSLProvider hits UnsatisfiedLinkError under Robolectric. The uber jar
     // carries the host-JVM natives.
     testImplementation 'org.conscrypt:conscrypt-openjdk-uber:2.5.2'
+
+    // On-device tests. Only the SMB spike probe uses these today; it needs a real share and a
+    // real radio, so it never runs in CI.
+    androidTestImplementation 'androidx.test.ext:junit:1.2.1'
+    androidTestImplementation 'androidx.test:runner:1.6.2'
 
     // https://mvnrepository.com/artifact/androidx.webkit/webkit
     runtimeOnly group: 'androidx.webkit', name: 'webkit', version: '1.13.0'
