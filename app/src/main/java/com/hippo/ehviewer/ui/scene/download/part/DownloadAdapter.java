@@ -336,6 +336,14 @@ public class DownloadAdapter extends RecyclerView.Adapter<DownloadAdapter.Downlo
             holder.progressBar.setMax(info.total);
             holder.progressBar.setProgress(info.finished);
         }
+        // Nobody measures the rate of a download happening on another device -- it is not ours to
+        // watch, and publishing a figure per second would mean writing to the share that often
+        // (#59). Showing "0 B/S" would read as stalled, so it is simply left out; the page count
+        // beside it already says whether anything is moving.
+        if (com.hippo.ehviewer.smb.SmbTaskInfo.isSmb(info)) {
+            holder.speed.setVisibility(View.GONE);
+            return;
+        }
         long speed = info.speed;
         if (speed < 0) {
             speed = 0;
@@ -733,14 +741,30 @@ public class DownloadAdapter extends RecyclerView.Adapter<DownloadAdapter.Downlo
 
             } else if (start == v) {
                 final DownloadInfo info = list.get(mCallback.positionInList(index));
+                // An SMB save is not the phone's download service's business (#59): it belongs to
+                // whichever device claimed it, and starting it here would fetch the same gallery
+                // twice, to two different places.
+                if (com.hippo.ehviewer.smb.SmbTaskInfo.isSmb(info)) {
+                    if (com.hippo.ehviewer.smb.SmbTaskInfo.isActionable(info)) {
+                        com.hippo.ehviewer.smb.SmbDirectDownloader.getInstance().resume(info.gid);
+                    }
+                    return;
+                }
                 Intent intent = new Intent(context, DownloadService.class);
                 intent.setAction(DownloadService.ACTION_START);
                 intent.putExtra(DownloadService.KEY_GALLERY_INFO, info);
                 context.startService(intent);
             } else if (stop == v) {
+                final DownloadInfo info = list.get(mCallback.positionInList(index));
+                if (com.hippo.ehviewer.smb.SmbTaskInfo.isSmb(info)) {
+                    if (com.hippo.ehviewer.smb.SmbTaskInfo.isActionable(info)) {
+                        com.hippo.ehviewer.smb.SmbDirectDownloader.getInstance().pause(info.gid);
+                    }
+                    return;
+                }
                 DownloadManager downloadManager = mCallback.getDownloadManager();
                 if (null != downloadManager) {
-                    downloadManager.stopDownload(list.get(mCallback.positionInList(index)).gid);
+                    downloadManager.stopDownload(info.gid);
                 }
             }
         }

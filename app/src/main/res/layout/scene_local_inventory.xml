@@ -25,15 +25,7 @@
             app:backgroundTint="?attr/widgetColorThemeAccent"
             app:srcCompat="@drawable/ic_twotone_sort_24" />
 
-        <!-- Secondary 1: download tasks -->
-        <com.google.android.material.floatingactionbutton.FloatingActionButton
-            style="@style/Widget.Design.FloatingActionButton.Mini"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            app:backgroundTint="?attr/widgetColorThemeAccent"
-            app:srcCompat="@drawable/v_cloud_download_dark_x24" />
-
-        <!-- Secondary 2: go to page -->
+        <!-- Secondary 1: go to page -->
         <com.google.android.material.floatingactionbutton.FloatingActionButton
             style="@style/Widget.Design.FloatingActionButton.Mini"
             android:layout_width="wrap_content"
@@ -41,7 +33,7 @@
             app:backgroundTint="?attr/widgetColorThemeAccent"
             app:srcCompat="@drawable/v_go_to_dark_x24" />
 
-        <!-- Secondary 3: refresh -->
+        <!-- Secondary 2: refresh -->
         <com.google.android.material.floatingactionbutton.FloatingActionButton
             style="@style/Widget.Design.FloatingActionButton.Mini"
             android:layout_width="wrap_content"

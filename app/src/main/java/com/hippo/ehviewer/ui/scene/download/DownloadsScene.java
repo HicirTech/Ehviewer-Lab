@@ -111,6 +111,7 @@ import com.hippo.lib.yorozuya.collect.LongList;
 import com.hippo.ripple.Ripple;
 import com.hippo.unifile.UniFile;
 import com.hippo.util.DrawableManager;
+import com.hippo.lib.yorozuya.SimpleHandler;
 import com.hippo.util.IoThreadPoolExecutor;
 import com.hippo.view.ViewTransition;
 import com.hippo.widget.FabLayout;
@@ -163,6 +164,54 @@ public class DownloadsScene extends ToolbarScene
     private DownloadManager mDownloadManager;
     @Nullable
     public String mLabel;
+
+    /**
+     * The SMB saves every device has published, as of the last read (#59).
+     *
+     * <p>Held apart from {@code mList} until {@link #updateForLabel} merges them: they come from
+     * the share rather than the database, and arrive on their own schedule. Empty until the first
+     * read lands, so the local downloads are never kept waiting on a NAS that may not answer.
+     */
+    @NonNull
+    private volatile List<com.hippo.ehviewer.smb.SmbTaskInfo> mSmbTasks = new ArrayList<>();
+
+    /** Our own downloader says when its queue changes; other devices' changes arrive on the next read. */
+    private final com.hippo.ehviewer.smb.SmbDirectDownloader.TaskObserver mSmbTaskObserver =
+            this::refreshSmbTasks;
+
+    /**
+     * Re-reads the shared list off the main thread and redraws when it lands.
+     *
+     * <p>SMB is a feature that can be switched off, and when it is this screen is an ordinary
+     * download list again: no share is read and nothing of its is shown. Checked on every refresh
+     * rather than once at startup, so turning it off empties the list rather than leaving whatever
+     * was on screen when the switch flipped.
+     */
+    private void refreshSmbTasks() {
+        final boolean enabled = Settings.getSmbSaveEnabled()
+                && com.hippo.ehviewer.smb.SmbStorage.isConfigured();
+        if (!enabled) {
+            SimpleHandler.getInstance().post(() -> {
+                if (!mSmbTasks.isEmpty()) {
+                    mSmbTasks = new ArrayList<>();
+                    if (mDownloadManager != null) {
+                        updateForLabel();
+                    }
+                }
+            });
+            return;
+        }
+        IoThreadPoolExecutor.Companion.getInstance().execute(() -> {
+            final List<com.hippo.ehviewer.smb.SmbTaskInfo> fresh =
+                    com.hippo.ehviewer.smb.SmbDirectDownloader.getInstance().snapshotSharedTasks();
+            SimpleHandler.getInstance().post(() -> {
+                mSmbTasks = fresh;
+                if (mDownloadManager != null) {
+                    updateForLabel();
+                }
+            });
+        });
+    }
     @Nullable
     private List<DownloadInfo> mList;
     @Nullable
@@ -293,6 +342,8 @@ public class DownloadsScene extends ToolbarScene
         AssertUtils.assertNotNull(context);
         mDownloadManager = EhApplication.getDownloadManager(context);
         mDownloadManager.addDownloadInfoListener(this);
+        com.hippo.ehviewer.smb.SmbDirectDownloader.getInstance().addTaskObserver(mSmbTaskObserver);
+        refreshSmbTasks();
         canPagination = Settings.getDownloadPagination();
         if (savedInstanceState == null) {
             onInit();
@@ -306,6 +357,8 @@ public class DownloadsScene extends ToolbarScene
     public void onDestroy() {
         super.onDestroy();
         mList = null;
+        com.hippo.ehviewer.smb.SmbDirectDownloader.getInstance()
+                .removeTaskObserver(mSmbTaskObserver);
 
         DownloadManager manager = mDownloadManager;
         if (null == manager) {
@@ -326,6 +379,32 @@ public class DownloadsScene extends ToolbarScene
     }
 
     @SuppressLint("NotifyDataSetChanged")
+    /**
+     * Pulls the SMB saves out of a set of selected gids, leaving the database-backed ones behind.
+     *
+     * <p>A multi-select can span both kinds. Handing the whole set to DownloadManager would leave
+     * the SMB ones untouched while the UI reported success, so they are separated here and each
+     * half is sent where it belongs.
+     */
+    @NonNull
+    private List<com.hippo.ehviewer.smb.SmbTaskInfo> extractSmbTasks(@NonNull LongList gidList) {
+        List<com.hippo.ehviewer.smb.SmbTaskInfo> smb = new ArrayList<>();
+        List<DownloadInfo> list = mList;
+        if (list == null) {
+            return smb;
+        }
+        for (DownloadInfo info : list) {
+            if (info instanceof com.hippo.ehviewer.smb.SmbTaskInfo
+                    && gidList.contains(info.gid)) {
+                smb.add((com.hippo.ehviewer.smb.SmbTaskInfo) info);
+            }
+        }
+        for (com.hippo.ehviewer.smb.SmbTaskInfo t : smb) {
+            gidList.remove(t.gid);
+        }
+        return smb;
+    }
+
     public void updateForLabel() {
         if (null == mDownloadManager) {
             return;
@@ -341,9 +420,24 @@ public class DownloadsScene extends ToolbarScene
             }
         }
 
+        // SMB saves sit among the phone's downloads rather than in a screen of their own, and
+        // first, because they are the ones in flight. Only in the default view -- a label is a
+        // database column and these have no row.
+        List<com.hippo.ehviewer.smb.SmbTaskInfo> smb = mSmbTasks;
+        if (mLabel == null && !smb.isEmpty() && mList != null) {
+            List<DownloadInfo> combined = new ArrayList<>(smb.size() + mList.size());
+            combined.addAll(smb);
+            combined.addAll(mList);
+            mList = combined;
+        }
+
         if (mAdapter != null) {
             mAdapter.notifyDataSetChanged();
         }
+        // The list can now change without a DownloadManager callback -- the share is read
+        // asynchronously -- and the empty-state view was only ever switched from those callbacks.
+        // Without this the first SMB task arrives into a screen still saying there is nothing here.
+        updateView();
         mBackList = mList;
 //        filterByCategory();
         updateTitle();
@@ -768,6 +862,13 @@ public class DownloadsScene extends ToolbarScene
                 if (null != mDownloadManager) {
                     mDownloadManager.stopAllDownload();
                 }
+                // "Stop all" means all of them, including the ones on the share that this device
+                // is responsible for. Other devices' downloads are theirs to stop.
+                for (com.hippo.ehviewer.smb.SmbTaskInfo t : mSmbTasks) {
+                    if (com.hippo.ehviewer.smb.SmbTaskInfo.isActionable(t)) {
+                        com.hippo.ehviewer.smb.SmbDirectDownloader.getInstance().pause(t.gid);
+                    }
+                }
                 return true;
             }
             case R.id.action_reset_reading_progress: {
@@ -1118,6 +1219,11 @@ public class DownloadsScene extends ToolbarScene
                 case 2: { // Stop
                     if (gidList.isEmpty()) {
                         break;
+                    }
+                    for (com.hippo.ehviewer.smb.SmbTaskInfo t : extractSmbTasks(gidList)) {
+                        if (com.hippo.ehviewer.smb.SmbTaskInfo.isActionable(t)) {
+                            com.hippo.ehviewer.smb.SmbDirectDownloader.getInstance().pause(t.gid);
+                        }
                     }
                     if (null != mDownloadManager) {
                         mDownloadManager.stopRangeDownload(gidList);
@@ -1867,7 +1973,15 @@ public class DownloadsScene extends ToolbarScene
             }
 
             // Delete
-            if (null != mDownloadManager) {
+            if (mGalleryInfo instanceof com.hippo.ehviewer.smb.SmbTaskInfo) {
+                // No database row to remove; cancelling releases the claim and wipes whatever was
+                // written to the share.
+                if (com.hippo.ehviewer.smb.SmbTaskInfo.isActionable(
+                        (DownloadInfo) mGalleryInfo)) {
+                    com.hippo.ehviewer.smb.SmbDirectDownloader.getInstance()
+                            .cancel(mGalleryInfo.gid);
+                }
+            } else if (null != mDownloadManager) {
                 mDownloadManager.deleteDownload(mGalleryInfo.gid);
             }
 
@@ -1911,6 +2025,11 @@ public class DownloadsScene extends ToolbarScene
             }
 
             // Delete
+            for (com.hippo.ehviewer.smb.SmbTaskInfo t : extractSmbTasks(mGidList)) {
+                if (com.hippo.ehviewer.smb.SmbTaskInfo.isActionable(t)) {
+                    com.hippo.ehviewer.smb.SmbDirectDownloader.getInstance().cancel(t.gid);
+                }
+            }
             if (null != mDownloadManager) {
                 mDownloadManager.deleteRangeDownload(mGidList);
             }
@@ -1960,7 +2079,15 @@ public class DownloadsScene extends ToolbarScene
             } else {
                 label = mLabels[which];
             }
-            EhApplication.getDownloadManager(context).changeLabel(mDownloadInfoList, label);
+            // A label is a column on a database row. SMB saves have neither, so they are dropped
+            // from the selection rather than silently ignored deeper down.
+            List<DownloadInfo> labellable = new ArrayList<>(mDownloadInfoList.size());
+            for (DownloadInfo info : mDownloadInfoList) {
+                if (!com.hippo.ehviewer.smb.SmbTaskInfo.isSmb(info)) {
+                    labellable.add(info);
+                }
+            }
+            EhApplication.getDownloadManager(context).changeLabel(labellable, label);
         }
     }
 

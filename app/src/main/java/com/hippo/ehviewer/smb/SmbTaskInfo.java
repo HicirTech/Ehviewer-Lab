@@ -87,4 +87,19 @@ public final class SmbTaskInfo extends DownloadInfo {
     public static boolean isSmb(@Nullable DownloadInfo info) {
         return info instanceof SmbTaskInfo;
     }
+
+    /**
+     * Whether this device may act on the item at all.
+     *
+     * <p>Another device's running download is not ours to pause or delete — it would carry on
+     * regardless, since the decision lives in the process doing the work. An abandoned one is the
+     * exception, which is what makes orphans recoverable.
+     */
+    public static boolean isActionable(@Nullable DownloadInfo info) {
+        if (!(info instanceof SmbTaskInfo)) {
+            return true;   // an ordinary download, handled the ordinary way
+        }
+        SmbTaskInfo smb = (SmbTaskInfo) info;
+        return smb.mine || !smb.ownerAlive;
+    }
 }

@@ -91,10 +91,13 @@ public class LocalInventoryScene extends ToolbarScene
     private static final int PAGE_SIZE = 50;
 
     // Secondary FAB positions, in the order they're declared in scene_local_inventory.xml.
+    //
+    // There used to be a "download tasks" entry here, opening a screen of its own. SMB saves now
+    // appear in the ordinary download list alongside the phone's (#59), so this screen is for
+    // browsing what is already on the share and nothing else.
     private static final int FAB_SORT = 0;
-    private static final int FAB_DOWNLOAD_TASKS = 1;
-    private static final int FAB_GO_TO = 2;
-    private static final int FAB_REFRESH = 3;
+    private static final int FAB_GO_TO = 1;
+    private static final int FAB_REFRESH = 2;
 
     @Nullable
     private EasyRecyclerView mRecyclerView;
@@ -206,9 +209,6 @@ public class LocalInventoryScene extends ToolbarScene
         switch (position) {
             case FAB_SORT:
                 showSortDialog();
-                break;
-            case FAB_DOWNLOAD_TASKS:
-                startScene(new Announcer(SmbDownloadTasksScene.class));
                 break;
             case FAB_GO_TO:
                 showGoToDialog();
