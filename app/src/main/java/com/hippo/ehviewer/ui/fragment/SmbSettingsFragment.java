@@ -212,8 +212,12 @@ public class SmbSettingsFragment extends PreferenceFragmentCompat implements Pre
         IoThreadPoolExecutor.Companion.getInstance().execute(() -> {
             CharSequence message;
             try {
-                SmbStorage.testConnection();
-                message = appContext.getString(R.string.settings_smb_test_success);
+                // Non-null means the share is reachable but something about the setup needs
+                // saying — currently only that the gallery directory could not be created.
+                String warning = SmbStorage.testConnection();
+                message = warning == null
+                        ? appContext.getString(R.string.settings_smb_test_success)
+                        : appContext.getString(R.string.settings_smb_test_success) + "\n" + warning;
             } catch (Exception e) {
                 message = appContext.getString(R.string.settings_smb_test_failed, e.getMessage());
             }

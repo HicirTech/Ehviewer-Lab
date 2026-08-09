@@ -80,6 +80,43 @@ public class SmbPathsTest {
                 SmbPaths.buildShareUrl(null, null, "media", null));
     }
 
+    // --- buildGalleryRootUrl ------------------------------------------------------------------
+    //
+    // Galleries moved a level down, out of the configured share path, so that the per-client
+    // download state and the gallery index have somewhere to live that the gallery listing never
+    // enumerates. Everything reading or writing a gallery goes through this.
+
+    @Test
+    public void galleryRoot_appendsTheGalleryDirectory() {
+        assertEquals("smb://host/media/ehviewer/download/",
+                SmbPaths.buildGalleryRootUrl("smb://host/media/ehviewer/"));
+    }
+
+    /**
+     * buildShareUrl always ends in a slash today, but a caller that hands over one without would
+     * otherwise produce "…ehviewerdownload/" — a silently wrong path rather than a failure.
+     */
+    @Test
+    public void galleryRoot_insertsTheSeparatorWhenTheShareUrlLacksOne() {
+        assertEquals("smb://host/media/download/",
+                SmbPaths.buildGalleryRootUrl("smb://host/media"));
+    }
+
+    @Test
+    public void galleryRoot_composesWithBuildShareUrl() {
+        assertEquals("smb://192.168.1.10/media/ehviewer/download/",
+                SmbPaths.buildGalleryRootUrl(
+                        SmbPaths.buildShareUrl("192.168.1.10", "445", "media", "/ehviewer/")));
+    }
+
+    /** The share root itself stays reachable — it is what the connection test checks. */
+    @Test
+    public void galleryRoot_isBelowTheShareRootNotInsteadOfIt() {
+        String share = SmbPaths.buildShareUrl("host", "445", "media", "/");
+        assertEquals("smb://host/media/", share);
+        assertTrue(SmbPaths.buildGalleryRootUrl(share).startsWith(share));
+    }
+
     // --- isGalleryFolderName -----------------------------------------------------------------
     //
     // The share root is never only galleries, and the enumeration cannot afford to check each

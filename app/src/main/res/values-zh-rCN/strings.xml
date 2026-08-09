@@ -1051,6 +1051,7 @@
     <string name="settings_smb_password_summary">可选，留空则以访客身份连接</string>
     <string name="settings_smb_test">测试连接</string>
     <string name="settings_smb_test_success">SMB 连接成功！</string>
+    <string name="smb_test_warn_gallery_dir">已连接,但无法创建「%1$s」文件夹 —— 共享可能是只读的。</string>
     <string name="settings_smb_test_failed">SMB 连接失败：%s</string>
     <string name="settings_smb_category_advanced">高级</string>
     <string name="settings_smb_disable_signing">禁用 SMB 签名</string>
