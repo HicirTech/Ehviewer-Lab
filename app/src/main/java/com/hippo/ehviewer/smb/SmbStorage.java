@@ -213,6 +213,12 @@ public final class SmbStorage {
      * no {@code mkdirs()}). {@link #getGalleryDir} did two existence round-trips (plus a possible
      * mkdirs) on every call, which is pure waste on the read path where the folder already exists —
      * and that cost was paid once per page, per existence probe. Read-only callers use this.
+     *
+     * <p>Waste is not the only reason. A query that creates a directory leaves one behind whenever
+     * the answer turns out to be "no and nothing follows" — an empty {@code <gid>-<title>/} that
+     * the inventory then counts towards its page total while rendering nothing for it. That is how
+     * this was found: the cross-client claim check in #59 returns after the completeness check, and
+     * every blocked enqueue littered the share.
      */
     @NonNull
     private static SmbFile resolveGalleryDir(@NonNull GalleryInfo info) throws IOException {
@@ -284,7 +290,7 @@ public final class SmbStorage {
 
     public static boolean isGallerySynced(@NonNull GalleryInfo info) {
         try {
-            SmbFile metadata = new SmbFile(getGalleryDir(info), METADATA_FILE);
+            SmbFile metadata = new SmbFile(resolveGalleryDir(info), METADATA_FILE);
             return metadata.exists();
         } catch (Throwable e) {
             return false;
@@ -354,7 +360,7 @@ public final class SmbStorage {
     public static boolean isGalleryComplete(@NonNull GalleryInfo info) {
         long tPerf = SystemClock.elapsedRealtime();
         try {
-            SmbFile galleryDir = getGalleryDir(info);
+            SmbFile galleryDir = resolveGalleryDir(info);
             SmbFile metadata = new SmbFile(galleryDir, METADATA_FILE);
             if (!metadata.exists()) {
                 return false;
@@ -490,7 +496,7 @@ public final class SmbStorage {
     public static InputStream openSpiderInfoInputStream(@NonNull GalleryInfo info) {
         long t0 = SystemClock.elapsedRealtime();
         try {
-            SmbFile file = new SmbFile(getGalleryDir(info), SPIDER_INFO_FILE);
+            SmbFile file = new SmbFile(resolveGalleryDir(info), SPIDER_INFO_FILE);
             if (!file.exists()) {
                 Log.i("SmbPerf", "spiderInfo.read gid=" + info.gid + " missing " + (SystemClock.elapsedRealtime() - t0) + "ms");
                 return null;
@@ -537,7 +543,7 @@ public final class SmbStorage {
      */
     @Nullable
     private static SmbFile findSmbCoverFile(@NonNull GalleryInfo info) throws IOException {
-        SmbFile galleryDir = getGalleryDir(info);
+        SmbFile galleryDir = resolveGalleryDir(info);
         for (String extension : com.hippo.ehviewer.gallery.GalleryProvider2.SUPPORT_IMAGE_EXTENSIONS) {
             SmbFile file = new SmbFile(galleryDir, "cover" + extension);
             if (file.exists()) {
