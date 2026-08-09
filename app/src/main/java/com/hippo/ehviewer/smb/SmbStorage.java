@@ -99,8 +99,9 @@ public final class SmbStorage {
                 !TextUtils.isEmpty(Settings.getSmbShareName());
     }
 
+    // Package-private: SmbDownloadStateStore connects to the same share the same way.
     @NonNull
-    private static CIFSContext buildContext() {
+    static CIFSContext buildContext() {
         CIFSContext base = baseContext();
         String username = Settings.getSmbUsername();
         if (TextUtils.isEmpty(username)) {
@@ -164,9 +165,12 @@ public final class SmbStorage {
         return SmbPaths.buildGalleryRootUrl(buildSmbUrl());
     }
 
-    /** The configured share path itself. Only connectivity checks and directory setup use this. */
+    /**
+     * The configured share path itself. Connectivity checks and directory setup use it directly;
+     * everything else goes through {@link #galleryRootUrl()} or {@code SmbPaths.buildStateRootUrl}.
+     */
     @NonNull
-    private static String buildSmbUrl() {
+    static String buildSmbUrl() {
         return SmbPaths.buildShareUrl(
                 Settings.getSmbHost(),
                 Settings.getSmbPort(),
