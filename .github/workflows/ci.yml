@@ -32,12 +32,11 @@ jobs:
       - name: Build debug APK
         run: ./gradlew :app:assembleAppReleaseDebug --no-daemon
 
-      # Not a hard gate yet: 14 inherited upstream test defects are fixed on the
-      # branch for issue #21 but not merged. Flip continue-on-error to false once
-      # #21 lands and the suite is green.
+      # A hard gate since #21: the suite is green (73/73), so any red is a real
+      # regression. Do not reintroduce continue-on-error — a test that cannot fail
+      # the build constrains nothing, which is the whole point of #40.
       - name: Unit tests
         id: tests
-        continue-on-error: true
         run: ./gradlew :app:testAppReleaseDebugUnitTest --no-daemon
 
       - name: Upload test reports
