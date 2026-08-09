@@ -40,6 +40,15 @@ jobs:
         continue-on-error: true
         run: ./gradlew :app:testAppReleaseDebugUnitTest --no-daemon
 
+      # The release scripts are Bun, not Gradle, so they need their own step. Cheap:
+      # pure functions, no Android, no network. Guards the invariants in #44 (a
+      # non-monotonic versionCode makes installed devices refuse the update).
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+
+      - name: Release-pipeline tests
+        run: bun test script/
+
       - name: Upload test reports
         if: always()
         uses: actions/upload-artifact@v7
