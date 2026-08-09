@@ -98,6 +98,10 @@
     <string name="local_inventory_sort_posted_date">Posted date (newest first)</string>
     <string name="local_inventory_sort_title_az">Title (A–Z)</string>
     <string name="local_inventory_sort_category">Category</string>
+    <string name="local_inventory_delete">Delete from SMB share</string>
+    <string name="local_inventory_delete_confirm_title">Delete this gallery?</string>
+    <string name="local_inventory_delete_confirm_message">“%s” will be erased from the SMB share. This cannot be undone.</string>
+    <string name="local_inventory_delete_failed">Could not delete it from the SMB share</string>
     <string name="news">News</string>
     <string name="settings">Settings</string>
     <string name="stub" translatable="false">Stub</string>

@@ -18,6 +18,7 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -36,12 +37,15 @@ import com.hippo.ehviewer.client.EhCacheKeyFactory;
 import com.hippo.ehviewer.client.EhUtils;
 import com.hippo.ehviewer.client.data.GalleryInfo;
 import com.hippo.ehviewer.smb.SmbCoverDataContainer;
+import com.hippo.ehviewer.smb.SmbDirectDownloader;
 import com.hippo.ehviewer.smb.SmbMetadata;
 import com.hippo.ehviewer.smb.SmbPaths;
+import com.hippo.ehviewer.smb.SmbPreviewCache;
 import com.hippo.ehviewer.smb.SmbSortMode;
 import com.hippo.ehviewer.smb.SmbStorage;
 import com.hippo.ehviewer.ui.GalleryActivity;
 import com.hippo.ehviewer.ui.scene.ToolbarScene;
+import com.hippo.ehviewer.ui.dialog.SelectItemWithIconAdapter;
 import com.hippo.ehviewer.ui.scene.gallery.detail.GalleryDetailScene;
 import com.hippo.ehviewer.widget.GalleryInfoContentHelper;
 import com.hippo.ehviewer.widget.SimpleRatingView;
@@ -80,7 +84,8 @@ import java.util.concurrent.TimeoutException;
  * a full up-front sweep.
  */
 public class LocalInventoryScene extends ToolbarScene
-        implements EasyRecyclerView.OnItemClickListener, FabLayout.OnClickFabListener {
+        implements EasyRecyclerView.OnItemClickListener, EasyRecyclerView.OnItemLongClickListener,
+        FabLayout.OnClickFabListener {
 
     // Galleries read per page. Bounds the SMB metadata reads done before a page can render.
     private static final int PAGE_SIZE = 50;
@@ -145,6 +150,7 @@ public class LocalInventoryScene extends ToolbarScene
         mRecyclerView.setDrawSelectorOnTop(true);
         mRecyclerView.setClipToPadding(false);
         mRecyclerView.setOnItemClickListener(this);
+        mRecyclerView.setOnItemLongClickListener(this);
 
         int interval = resources.getDimensionPixelOffset(R.dimen.gallery_list_interval);
         int paddingH = resources.getDimensionPixelOffset(R.dimen.gallery_list_margin_h);
@@ -301,6 +307,129 @@ public class LocalInventoryScene extends ToolbarScene
         }
         openDetail(gi);
         return true;
+    }
+
+    /**
+     * Long press opens the per-gallery action menu. Built the same way the online gallery list
+     * builds its own (an {@link AlertDialog} over a {@link SelectItemWithIconAdapter}), so the two
+     * lists behave alike. Only one action for now; re-sync joins it later.
+     */
+    @Override
+    public boolean onItemLongClick(EasyRecyclerView parent, View view, int position, long id) {
+        Context context = getEHContext();
+        if (context == null || mHelper == null) {
+            return false;
+        }
+        GalleryInfo gi = mHelper.getDataAtEx(position);
+        if (gi == null) {
+            return true;
+        }
+
+        CharSequence[] items = new CharSequence[]{
+                context.getString(R.string.local_inventory_delete),
+        };
+        int[] icons = new int[]{
+                R.drawable.v_delete_x24,
+        };
+
+        new AlertDialog.Builder(context)
+                .setTitle(EhUtils.getSuitableTitle(gi))
+                .setAdapter(new SelectItemWithIconAdapter(context, items, icons), (dialog, which) -> {
+                    if (which == 0) {
+                        confirmDelete(gi);
+                    }
+                })
+                .show();
+        return true;
+    }
+
+    /** Deleting the on-share folder cannot be undone, so it always goes through a confirmation. */
+    private void confirmDelete(@NonNull GalleryInfo gi) {
+        Context context = getEHContext();
+        if (context == null) {
+            return;
+        }
+        new AlertDialog.Builder(context)
+                .setTitle(R.string.local_inventory_delete_confirm_title)
+                .setMessage(getString(R.string.local_inventory_delete_confirm_message,
+                        EhUtils.getSuitableTitle(gi)))
+                .setNegativeButton(android.R.string.cancel, null)
+                .setPositiveButton(R.string.local_inventory_delete, (d, w) -> deleteGallery(gi))
+                .show();
+    }
+
+    private void deleteGallery(@NonNull GalleryInfo gi) {
+        Context context = getEHContext();
+        if (context == null) {
+            return;
+        }
+        final Context appContext = context.getApplicationContext();
+        final long gid = gi.gid;
+
+        // A download in flight owns this folder: it holds a SpiderQueen that keeps writing pages
+        // into it, so deleting underneath would just let it reappear half-populated. Cancelling
+        // releases the queen and wipes the folder itself, which is the same end state.
+        boolean beingDownloaded = false;
+        for (SmbDirectDownloader.TaskSnapshot t : SmbDirectDownloader.getInstance().snapshotTasks()) {
+            if (t.gid == gid) {
+                beingDownloaded = true;
+                break;
+            }
+        }
+        if (beingDownloaded) {
+            SmbDirectDownloader.getInstance().cancel(gid);
+            onGalleryDeleted(appContext, gi);
+            return;
+        }
+
+        Runnable task = () -> {
+            final boolean ok = SmbStorage.deleteGalleryFolder(gi);
+            SimpleHandler.getInstance().post(() -> {
+                if (ok) {
+                    onGalleryDeleted(appContext, gi);
+                } else {
+                    // Dropping the row anyway would claim a deletion that did not happen, and the
+                    // gallery would be back on the next refresh.
+                    Toast.makeText(appContext, R.string.local_inventory_delete_failed,
+                            Toast.LENGTH_SHORT).show();
+                }
+            });
+        };
+        if (mExecutor != null) {
+            mExecutor.execute(task);
+        } else {
+            new Thread(task, "LocalInventoryDelete").start();
+        }
+    }
+
+    /** Main thread. Drops every trace of a gallery that is no longer on the share. */
+    private void onGalleryDeleted(@NonNull Context appContext, @NonNull GalleryInfo gi) {
+        // Reads for this gid must stop being routed to SMB now that nothing is there.
+        SmbStorage.unmarkGidAsSmbTarget(gi.gid);
+        // Local leftovers that would otherwise be served for a gallery that no longer exists.
+        SmbPreviewCache.evictGallery(gi.gid);
+        try {
+            EhApplication.getConaco(appContext).getBeerBelly()
+                    .remove(EhCacheKeyFactory.getThumbKey(gi.gid));
+        } catch (Throwable ignored) {
+            // A stale cover is cosmetic; never let it fail the delete.
+        }
+
+        if (mHelper == null) {
+            return;
+        }
+        // Look the row up by gid rather than trusting the position captured before the dialogs:
+        // a refresh may have landed in between.
+        for (int i = 0, n = mHelper.size(); i < n; i++) {
+            GalleryInfo at = mHelper.getDataAt(i);
+            if (at != null && at.gid == gi.gid) {
+                mHelper.removeAt(i);
+                break;
+            }
+        }
+        // The paging cache is only rebuilt on refresh, so a ref left behind here would come back as
+        // a row with no readable metadata the next time that page is fetched.
+        mHelper.forgetRef(SmbPaths.buildGalleryFolderName(gi));
     }
 
     private void openDetail(@Nullable GalleryInfo gi) {
@@ -542,6 +671,37 @@ public class LocalInventoryScene extends ToolbarScene
                 }
             }
             return new PageResult(data, pages);
+        }
+
+        /**
+         * Drops one folder from the cached ordering after it has been deleted from the share.
+         *
+         * <p>Replaces the {@link Ordering} rather than mutating it: {@link #mOrdering} is read from
+         * the load executor, and a page fetch may be walking the very list this is called on.
+         */
+        void forgetRef(@NonNull String folderName) {
+            Ordering current = mOrdering;
+            if (current == null) {
+                return;
+            }
+            List<SmbStorage.GalleryRef> refs = new ArrayList<>(current.refs.size());
+            boolean removed = false;
+            for (SmbStorage.GalleryRef ref : current.refs) {
+                if (!removed && ref.folderName.equals(folderName)) {
+                    removed = true;
+                    continue;
+                }
+                refs.add(ref);
+            }
+            if (!removed) {
+                return;
+            }
+            Map<String, GalleryInfo> infos = null;
+            if (current.infos != null) {
+                infos = new HashMap<>(current.infos);
+                infos.remove(folderName);
+            }
+            mOrdering = new Ordering(refs, infos);
         }
 
         @NonNull
