@@ -338,6 +338,36 @@ public final class SmbDirectDownloader {
     }
 
     /**
+     * Every device's SMB downloads as one list, ready for the download screen.
+     *
+     * <p>This is the view no single file holds: it is computed from what each device published
+     * under {@code state/}, with one entry per gallery even when two of them claim it.
+     *
+     * <p>Performs SMB I/O; call from a worker thread.
+     */
+    @NonNull
+    public List<SmbTaskInfo> snapshotSharedTasks() {
+        if (!SmbStorage.isConfigured()) {
+            return new ArrayList<>();
+        }
+        try {
+            String selfId = Settings.getSmbClientId();
+            List<SmbDownloadState.OwnedTask> merged =
+                    SmbDownloadState.merge(SmbDownloadStateStore.readAll());
+            List<SmbTaskInfo> out = new ArrayList<>(merged.size());
+            for (SmbDownloadState.OwnedTask o : merged) {
+                out.add(SmbTaskInfo.of(o, selfId));
+            }
+            return out;
+        } catch (Throwable e) {
+            // The share being unreachable means we cannot say what anyone is downloading. An empty
+            // list is the honest answer; the local list is unaffected either way.
+            Log.w(TAG, "Could not read the shared task list", e);
+            return new ArrayList<>();
+        }
+    }
+
+    /**
      * Whether some other device that is still alive has already claimed this gallery.
      *
      * <p>The check that stops two devices downloading the same thing. Performs SMB I/O; call from a

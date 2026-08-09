@@ -758,6 +758,108 @@ public class SmbDirectDownloaderTest {
         assertFalse(SmbDirectDownloader.getInstance().isClaimedElsewhere(5));
     }
 
+    // --- the list the download screen shows (#59) -------------------------------------------------
+    //
+    // One row per gallery across every device, adapted to the type the existing list speaks.
+
+    private SmbTaskInfo sharedTask(long gid) {
+        for (SmbTaskInfo t : SmbDirectDownloader.getInstance().snapshotSharedTasks()) {
+            if (t.gid == gid) {
+                return t;
+            }
+        }
+        throw new AssertionError("gallery " + gid + " is not in the shared list");
+    }
+
+    @Test
+    public void sharedList_carriesTheOwningDevicesName() {
+        onShare.add(onShare("other", true,
+                stateTask(5, SmbDownloadState.TaskState.ACTIVE, 100)));
+
+        SmbTaskInfo t = sharedTask(5);
+        assertEquals("other", t.deviceName);
+        assertFalse("someone else's download is not ours to touch", t.mine);
+    }
+
+    @Test
+    public void sharedList_marksOurOwnTasksAsOurs() {
+        onShare.add(onShare(selfId(), true,
+                stateTask(5, SmbDownloadState.TaskState.QUEUED, 100)));
+
+        assertTrue(sharedTask(5).mine);
+    }
+
+    /** The adapter draws from DownloadInfo's fields, so they have to be filled in. */
+    @Test
+    public void sharedList_fillsTheFieldsTheListDrawsFrom() {
+        onShare.add(new SmbDownloadState.Published(
+                new SmbDownloadState.ClientState("other", "Study phone",
+                        java.util.Collections.singletonList(
+                                new SmbDownloadState.Task(5, "tok", "a title",
+                                        SmbDownloadState.TaskState.ACTIVE, 7, 20, 100, null))),
+                true));
+
+        SmbTaskInfo t = sharedTask(5);
+        assertEquals("a title", t.title);
+        assertEquals("tok", t.token);
+        assertEquals(7, t.finished);
+        assertEquals(20, t.total);
+        assertEquals(20, t.pages);
+    }
+
+    @Test
+    public void sharedList_mapsRunningToTheDownloadingState() {
+        onShare.add(onShare("other", true,
+                stateTask(5, SmbDownloadState.TaskState.ACTIVE, 100)));
+
+        assertEquals(com.hippo.ehviewer.dao.DownloadInfo.STATE_DOWNLOAD, sharedTask(5).state);
+    }
+
+    @Test
+    public void sharedList_mapsWaitingToTheWaitingState() {
+        onShare.add(onShare("other", true,
+                stateTask(5, SmbDownloadState.TaskState.QUEUED, 100)));
+
+        assertEquals(com.hippo.ehviewer.dao.DownloadInfo.STATE_WAIT, sharedTask(5).state);
+    }
+
+    /**
+     * A task nobody is beating for is not running, whatever it last said. Drawing it as active
+     * would leave an abandoned download looking busy indefinitely.
+     */
+    @Test
+    public void sharedList_showsAnAbandonedTaskAsFailed() {
+        onShare.add(onShare("other", false,
+                stateTask(5, SmbDownloadState.TaskState.ACTIVE, 100)));
+
+        SmbTaskInfo t = sharedTask(5);
+        assertEquals(com.hippo.ehviewer.dao.DownloadInfo.STATE_FAILED, t.state);
+        assertFalse(t.ownerAlive);
+    }
+
+    /** One row per gallery even when two devices name it; the live claim is the one shown. */
+    @Test
+    public void sharedList_showsOneRowPerGallery() {
+        onShare.add(onShare("dead", false,
+                stateTask(5, SmbDownloadState.TaskState.ACTIVE, 900)));
+        onShare.add(onShare("live", true,
+                stateTask(5, SmbDownloadState.TaskState.QUEUED, 100)));
+
+        assertEquals(1, SmbDirectDownloader.getInstance().snapshotSharedTasks().size());
+        assertEquals("live", sharedTask(5).deviceName);
+    }
+
+    /** The type is what every action branches on, so it has to survive being held as a DownloadInfo. */
+    @Test
+    public void sharedList_isRecognisableThroughTheListsOwnType() {
+        onShare.add(onShare("other", true,
+                stateTask(5, SmbDownloadState.TaskState.ACTIVE, 100)));
+
+        com.hippo.ehviewer.dao.DownloadInfo asPlain = sharedTask(5);
+        assertTrue(SmbTaskInfo.isSmb(asPlain));
+        assertFalse(SmbTaskInfo.isSmb(new com.hippo.ehviewer.dao.DownloadInfo(5)));
+    }
+
     /** The claim is the device's own; re-queuing the same gallery must not restart its clock. */
     @Test
     public void publishes_aStableClaimTimeAcrossUpdates() {
