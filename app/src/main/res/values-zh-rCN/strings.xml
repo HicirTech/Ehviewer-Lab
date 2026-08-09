@@ -670,6 +670,7 @@
     <string name="settings_privacy_enable_analytics">启用数据统计</string>
     <string name="settings_privacy_about_analytics">关于数据统计</string>
     <string name="settings_about_version">版本号</string>
+    <string name="settings_about_version_debug">%1$s · 调试版</string>
     <string name="settings_about_check_for_updates">检查更新</string>
     <string name="settings_close_automatic_updates">关闭自动更新</string>
     <string name="settings_about_beta_update_channel">更新测试版</string>

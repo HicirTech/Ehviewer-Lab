@@ -33,6 +33,11 @@ android {
         versionCode 3
         versionName "2.0.2.3-hl.3"
         vectorDrawables.useSupportLibrary = true
+        // The launcher label. Because debug carries an applicationIdSuffix the two builds install
+        // side by side, and with a single label they arrive as two identical-looking entries on the
+        // home screen. A placeholder rather than a debug source-set override of app_name, which
+        // would only shadow the default locale — app_name is declared in all eleven values-* files.
+        manifestPlaceholders = [appLabel: "@string/app_name"]
         resourceConfigurations += ['zh', 'zh-rCN', 'zh-rHK', 'zh-rTW', 'es', 'ja', 'ko', 'fr', 'de', 'th']
         testOptions.unitTests.includeAndroidResources = true
         multiDexEnabled true
@@ -80,6 +85,9 @@ android {
         debug {
             applicationIdSuffix ".debug"
             buildConfigField 'String', 'FILE_PROVIDER_AUTHORITY', '"com.hicirtech.ehviewer.debug.fileprovider"'
+            // A literal, not a resource: this only ever shows on a development machine, and a
+            // fixed string keeps the marker from depending on the device locale.
+            manifestPlaceholders = [appLabel: "EhViewer@Lab (debug)"]
         }
     }
 
