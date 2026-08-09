@@ -835,6 +835,8 @@
     <string name="settings_privacy_enable_analytics">Enable analytics</string>
     <string name="settings_privacy_about_analytics">About analytics</string>
     <string name="settings_about_version">Build version</string>
+    <!-- Shown in place of the plain version on debug builds only. %1$s is the version name. -->
+    <string name="settings_about_version_debug">%1$s · DEBUG</string>
     <string name="settings_about_check_for_updates">Check for updates</string>
     <string name="settings_close_automatic_updates">Turn off automatic updates</string>
     <string name="settings_about_beta_update_channel">Beta update channel</string>
