@@ -54,6 +54,23 @@ public final class SmbStorage {
     private static final String SPIDER_INFO_FILE = ".ehviewer";
 
     /**
+     * Buffer every SMB stream through this much, because jcifs turns each caller
+     * {@code read(byte[])} / {@code write(byte[])} into its own SMB2 request. The array the caller
+     * happens to pass therefore sets the on-the-wire request size, and a small one splits a
+     * transfer into hundreds of serialized round trips.
+     *
+     * <p>Measured on a real share over WiFi with a 4 MB file (see
+     * {@code ai-workspace/spike/jcifs-write-semantics.md}): writing in 4 KB chunks — which is
+     * exactly what {@code SpiderQueen} does on the download path — manages 0.5 MB/s, while 256 KB
+     * reaches 6.3 MB/s. Reads plateau by 64 KB at 6.8 MB/s. One value covers both.
+     *
+     * <p>Note that jcifs' own {@code rcv_buf_size} does <em>not</em> help: raising it to 1 MB while
+     * still reading through a {@code byte[8192]} left throughput at 1.3 MB/s. The request size
+     * follows the caller's array, not the configuration.
+     */
+    static final int SMB_IO_BUFFER = 256 * 1024;
+
+    /**
      * Per-gid intent mark for routing reads/writes to SMB. Replaces the old global
      * {@code Settings.getSmbSaveEnabled()} routing flag — that was leaking phone downloads
      * onto the SMB share whenever the master toggle was on. Now only galleries explicitly
@@ -403,7 +420,10 @@ public final class SmbStorage {
             SmbFile dir = getGalleryDir(info);
             final SmbFile target = new SmbFile(dir, SPIDER_INFO_FILE);
             final SmbFile temp = new SmbFile(dir, SPIDER_INFO_FILE + ".tmp");
-            final OutputStream out = temp.getOutputStream();
+            // Buffered: the pTokens of a large gallery run to tens of KB and the caller writes
+            // them in small pieces, which would otherwise be one SMB2 WRITE apiece.
+            final OutputStream out = new java.io.BufferedOutputStream(
+                    temp.getOutputStream(), SMB_IO_BUFFER);
             return new OutputStream() {
                 private boolean closed;
 
@@ -548,7 +568,7 @@ public final class SmbStorage {
                     try {
                         // Buffered so the 16KB copy loop drains a 256KB prefetch instead of
                         // issuing one small SMB READ per chunk.
-                        remote = new java.io.BufferedInputStream(file.getInputStream(), 256 * 1024);
+                        remote = new java.io.BufferedInputStream(file.getInputStream(), SMB_IO_BUFFER);
                         local = new java.io.FileOutputStream(tempFile);
                         IOUtils.copy(remote, local);
                     } finally {
@@ -643,7 +663,12 @@ public final class SmbStorage {
                     if (os != null) {
                         throw new IllegalStateException("Please close it first");
                     }
-                    os = finalTarget.getOutputStream();
+                    // SpiderQueen pumps the downloaded page through a byte[4096] (SpiderQueen:1482),
+                    // and that array would otherwise become the SMB2 WRITE size — 0.5 MB/s where the
+                    // link does 6.4. Buffering here rather than widening SpiderQueen's array keeps
+                    // the fix inside the smb package: SpiderQueen is upstream code and already the
+                    // recurring conflict point on every upstream merge.
+                    os = new java.io.BufferedOutputStream(finalTarget.getOutputStream(), SMB_IO_BUFFER);
                     return os;
                 }
 
@@ -703,7 +728,7 @@ public final class SmbStorage {
                     long tOpen;
                     try {
                         // Buffered for the same reason as the cover path above.
-                        remote = new java.io.BufferedInputStream(file.getInputStream(), 256 * 1024);
+                        remote = new java.io.BufferedInputStream(file.getInputStream(), SMB_IO_BUFFER);
                         tOpen = SystemClock.elapsedRealtime();
                         local = new java.io.FileOutputStream(tempFile);
                         IOUtils.copy(remote, local);
@@ -1081,7 +1106,7 @@ public final class SmbStorage {
         // JSON but corrupts pretty-printed metadata blobs and any future caller that
         // expects the file's exact contents.
         ByteArrayOutputStream buffer = new ByteArrayOutputStream();
-        byte[] chunk = new byte[8192];
+        byte[] chunk = new byte[SMB_IO_BUFFER];
         int read;
         while ((read = is.read(chunk)) != -1) {
             buffer.write(chunk, 0, read);
@@ -1089,9 +1114,21 @@ public final class SmbStorage {
         return buffer.toString(StandardCharsets.UTF_8.name());
     }
 
+    /**
+     * Copies one stream into another, at least one end of which is always on the share.
+     *
+     * <p>Deliberately not {@code IOUtils.copy}: its buffer is 4 KB, the slowest setting available
+     * here, and it is a shared utility so widening it would change every unrelated local-file copy
+     * in the app too.
+     */
     private static void copyStream(InputStream in, OutputStream out) throws IOException {
         try {
-            IOUtils.copy(in, out);
+            byte[] chunk = new byte[SMB_IO_BUFFER];
+            int read;
+            while ((read = in.read(chunk)) != -1) {
+                out.write(chunk, 0, read);
+            }
+            out.flush();
         } finally {
             IOUtils.closeQuietly(in);
             IOUtils.closeQuietly(out);
