@@ -1055,6 +1055,8 @@
     <string name="settings_smb_password_summary">選填，留空則以訪客身分連線</string>
     <string name="settings_smb_test">測試連線</string>
     <string name="settings_smb_test_success">SMB 連線成功！</string>
+    <string name="settings_smb_device_name">本機名稱</string>
+    <string name="settings_smb_device_name_summary">你的其它裝置會在這台正在下載的畫廊旁看到這個名字。預設使用機型名。</string>
     <string name="smb_test_warn_gallery_dir">已連線,但無法建立「%1$s」資料夾 —— 共享可能是唯讀的。</string>
     <string name="settings_smb_test_failed">SMB 連線失敗：%s</string>
     <string name="settings_smb_category_advanced">進階</string>

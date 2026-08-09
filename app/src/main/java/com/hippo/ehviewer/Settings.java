@@ -952,6 +952,56 @@ public class Settings {
     }
 
     /**
+     * This installation's identity among the devices sharing the SMB share.
+     *
+     * <p>Generated once and kept forever: it names this device's file under {@code state/}, so
+     * losing it would orphan the tasks that file holds and make this device look like a new one.
+     * Deliberately separate from the display name below — renaming the device must not change
+     * which file is its own.
+     */
+    public static final String KEY_SMB_CLIENT_ID = "smb_client_id";
+
+    /**
+     * Returns this installation's client id, creating it on first use.
+     *
+     * <p>Synchronized because the first call can come from any thread, and two threads racing here
+     * would hand out two different identities for the same device — the second of which would
+     * abandon whatever the first had already published.
+     */
+    @NonNull
+    public static synchronized String getSmbClientId() {
+        String value = getString(KEY_SMB_CLIENT_ID, null);
+        if (value == null || value.isEmpty()) {
+            value = java.util.UUID.randomUUID().toString();
+            putString(KEY_SMB_CLIENT_ID, value);
+        }
+        return value;
+    }
+
+    /**
+     * What this device calls itself when another one is looking at its downloads.
+     *
+     * <p>Empty means "not set", and the getter falls back to the device model. Storing the fallback
+     * would freeze it, so a device that gets renamed in Android would keep reporting the old name.
+     */
+    public static final String KEY_SMB_DEVICE_NAME = "smb_device_name";
+
+    @NonNull
+    public static String getSmbDeviceName() {
+        String value = getString(KEY_SMB_DEVICE_NAME, "");
+        if (value != null) {
+            value = value.trim();
+            if (!value.isEmpty()) {
+                return value;
+            }
+        }
+        // Build.MODEL is a part number rather than a name ("SM-X926B"), but it is at least
+        // recognisable and needs no setup. The user can replace it in SMB settings.
+        String model = android.os.Build.MODEL;
+        return model == null || model.trim().isEmpty() ? "Android" : model.trim();
+    }
+
+    /**
      * Local Inventory sort mode. Values map to {@code SmbSortMode} ordinals
      * (0=DOWNLOAD_DATE_DESC, 1=POSTED_DATE_DESC, 2=TITLE_ASC, 3=CATEGORY).
      * Persisted so the user's preferred order is remembered across sessions.

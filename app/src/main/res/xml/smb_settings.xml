@@ -46,6 +46,13 @@
         app:useSimpleSummaryProvider="false"
         app:iconSpaceReserved="false" />
 
+    <androidx.preference.EditTextPreference
+        android:key="smb_device_name"
+        android:title="@string/settings_smb_device_name"
+        android:summary="@string/settings_smb_device_name_summary"
+        app:useSimpleSummaryProvider="false"
+        app:iconSpaceReserved="false" />
+
     <PreferenceCategory android:title="@string/settings_smb_category_credentials" />
 
     <androidx.preference.EditTextPreference

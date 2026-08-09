@@ -35,6 +35,8 @@ public class SmbSettingsFragment extends PreferenceFragmentCompat implements Pre
     @Nullable
     private EditTextPreference mSharePath;
     @Nullable
+    private EditTextPreference mDeviceName;
+    @Nullable
     private EditTextPreference mUsername;
     @Nullable
     private EditTextPreference mPassword;
@@ -58,6 +60,7 @@ public class SmbSettingsFragment extends PreferenceFragmentCompat implements Pre
         mPort = findPreference(Settings.KEY_SMB_PORT);
         mShareName = findPreference(Settings.KEY_SMB_SHARE_NAME);
         mSharePath = findPreference(Settings.KEY_SMB_SHARE_PATH);
+        mDeviceName = findPreference(Settings.KEY_SMB_DEVICE_NAME);
         mUsername = findPreference(Settings.KEY_SMB_USERNAME);
         mPassword = findPreference(Settings.KEY_SMB_PASSWORD);
         mTestConnection = findPreference("smb_test_connection");
@@ -92,6 +95,13 @@ public class SmbSettingsFragment extends PreferenceFragmentCompat implements Pre
             cacheHint(mSharePath, null);
             mSharePath.setOnPreferenceChangeListener(this);
             updateTextSummary(mSharePath, Settings.getSmbSharePath());
+        }
+        if (mDeviceName != null) {
+            cacheHint(mDeviceName, null);
+            mDeviceName.setOnPreferenceChangeListener(this);
+            // Shows the resolved name, so an unset field displays the model that will actually be
+            // published rather than looking empty.
+            updateTextSummary(mDeviceName, Settings.getSmbDeviceName());
         }
         if (mUsername != null) {
             // Username has no XML summary — fall back to a generic "tap to set" hint.
@@ -140,6 +150,10 @@ public class SmbSettingsFragment extends PreferenceFragmentCompat implements Pre
             updateTextSummary(mShareName, value);
         } else if (preference == mSharePath) {
             updateTextSummary(mSharePath, value);
+        } else if (preference == mDeviceName) {
+            // Clearing it falls back to the model name, so show that rather than the empty value.
+            updateTextSummary(mDeviceName,
+                    value.trim().isEmpty() ? Settings.getSmbDeviceName() : value);
         } else if (preference == mUsername) {
             updateTextSummary(mUsername, value);
         } else if (preference == mPassword) {
@@ -154,6 +168,7 @@ public class SmbSettingsFragment extends PreferenceFragmentCompat implements Pre
         if (mPort != null) mPort.setEnabled(enabled);
         if (mShareName != null) mShareName.setEnabled(enabled);
         if (mSharePath != null) mSharePath.setEnabled(enabled);
+        if (mDeviceName != null) mDeviceName.setEnabled(enabled);
         if (mUsername != null) mUsername.setEnabled(enabled);
         if (mPassword != null) mPassword.setEnabled(enabled);
         if (mTestConnection != null) mTestConnection.setEnabled(enabled);
