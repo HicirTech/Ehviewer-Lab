@@ -191,7 +191,7 @@ public final class SmbPreviewCache {
         InputStream in = null;
         OutputStream out = null;
         try {
-            in = new java.io.BufferedInputStream(remote.getInputStream(), 256 * 1024);
+            in = new java.io.BufferedInputStream(remote.getInputStream(), SmbStorage.SMB_IO_BUFFER);
             out = new FileOutputStream(tmp);
             byte[] buf = new byte[16 * 1024];
             int n;
