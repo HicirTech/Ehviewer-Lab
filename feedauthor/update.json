@@ -1,14 +1,17 @@
 {
-  "version": "2.0.2.3-hl.2",
-  "versionCode": 2,
+  "version": "2.0.2.3-hl.3",
+  "versionCode": 3,
   "mustUpdate": false,
   "updateContent": {
-    "fileDownloadUrl": "https://github.com/HicirTech/Ehviewer-Lab/releases/tag/v2.0.2.3-hl.2",
-    "title": "EhViewer@Lab 2.0.2.3-hl.2",
+    "fileDownloadUrl": "https://github.com/HicirTech/Ehviewer-Lab/releases/tag/v2.0.2.3-hl.3",
+    "title": "EhViewer@Lab 2.0.2.3-hl.3",
     "content": [
-      "新增 script/ 发版脚本(bump-version / release,Bun 跨平台)",
-      "CI Actions 全面升级,消除弃用警告",
-      "清理上游遗留文件(个人文档/收款码/死配置)"
+      "修复 SMB 自动下载时阅读新画廊会出现特定页加载失败",
+      "修复非全屏界面底部常驻的不透明色块",
+      "修复阅读器新手引导每次启动重复弹出",
+      "「更新」改为打开本版本对应的 release 页(此前跳到上游仓库 README)",
+      "精简权限:移除相机、安装应用、下载管理器,以及 Firebase 注入的广告 ID 权限",
+      "内部:补齐 126 项单元测试,CI 现在会因测试失败挡住合并"
     ]
   }
 }
