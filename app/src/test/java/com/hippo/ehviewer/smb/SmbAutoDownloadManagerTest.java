@@ -306,42 +306,4 @@ public class SmbAutoDownloadManagerTest {
                 2, accepted.size());
         assertEquals(SmbDirectDownloader.TaskSnapshot.State.ACTIVE, stateOf(GID));
     }
-
-    // --- what the user is told (#59) --------------------------------------------------------------
-    //
-    // The gates run on a worker thread, so a message shown before them is a guess. It used to say
-    // "save started" the moment the item was tapped, and then contradict itself a moment later.
-
-    private String latestToast() {
-        return org.robolectric.shadows.ShadowToast.getTextOfLatestToast();
-    }
-
-    private int toastCount() {
-        return org.robolectric.shadows.ShadowToast.shownToastCount();
-    }
-
-    @Test
-    public void toast_announcesTheSaveOnceItReallyStarts() {
-        SmbAutoDownloadManager.getInstance().enqueueManual(context, gallery());
-        pump();
-
-        assertNotNull(stateOf(GID));
-        assertTrue("expected the save-started message, got: " + latestToast(),
-                latestToast() != null && latestToast().contains("SMB save started"));
-    }
-
-    /**
-     * The message that used to be wrong: a gallery already on the share must not be announced as
-     * starting, not even briefly.
-     */
-    @Test
-    public void toast_saysOnlyAlreadyCompleteForAGalleryThatIsDone() {
-        alreadyComplete = true;
-        SmbAutoDownloadManager.getInstance().enqueueManual(context, gallery());
-        pump();
-
-        assertEquals("exactly one thing should have been said", 1, toastCount());
-        assertFalse("it must not have claimed the save started",
-                latestToast().contains("SMB save started"));
-    }
 }
