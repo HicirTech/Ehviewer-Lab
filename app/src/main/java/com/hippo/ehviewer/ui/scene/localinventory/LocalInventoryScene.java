@@ -13,7 +13,9 @@ import android.content.Intent;
 import android.content.res.Resources;
 import android.graphics.Color;
 import android.graphics.drawable.ColorDrawable;
+import android.graphics.drawable.GradientDrawable;
 import android.os.Bundle;
+import android.util.TypedValue;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -37,12 +39,14 @@ import com.hippo.ehviewer.client.EhCacheKeyFactory;
 import com.hippo.ehviewer.client.EhUtils;
 import com.hippo.ehviewer.client.data.GalleryInfo;
 import com.hippo.ehviewer.smb.SmbCoverDataContainer;
+import com.hippo.ehviewer.smb.SmbDeviceColor;
 import com.hippo.ehviewer.smb.SmbDirectDownloader;
 import com.hippo.ehviewer.smb.SmbMetadata;
 import com.hippo.ehviewer.smb.SmbPaths;
 import com.hippo.ehviewer.smb.SmbPreviewCache;
 import com.hippo.ehviewer.smb.SmbSortMode;
 import com.hippo.ehviewer.smb.SmbStorage;
+import com.hippo.ehviewer.smb.SmbTaskInfo;
 import com.hippo.ehviewer.ui.GalleryActivity;
 import com.hippo.ehviewer.ui.scene.ToolbarScene;
 import com.hippo.ehviewer.ui.dialog.SelectItemWithIconAdapter;
@@ -111,6 +115,32 @@ public class LocalInventoryScene extends ToolbarScene
     @Nullable
     private ExecutorService mExecutor;
 
+    // ---------- "someone is downloading this" badge (#77) ----------
+
+    /**
+     * Which device has claimed each gallery, by gid. Empty when nothing is being downloaded, which
+     * is the ordinary case — a card asks this map and finds nothing.
+     *
+     * <p>Everything currently claimed on the share, not only what is actively transferring: a
+     * gallery queued or paused is on disk half-written just the same, and a card that looked
+     * complete while its download waited its turn would be the same lie this exists to stop.
+     */
+    @NonNull
+    private Map<Long, String> mDownloadingOwners = Collections.emptyMap();
+
+    /**
+     * How often {@code state/} may be re-read, however often something asks.
+     *
+     * <p>The downloader announces every finished page and this screen listens, so during a download
+     * the asking is constant while the answer — who owns what — changes perhaps twice an hour.
+     */
+    private static final long BADGE_REFRESH_INTERVAL_MS = 2_000L;
+
+    private long mLastBadgeRefreshAt;
+    private boolean mBadgeRefreshScheduled;
+
+    private final SmbDirectDownloader.TaskObserver mSmbTaskObserver = this::refreshDownloadingBadges;
+
     @Override
     public int getNavCheckedItem() {
         return R.id.nav_local_inventory;
@@ -122,6 +152,78 @@ public class LocalInventoryScene extends ToolbarScene
         Context context = getEHContext();
         if (context != null) {
             mExecutor = EhApplication.getExecutorService(context);
+        }
+        // Our own downloads need no round trip to notice: the downloader says so directly.
+        SmbDirectDownloader.getInstance().addTaskObserver(mSmbTaskObserver);
+    }
+
+    @Override
+    public void onDestroy() {
+        super.onDestroy();
+        SmbDirectDownloader.getInstance().removeTaskObserver(mSmbTaskObserver);
+    }
+
+    @Override
+    public void onResume() {
+        super.onResume();
+        // Coming back from the reader or a detail page, where a download may have been started.
+        refreshDownloadingBadges();
+    }
+
+    /**
+     * Re-reads who is downloading what, at most every {@link #BADGE_REFRESH_INTERVAL_MS}.
+     *
+     * <p>Rate-limited rather than dropped: the last call of a burst is honoured late instead of
+     * thrown away, or a download that finished just as the limit closed would keep its badge until
+     * something else happened to ask.
+     */
+    private void refreshDownloadingBadges() {
+        long now = System.currentTimeMillis();
+        long since = now - mLastBadgeRefreshAt;
+        if (since < BADGE_REFRESH_INTERVAL_MS) {
+            if (!mBadgeRefreshScheduled) {
+                mBadgeRefreshScheduled = true;
+                SimpleHandler.getInstance().postDelayed(() -> {
+                    mBadgeRefreshScheduled = false;
+                    refreshDownloadingBadges();
+                }, BADGE_REFRESH_INTERVAL_MS - since);
+            }
+            return;
+        }
+        mLastBadgeRefreshAt = now;
+
+        if (!SmbStorage.isConfigured() || !Settings.getSmbSaveEnabled()) {
+            applyDownloadingOwners(Collections.<Long, String>emptyMap());
+            return;
+        }
+        Runnable task = () -> {
+            final Map<Long, String> owners = new HashMap<>();
+            // Reads the share. Never throws: an unreachable share comes back as an empty list, and
+            // the cards simply show no badges rather than the screen failing over a decoration.
+            for (SmbTaskInfo t : SmbDirectDownloader.getInstance().snapshotSharedTasks()) {
+                owners.put(t.gid, t.ownerClientId);
+            }
+            SimpleHandler.getInstance().post(() -> applyDownloadingOwners(owners));
+        };
+        if (mExecutor != null) {
+            mExecutor.execute(task);
+        } else {
+            new Thread(task, "LocalInventoryBadges").start();
+        }
+    }
+
+    /**
+     * Main thread. Redraws only when the answer actually changed — during a download this is called
+     * every couple of seconds with the same map, and rebuilding the list under a finger is how a
+     * long press comes to be swallowed.
+     */
+    private void applyDownloadingOwners(@NonNull Map<Long, String> owners) {
+        if (mDownloadingOwners.equals(owners)) {
+            return;
+        }
+        mDownloadingOwners = owners;
+        if (mAdapter != null) {
+            mAdapter.notifyDataSetChanged();
         }
     }
 
@@ -482,6 +584,9 @@ public class LocalInventoryScene extends ToolbarScene
         final TextView posted;
         final TextView simpleLanguage;
         final TextView pages;
+        final View smbBadge;
+        /** Held rather than rebuilt per bind: only its colour changes, and binds are frequent. */
+        final GradientDrawable smbBadgeShape;
 
         InventoryHolder(View itemView) {
             super(itemView);
@@ -493,7 +598,19 @@ public class LocalInventoryScene extends ToolbarScene
             posted = (TextView) itemView.findViewById(R.id.posted);
             simpleLanguage = (TextView) itemView.findViewById(R.id.simple_language);
             pages = (TextView) itemView.findViewById(R.id.pages);
+            smbBadge = itemView.findViewById(R.id.smb_downloading_badge);
+            smbBadgeShape = new GradientDrawable();
+            smbBadgeShape.setShape(GradientDrawable.OVAL);
+            // A cover can be any colour, including the badge's own. The ring is what keeps the dot
+            // a dot instead of a patch of the artwork.
+            smbBadgeShape.setStroke(dp(itemView.getContext(), 1.5f), Color.WHITE);
+            smbBadge.setBackground(smbBadgeShape);
         }
+    }
+
+    private static int dp(@NonNull Context context, float value) {
+        return Math.round(TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, value,
+                context.getResources().getDisplayMetrics()));
     }
 
     private final class InventoryAdapter extends RecyclerView.Adapter<InventoryHolder> {
@@ -549,6 +666,25 @@ public class LocalInventoryScene extends ToolbarScene
         } else {
             holder.pages.setText(null);
         }
+        bindDownloadingBadge(holder, gi.gid);
+    }
+
+    /**
+     * Marks a gallery still being written to the share, in the colour of the device writing it
+     * (#77). Without it a half-downloaded gallery is indistinguishable from a complete one, and the
+     * user only finds out by opening it and hitting missing pages.
+     *
+     * <p>This device's own downloads are marked too, in this device's own colour: one rule, and the
+     * colour is what says whose it is.
+     */
+    private void bindDownloadingBadge(@NonNull InventoryHolder holder, long gid) {
+        String owner = mDownloadingOwners.get(gid);
+        if (owner == null) {
+            holder.smbBadge.setVisibility(View.GONE);
+            return;
+        }
+        holder.smbBadgeShape.setColor(SmbDeviceColor.of(owner));
+        holder.smbBadge.setVisibility(View.VISIBLE);
     }
 
     /** One page's galleries plus the total page count, computed off the main thread. */
@@ -627,6 +763,9 @@ public class LocalInventoryScene extends ToolbarScene
                         SmbStorage.markGidAsSmbTarget(gi.gid);
                     }
                     onGetPageData(taskId, result.pages, page + 1, result.data);
+                    // After the page is on screen, not before it: a badge is worth a redraw, never
+                    // worth making the page wait on a second trip to the share.
+                    refreshDownloadingBadges();
                 });
             };
             if (mExecutor != null) {
