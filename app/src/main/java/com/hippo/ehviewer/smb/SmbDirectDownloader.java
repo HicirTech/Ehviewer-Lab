@@ -478,8 +478,21 @@ public final class SmbDirectDownloader {
         }
         try {
             String selfId = Settings.getSmbClientId();
-            List<SmbDownloadState.OwnedTask> merged =
-                    SmbDownloadState.merge(SmbDownloadStateStore.readAll());
+            List<SmbDownloadState.Published> all = new ArrayList<>();
+            for (SmbDownloadState.Published p : SmbDownloadStateStore.readAll()) {
+                if (!p.state.clientId.equals(selfId)) {
+                    all.add(p);
+                }
+            }
+            // This device's own rows come from its queue, not from what it last managed to publish.
+            // The file on the share is a broadcast to everyone else and lags every local action by
+            // a round trip -- pausing something and watching the row carry on downloading, because
+            // the read got there before the write, and a paused task then produces nothing further
+            // to trigger another refresh. Locally there is no such doubt: this is the process doing
+            // the work.
+            all.add(new SmbDownloadState.Published(
+                    snapshotClientState(), true, System.currentTimeMillis()));
+            List<SmbDownloadState.OwnedTask> merged = SmbDownloadState.merge(all);
             List<SmbTaskInfo> out = new ArrayList<>(merged.size());
             for (SmbDownloadState.OwnedTask o : merged) {
                 out.add(SmbTaskInfo.of(o, selfId, galleryMetadata(o.task)));
@@ -822,13 +835,14 @@ public final class SmbDirectDownloader {
                     return;
                 }
             }
-            Context ctx = appContext;
+            // The hypothetical this guard was written for became the normal case (#59): a paused
+            // task restored from the share never goes through start() or attachService(), so
+            // nothing has latched a context, and the first thing the user does to it is press
+            // play. Falling back to the application rather than refusing -- there is always one,
+            // and refusing made the button look broken.
+            Context ctx = appContext != null ? appContext : EhApplication.getInstance();
             if (ctx == null) {
-                // Should only happen if resume() runs before any start() / attachService()
-                // has latched a context (e.g. after process restart with a task restored
-                // from a future persistent backing store). Log so the silent no-op is
-                // visible in logcat instead of looking like a UI bug.
-                Log.w(TAG, "resume: appContext is null, cannot re-enqueue gid=" + gid);
+                Log.w(TAG, "resume: no context available, cannot re-enqueue gid=" + gid);
                 return;
             }
             start(ctx, info);
