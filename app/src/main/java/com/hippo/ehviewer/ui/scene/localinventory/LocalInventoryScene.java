@@ -13,9 +13,7 @@ import android.content.Intent;
 import android.content.res.Resources;
 import android.graphics.Color;
 import android.graphics.drawable.ColorDrawable;
-import android.graphics.drawable.GradientDrawable;
 import android.os.Bundle;
-import android.util.TypedValue;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -51,6 +49,7 @@ import com.hippo.ehviewer.ui.GalleryActivity;
 import com.hippo.ehviewer.ui.scene.ToolbarScene;
 import com.hippo.ehviewer.ui.dialog.SelectItemWithIconAdapter;
 import com.hippo.ehviewer.ui.scene.gallery.detail.GalleryDetailScene;
+import com.hippo.ehviewer.widget.DownloadProgressBadge;
 import com.hippo.ehviewer.widget.GalleryInfoContentHelper;
 import com.hippo.ehviewer.widget.SimpleRatingView;
 import com.hippo.lib.yorozuya.SimpleHandler;
@@ -117,22 +116,58 @@ public class LocalInventoryScene extends ToolbarScene
 
     // ---------- "someone is downloading this" badge (#77) ----------
 
+    /** What a card needs in order to draw its badge: whose download, and how far along. */
+    private static final class DownloadMark {
+        @NonNull final String clientId;
+        final float progress;
+
+        DownloadMark(@NonNull String clientId, float progress) {
+            this.clientId = clientId;
+            this.progress = progress;
+        }
+
+        /** Compared, not merely stored: an unchanged mark is a redraw not done. */
+        @Override
+        public boolean equals(@Nullable Object o) {
+            if (this == o) {
+                return true;
+            }
+            if (!(o instanceof DownloadMark)) {
+                return false;
+            }
+            DownloadMark other = (DownloadMark) o;
+            return clientId.equals(other.clientId)
+                    && Float.compare(progress, other.progress) == 0;
+        }
+
+        @Override
+        public int hashCode() {
+            return clientId.hashCode() * 31 + Float.floatToIntBits(progress);
+        }
+    }
+
     /**
-     * Which device has claimed each gallery, by gid. Empty when nothing is being downloaded, which
-     * is the ordinary case — a card asks this map and finds nothing.
+     * Which device has claimed each gallery and how far it has got, by gid. Empty when nothing is
+     * being downloaded, which is the ordinary case — a card asks this map and finds nothing.
      *
      * <p>Everything currently claimed on the share, not only what is actively transferring: a
      * gallery queued or paused is on disk half-written just the same, and a card that looked
-     * complete while its download waited its turn would be the same lie this exists to stop.
+     * complete while its download waited its turn would be the same lie this exists to stop. Those
+     * show an empty ring, which is the honest picture of a download that has not started.
      */
     @NonNull
-    private Map<Long, String> mDownloadingOwners = Collections.emptyMap();
+    private Map<Long, DownloadMark> mDownloadMarks = Collections.emptyMap();
+
+    /** Tells the adapter to redraw a card's badge and leave the rest of it alone. */
+    private static final Object PAYLOAD_BADGE = new Object();
 
     /**
      * How often {@code state/} may be re-read, however often something asks.
      *
      * <p>The downloader announces every finished page and this screen listens, so during a download
-     * the asking is constant while the answer — who owns what — changes perhaps twice an hour.
+     * the asking is constant. Two seconds is finer than the answer can actually move for another
+     * device — its progress only reaches the share on a twenty-second heartbeat — and about right
+     * for this device's own, which changes with every page.
      */
     private static final long BADGE_REFRESH_INTERVAL_MS = 2_000L;
 
@@ -193,17 +228,17 @@ public class LocalInventoryScene extends ToolbarScene
         mLastBadgeRefreshAt = now;
 
         if (!SmbStorage.isConfigured() || !Settings.getSmbSaveEnabled()) {
-            applyDownloadingOwners(Collections.<Long, String>emptyMap());
+            applyDownloadMarks(Collections.<Long, DownloadMark>emptyMap());
             return;
         }
         Runnable task = () -> {
-            final Map<Long, String> owners = new HashMap<>();
+            final Map<Long, DownloadMark> marks = new HashMap<>();
             // Reads the share. Never throws: an unreachable share comes back as an empty list, and
             // the cards simply show no badges rather than the screen failing over a decoration.
             for (SmbTaskInfo t : SmbDirectDownloader.getInstance().snapshotSharedTasks()) {
-                owners.put(t.gid, t.ownerClientId);
+                marks.put(t.gid, new DownloadMark(t.ownerClientId, fractionOf(t)));
             }
-            SimpleHandler.getInstance().post(() -> applyDownloadingOwners(owners));
+            SimpleHandler.getInstance().post(() -> applyDownloadMarks(marks));
         };
         if (mExecutor != null) {
             mExecutor.execute(task);
@@ -213,17 +248,47 @@ public class LocalInventoryScene extends ToolbarScene
     }
 
     /**
-     * Main thread. Redraws only when the answer actually changed — during a download this is called
-     * every couple of seconds with the same map, and rebuilding the list under a finger is how a
-     * long press comes to be swallowed.
+     * How much of a task is done, 0 to 1.
+     *
+     * <p>Zero when the total is not known yet. That is a real state — a gallery is claimed before
+     * anyone has counted its pages — and an empty ring says it better than a full one would.
      */
-    private void applyDownloadingOwners(@NonNull Map<Long, String> owners) {
-        if (mDownloadingOwners.equals(owners)) {
+    private static float fractionOf(@NonNull SmbTaskInfo t) {
+        if (t.total <= 0) {
+            return 0f;
+        }
+        return (float) t.finished / (float) t.total;
+    }
+
+    /**
+     * Main thread. Redraws only the cards whose answer actually changed.
+     *
+     * <p>This is called every couple of seconds while anything is downloading, and now the value
+     * moves each time rather than staying put, so a blanket {@code notifyDataSetChanged} would
+     * rebuild the whole list on a timer. A list rebuilding under a finger loses the gesture, which
+     * is how a long press comes to be swallowed. The payload keeps the rebind to the badge, so a
+     * card's cover is not asked for again either.
+     */
+    private void applyDownloadMarks(@NonNull Map<Long, DownloadMark> marks) {
+        if (mDownloadMarks.equals(marks)) {
             return;
         }
-        mDownloadingOwners = owners;
-        if (mAdapter != null) {
-            mAdapter.notifyDataSetChanged();
+        Map<Long, DownloadMark> previous = mDownloadMarks;
+        mDownloadMarks = marks;
+        if (mAdapter == null || mHelper == null) {
+            return;
+        }
+        for (int i = 0, n = mHelper.size(); i < n; i++) {
+            GalleryInfo gi = mHelper.getDataAt(i);
+            if (gi == null) {
+                continue;
+            }
+            DownloadMark before = previous.get(gi.gid);
+            DownloadMark after = marks.get(gi.gid);
+            boolean changed = before == null ? after != null : !before.equals(after);
+            if (changed) {
+                mAdapter.notifyItemChanged(i, PAYLOAD_BADGE);
+            }
         }
     }
 
@@ -584,9 +649,7 @@ public class LocalInventoryScene extends ToolbarScene
         final TextView posted;
         final TextView simpleLanguage;
         final TextView pages;
-        final View smbBadge;
-        /** Held rather than rebuilt per bind: only its colour changes, and binds are frequent. */
-        final GradientDrawable smbBadgeShape;
+        final DownloadProgressBadge smbBadge;
 
         InventoryHolder(View itemView) {
             super(itemView);
@@ -599,18 +662,7 @@ public class LocalInventoryScene extends ToolbarScene
             simpleLanguage = (TextView) itemView.findViewById(R.id.simple_language);
             pages = (TextView) itemView.findViewById(R.id.pages);
             smbBadge = itemView.findViewById(R.id.smb_downloading_badge);
-            smbBadgeShape = new GradientDrawable();
-            smbBadgeShape.setShape(GradientDrawable.OVAL);
-            // A cover can be any colour, including the badge's own. The ring is what keeps the dot
-            // a dot instead of a patch of the artwork.
-            smbBadgeShape.setStroke(dp(itemView.getContext(), 1.5f), Color.WHITE);
-            smbBadge.setBackground(smbBadgeShape);
         }
-    }
-
-    private static int dp(@NonNull Context context, float value) {
-        return Math.round(TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, value,
-                context.getResources().getDisplayMetrics()));
     }
 
     private final class InventoryAdapter extends RecyclerView.Adapter<InventoryHolder> {
@@ -632,6 +684,23 @@ public class LocalInventoryScene extends ToolbarScene
             if (gi != null) {
                 bind(holder, gi);
             }
+        }
+
+        /**
+         * A progress update touches the badge and nothing else. Without this the card would be
+         * rebuilt from scratch every couple of seconds, cover load and all.
+         */
+        @Override
+        public void onBindViewHolder(@NonNull InventoryHolder holder, int position,
+                @NonNull List<Object> payloads) {
+            if (payloads.contains(PAYLOAD_BADGE)) {
+                GalleryInfo gi = mHelper != null ? mHelper.getDataAtEx(position) : null;
+                if (gi != null) {
+                    bindDownloadingBadge(holder, gi.gid);
+                }
+                return;
+            }
+            super.onBindViewHolder(holder, position, payloads);
         }
 
         @Override
@@ -670,20 +739,21 @@ public class LocalInventoryScene extends ToolbarScene
     }
 
     /**
-     * Marks a gallery still being written to the share, in the colour of the device writing it
-     * (#77). Without it a half-downloaded gallery is indistinguishable from a complete one, and the
-     * user only finds out by opening it and hitting missing pages.
+     * Marks a gallery still being written to the share: how far along, in the colour of the device
+     * writing it (#77). Without it a half-downloaded gallery is indistinguishable from a complete
+     * one, and the user only finds out by opening it and hitting missing pages.
      *
      * <p>This device's own downloads are marked too, in this device's own colour: one rule, and the
      * colour is what says whose it is.
      */
     private void bindDownloadingBadge(@NonNull InventoryHolder holder, long gid) {
-        String owner = mDownloadingOwners.get(gid);
-        if (owner == null) {
+        DownloadMark mark = mDownloadMarks.get(gid);
+        if (mark == null) {
             holder.smbBadge.setVisibility(View.GONE);
             return;
         }
-        holder.smbBadgeShape.setColor(SmbDeviceColor.of(owner));
+        holder.smbBadge.setColor(SmbDeviceColor.of(mark.clientId));
+        holder.smbBadge.setProgress(mark.progress);
         holder.smbBadge.setVisibility(View.VISIBLE);
     }
 
