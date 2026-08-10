@@ -137,6 +137,17 @@ public class SmbSettingsFragment extends PreferenceFragmentCompat implements Pre
                 mAutoDownloadSwitch.setChecked(false);
             }
             applyMasterState(enabled);
+            // Take effect now rather than the next time some screen happens to ask. Turning this
+            // off with a download running used to hide it from the list while its pages kept
+            // being written to the share.
+            //
+            // Posted, not called: this listener runs *before* the new value is persisted -- that
+            // is what returning true authorises -- so asking Settings here answers with the value
+            // being replaced. Which is precisely how this went out wrong the first time: the
+            // switch read off and the download carried on.
+            com.hippo.lib.yorozuya.SimpleHandler.getInstance().post(() ->
+                    com.hippo.ehviewer.smb.SmbDirectDownloader.getInstance()
+                            .onSmbAvailabilityChanged());
             return true;
         }
         if (preference == mAutoDownloadSwitch) {

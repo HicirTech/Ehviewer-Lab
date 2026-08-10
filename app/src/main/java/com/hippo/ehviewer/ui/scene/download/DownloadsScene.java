@@ -191,6 +191,9 @@ public class DownloadsScene extends ToolbarScene
         final boolean enabled = Settings.getSmbSaveEnabled()
                 && com.hippo.ehviewer.smb.SmbStorage.isConfigured();
         if (!enabled) {
+            // Not just a list that stops showing them: the downloads stop too, or the feature
+            // would be off everywhere except where it counts.
+            com.hippo.ehviewer.smb.SmbDirectDownloader.getInstance().onSmbAvailabilityChanged();
             SimpleHandler.getInstance().post(() -> {
                 if (!mSmbTasks.isEmpty()) {
                     mSmbTasks = new ArrayList<>();
@@ -204,7 +207,7 @@ public class DownloadsScene extends ToolbarScene
         // The queue lives on the share and so outlives the process, but nothing brings it back on
         // its own. The screen that used to ask for it is gone, and this is the one that replaced
         // it -- without this an interrupted download would sit on the share forever.
-        com.hippo.ehviewer.smb.SmbDirectDownloader.getInstance().ensureRestored();
+        com.hippo.ehviewer.smb.SmbDirectDownloader.getInstance().onSmbAvailabilityChanged();
         IoThreadPoolExecutor.Companion.getInstance().execute(() -> {
             final List<com.hippo.ehviewer.smb.SmbTaskInfo> fresh =
                     com.hippo.ehviewer.smb.SmbDirectDownloader.getInstance().snapshotSharedTasks();
@@ -1150,6 +1153,7 @@ public class DownloadsScene extends ToolbarScene
         }
 
         if (isSmbAt(position)) {
+            showSmbTaskMenu(position);
             return true;   // not selectable; see isSmbAt
         }
         if (!recyclerView.isInCustomChoice()) {
@@ -1177,6 +1181,57 @@ public class DownloadsScene extends ToolbarScene
         int index = positionInList(position);
         return index >= 0 && index < list.size()
                 && com.hippo.ehviewer.smb.SmbTaskInfo.isSmb(list.get(index));
+    }
+
+    /**
+     * The long-press menu for an SMB row, which cannot be multi-selected (#59).
+     *
+     * <p>What a long press does everywhere else on this screen is start a selection, and these are
+     * kept out of selections — so the gesture is free, and it is where the actions that have
+     * nowhere else to live now go. Cancelling in particular: the row's own buttons pause and
+     * resume, and without this there was no way at all to take a gallery back out of the queue.
+     *
+     * <p>Nothing is offered for another device's live download. There is nothing this device may
+     * do to it, and a menu listing only greyed-out choices is worse than no menu.
+     */
+    private void showSmbTaskMenu(int position) {
+        Context context = getEHContext();
+        List<DownloadInfo> list = mList;
+        if (context == null || list == null) {
+            return;
+        }
+        int index = positionInList(position);
+        if (index < 0 || index >= list.size()) {
+            return;
+        }
+        DownloadInfo info = list.get(index);
+        if (!(info instanceof com.hippo.ehviewer.smb.SmbTaskInfo)) {
+            return;
+        }
+        final com.hippo.ehviewer.smb.SmbTaskInfo task = (com.hippo.ehviewer.smb.SmbTaskInfo) info;
+        final String title = task.title != null ? task.title : String.valueOf(task.gid);
+
+        if (com.hippo.ehviewer.smb.SmbTaskInfo.canTakeOver(task)) {
+            confirmTakeOverSmbTask(task);
+            return;
+        }
+        if (!com.hippo.ehviewer.smb.SmbTaskInfo.isActionable(task)) {
+            return;
+        }
+        new AlertDialog.Builder(context)
+                .setTitle(title)
+                .setItems(new CharSequence[]{getString(R.string.smb_task_action_cancel)},
+                        (dialog, which) -> new AlertDialog.Builder(context)
+                                .setTitle(R.string.download_remove_dialog_title)
+                                .setMessage(getString(R.string.smb_task_cancel_message, title))
+                                .setNegativeButton(android.R.string.cancel, null)
+                                .setPositiveButton(android.R.string.ok, (d, w) -> {
+                                    com.hippo.ehviewer.smb.SmbDirectDownloader.getInstance()
+                                            .cancel(task.gid);
+                                    refreshSmbTasks();
+                                })
+                                .show())
+                .show();
     }
 
     /** Undoes "select all" for the rows that were never selectable to begin with. */
@@ -1787,6 +1842,11 @@ public class DownloadsScene extends ToolbarScene
         List<DownloadInfo> requestList = new ArrayList<>();
         for (int i = 0; i < mList.size(); i++) {
             DownloadInfo info = mList.get(i);
+            // Reading position is a local record about a local download. An SMB save has none,
+            // and asking produces nothing but work.
+            if (com.hippo.ehviewer.smb.SmbTaskInfo.isSmb(info)) {
+                continue;
+            }
             if (!mSpiderInfoMap.containsKey(info.gid) || mSpiderInfoMap.get(info.gid) == null) {
                 requestList.add(info);
             }
@@ -2046,6 +2106,14 @@ public class DownloadsScene extends ToolbarScene
                 }
             } else if (null != mDownloadManager) {
                 mDownloadManager.deleteDownload(mGalleryInfo.gid);
+            }
+
+            // An SMB save has no row in the database and no directory on this phone. Everything
+            // it consists of is on the share, and cancelling above has already removed it -- so
+            // there is nothing further to do, and doing it anyway would edit the local download
+            // records on behalf of a gallery that was never in them.
+            if (mGalleryInfo instanceof com.hippo.ehviewer.smb.SmbTaskInfo) {
+                return;
             }
 
             // Delete image files

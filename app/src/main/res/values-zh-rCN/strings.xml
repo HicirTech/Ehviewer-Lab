@@ -1012,6 +1012,8 @@
     <string name="smb_save_started">已开始保存到 SMB：%s</string>
     <string name="smb_save_already_complete">已保存到 SMB，跳过</string>
     <string name="smb_save_claimed_elsewhere">另一台设备正在把这本下载到 SMB 共享</string>
+    <string name="smb_task_action_cancel">取消下载</string>
+    <string name="smb_task_cancel_message">把《%1$s》移出队列?已经保存到共享的页面会一并删除。</string>
     <string name="smb_task_owner_offline">设备离线</string>
     <string name="smb_task_owner_last_seen">%1$s · 最后一次响应 %2$s</string>
     <string name="smb_take_over_title">接管这个下载?</string>

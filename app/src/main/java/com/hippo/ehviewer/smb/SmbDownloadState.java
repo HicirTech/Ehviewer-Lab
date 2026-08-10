@@ -43,47 +43,11 @@ public final class SmbDownloadState {
      */
     public static final int SCHEMA_VERSION = 1;
 
-    /** Where a gallery is in its owner's queue. */
-    public enum TaskState {
-        QUEUED,
-        ACTIVE,
-        PAUSED;
-
-        /**
-         * Where this state sorts in the merged list: running work, then waiting, then held.
-         *
-         * <p>Spelled out rather than taken from {@code ordinal()}, so that the order things appear
-         * in does not silently depend on the order they happen to be declared in — and so adding a
-         * state later is a decision about where it belongs rather than an accident.
-         */
-        int displayRank() {
-            switch (this) {
-                case ACTIVE: return 0;
-                case QUEUED: return 1;
-                case PAUSED: return 2;
-                default: return 3;
-            }
-        }
-
-        @NonNull
-        static TaskState parse(@Nullable String raw) {
-            if (raw != null) {
-                for (TaskState s : values()) {
-                    if (s.name().equalsIgnoreCase(raw)) {
-                        return s;
-                    }
-                }
-            }
-            return QUEUED;
-        }
-    }
-
     /** One gallery on one device's list. */
     public static final class Task {
         public final long gid;
         @Nullable public final String token;
         @Nullable public final String title;
-        @NonNull public final TaskState state;
         public final int finished;
         public final int total;
         /**
@@ -96,12 +60,11 @@ public final class SmbDownloadState {
         @Nullable public final String takenOverFrom;
 
         public Task(long gid, @Nullable String token, @Nullable String title,
-                    @NonNull TaskState state, int finished, int total,
+                    int finished, int total,
                     long claimedAt, @Nullable String takenOverFrom) {
             this.gid = gid;
             this.token = token;
             this.title = title;
-            this.state = state;
             this.finished = finished;
             this.total = total;
             this.claimedAt = claimedAt;
@@ -233,23 +196,69 @@ public final class SmbDownloadState {
                 }
             }
         }
-        List<OwnedTask> out = new ArrayList<>(best.values());
-        // Active work first, then what is waiting, then what is held — and inside each, the most
-        // recently claimed first, so a list several devices contribute to still reads
-        // chronologically. Collections.sort and a hand-written comparator rather than
-        // List.sort/Comparator.comparingInt: those are API 24, and minSdk here is 23 with no core
-        // library desugaring.
-        Collections.sort(out, new Comparator<OwnedTask>() {
+        return inDisplayOrder(new ArrayList<>(best.values()));
+    }
+
+    /**
+     * Orders the merged list: what each device is working on, then everything waiting.
+     *
+     * <p>The top row is one gallery per device — the head of that device's queue, which is the one
+     * it is actually writing to the share. Nothing records that; it is derived. The downloader
+     * takes its queue in the order it claimed things and runs one at a time, so the earliest claim
+     * a device still holds <em>is</em> the job in progress. Deriving it is the point: a device that
+     * loses contact cannot correct anything it published, so a stored "downloading" flag would
+     * freeze mid-truth and stay there. A timestamp cannot go stale in that way.
+     *
+     * <p>Those heads sort by device name — deliberately not by how recently each device was heard
+     * from, which would have rows reshuffle underneath a reader every time a heartbeat landed.
+     * Everything below sorts by claim time, oldest first, which is the order the work will actually
+     * happen in.
+     */
+    @NonNull
+    private static List<OwnedTask> inDisplayOrder(@NonNull List<OwnedTask> tasks) {
+        final Map<String, Long> headClaimByClient = new LinkedHashMap<>();
+        for (OwnedTask o : tasks) {
+            Long current = headClaimByClient.get(o.clientId);
+            if (current == null || o.task.claimedAt < current) {
+                headClaimByClient.put(o.clientId, o.task.claimedAt);
+            }
+        }
+        List<OwnedTask> heads = new ArrayList<>();
+        List<OwnedTask> rest = new ArrayList<>();
+        for (OwnedTask o : tasks) {
+            Long head = headClaimByClient.get(o.clientId);
+            if (head != null && head == o.task.claimedAt && !containsClient(heads, o.clientId)) {
+                heads.add(o);
+            } else {
+                rest.add(o);
+            }
+        }
+        Collections.sort(heads, new Comparator<OwnedTask>() {
             @Override
             public int compare(OwnedTask a, OwnedTask b) {
-                int byState = a.task.state.displayRank() - b.task.state.displayRank();
-                if (byState != 0) {
-                    return byState;
-                }
-                return Long.compare(b.task.claimedAt, a.task.claimedAt);
+                int byName = a.deviceName.compareToIgnoreCase(b.deviceName);
+                return byName != 0 ? byName : Long.compare(a.task.claimedAt, b.task.claimedAt);
             }
         });
-        return out;
+        Collections.sort(rest, new Comparator<OwnedTask>() {
+            @Override
+            public int compare(OwnedTask a, OwnedTask b) {
+                int byClaim = Long.compare(a.task.claimedAt, b.task.claimedAt);
+                return byClaim != 0 ? byClaim : Long.compare(a.task.gid, b.task.gid);
+            }
+        });
+        heads.addAll(rest);
+        return heads;
+    }
+
+    /** Two tasks of one device can share a claim time; only the first of them is its head. */
+    private static boolean containsClient(@NonNull List<OwnedTask> tasks, @NonNull String clientId) {
+        for (OwnedTask o : tasks) {
+            if (o.clientId.equals(clientId)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static boolean wins(@NonNull OwnedTask candidate, @NonNull OwnedTask current) {
@@ -347,7 +356,6 @@ public final class SmbDownloadState {
                             gid,
                             o.getString("token"),
                             o.getString("title"),
-                            TaskState.parse(o.getString("state")),
                             intOr(o.getInteger("finished"), 0),
                             intOr(o.getInteger("total"), 0),
                             longOr(o.getLong("claimedAt"), 0L),
@@ -383,7 +391,6 @@ public final class SmbDownloadState {
             o.put("gid", t.gid);
             if (t.token != null) o.put("token", t.token);
             if (t.title != null) o.put("title", t.title);
-            o.put("state", t.state.name());
             o.put("finished", t.finished);
             o.put("total", t.total);
             o.put("claimedAt", t.claimedAt);

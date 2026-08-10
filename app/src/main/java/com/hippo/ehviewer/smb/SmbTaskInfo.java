@@ -46,7 +46,7 @@ public final class SmbTaskInfo extends DownloadInfo {
      */
     public final long lastSeenMillis;
 
-    private SmbTaskInfo(@NonNull SmbDownloadState.OwnedTask owned, boolean mine,
+    private SmbTaskInfo(@NonNull SmbDownloadState.OwnedTask owned, boolean mine, int state,
                         @Nullable com.hippo.ehviewer.client.data.GalleryInfo metadata) {
         this.gid = owned.task.gid;
         this.token = owned.task.token;
@@ -56,7 +56,7 @@ public final class SmbTaskInfo extends DownloadInfo {
         this.total = owned.task.total;
         this.downloaded = owned.task.finished;
         this.time = owned.task.claimedAt;
-        this.state = owned.ownerAlive ? stateOf(owned.task.state) : STATE_FAILED;
+        this.state = state;
         this.deviceName = owned.deviceName;
         this.lastSeenMillis = owned.lastSeenMillis;
         // The queue file says what is being downloaded and by whom; everything else a row draws
@@ -85,31 +85,15 @@ public final class SmbTaskInfo extends DownloadInfo {
      *
      * @param selfClientId this device's identity, so it can tell its own work from everyone else's
      * @param metadata     the gallery's own record on the share, or null if it is not there yet
+     * @param state        how to draw it; resolved by the downloader, which is the only thing that
+     *                     knows the difference between its own work and a claim it can only observe
      */
     @NonNull
     public static SmbTaskInfo of(@NonNull SmbDownloadState.OwnedTask owned,
                                  @NonNull String selfClientId,
-                                 @Nullable com.hippo.ehviewer.client.data.GalleryInfo metadata) {
-        return new SmbTaskInfo(owned, selfClientId.equals(owned.clientId), metadata);
-    }
-
-    /**
-     * Maps to the states the list already knows how to draw.
-     *
-     * <p>Only reached for a task whose owner is still beating. One that has gone quiet is shown as
-     * failed regardless of what it last said it was doing — nothing is happening to it, and
-     * leaving it drawn as running would have it look busy forever.
-     */
-    private static int stateOf(@NonNull SmbDownloadState.TaskState state) {
-        switch (state) {
-            case ACTIVE:
-                return STATE_DOWNLOAD;
-            case PAUSED:
-                return STATE_NONE;
-            case QUEUED:
-            default:
-                return STATE_WAIT;
-        }
+                                 @Nullable com.hippo.ehviewer.client.data.GalleryInfo metadata,
+                                 int state) {
+        return new SmbTaskInfo(owned, selfClientId.equals(owned.clientId), state, metadata);
     }
 
     /** Convenience for the adapter, which has a {@link DownloadInfo} and no idea what kind. */
