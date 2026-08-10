@@ -444,14 +444,19 @@ public final class SpiderDen {
         }
     }
 
-    public boolean contain(int index) {
-        if (mMode == SpiderQueen.MODE_READ) {
-            return containInCache(index) || containInDownloadDir(index);
-        } else if (mMode == SpiderQueen.MODE_DOWNLOAD) {
+    /**
+     * Whether page {@code index} is already held somewhere this caller can use.
+     *
+     * @param forDownload what the answer is for. A page being fetched for the download store only
+     *                    counts if it is in that store — and if the reader happens to have pulled
+     *                    it into the cache already, it is promoted rather than fetched again. A
+     *                    page being fetched to show someone counts wherever it is.
+     */
+    public boolean contain(int index, boolean forDownload) {
+        if (forDownload) {
             return containInDownloadDir(index) || copyFromCacheToDownloadDir(index);
-        } else {
-            return false;
         }
+        return containInCache(index) || containInDownloadDir(index);
     }
 
     private boolean removeFromCache(int index) {
@@ -528,28 +533,26 @@ public final class SpiderDen {
     }
 
     @Nullable
-    public OutputStreamPipe openOutputStreamPipe(int index, @Nullable String extension) {
-        if (mMode == SpiderQueen.MODE_READ) {
-            // In MODE_READ we must not write to the persistent SMB share: SmbDirectDownloader
-            // (running in MODE_DOWNLOAD on the same queen) owns SMB persistence end-to-end.
-            // Otherwise every viewed page would also kick off an SMB write, wasting bandwidth.
-            if (remoteStorage() != null) {
-                return openCacheOutputStreamPipe(index);
-            }
-            // Non-SMB mode: upstream gates writing to the download dir behind a setting,
-            // so browsing no longer downloads implicitly.
-            if (shouldSyncDownloadWhileReading() && ensureDownloadDirExists()) {
-                OutputStreamPipe pipe = openDownloadOutputStreamPipe(index, extension);
-                if (pipe != null) {
-                    return pipe;
-                }
-            }
-            return openCacheOutputStreamPipe(index);
-        } else if (mMode == SpiderQueen.MODE_DOWNLOAD) {
+    public OutputStreamPipe openOutputStreamPipe(int index, @Nullable String extension,
+                                                 boolean forDownload) {
+        if (forDownload) {
             return openDownloadOutputStreamPipe(index, extension);
-        } else {
-            return null;
         }
+        // Fetched to be looked at, so it goes in the cache. Writing it to the SMB share as well
+        // would have every page anyone glances at uploaded, which is the downloader's job and
+        // nobody else's; the download sweep promotes the cached copy when it gets there.
+        if (remoteStorage() != null) {
+            return openCacheOutputStreamPipe(index);
+        }
+        // Non-SMB: upstream gates writing to the download dir behind a setting, so browsing does
+        // not download implicitly.
+        if (shouldSyncDownloadWhileReading() && ensureDownloadDirExists()) {
+            OutputStreamPipe pipe = openDownloadOutputStreamPipe(index, extension);
+            if (pipe != null) {
+                return pipe;
+            }
+        }
+        return openCacheOutputStreamPipe(index);
     }
 
 
@@ -616,26 +619,20 @@ public final class SpiderDen {
         return file != null ? new UniFileInputStreamPipe(file) : null;
     }
 
+    /**
+     * Opens page {@code index} for reading.
+     *
+     * @param forDownload true only for the downloader reading back what it just wrote, which has
+     *                    to come from the store it wrote to or the check means nothing. Everything
+     *                    else — showing a page, saving one out, sniffing its extension — takes
+     *                    whichever copy is nearest, and that is the cache.
+     */
     @Nullable
-    public InputStreamPipe openInputStreamPipe(int index) {
-        if (mMode == SpiderQueen.MODE_READ) {
-            if (shouldSyncDownloadWhileReading()) {
-                InputStreamPipe pipe = openDownloadInputStreamPipe(index);
-                if (pipe == null) {
-                    pipe = openCacheInputStreamPipe(index);
-                }
-                return pipe;
-            }
-            InputStreamPipe pipe = openCacheInputStreamPipe(index);
-            if (pipe == null) {
-                // Read mode must not trigger cache-to-download copy.
-                pipe = openDownloadInputStreamPipeReadOnly(index);
-            }
-            return pipe;
-        } else if (mMode == SpiderQueen.MODE_DOWNLOAD) {
+    public InputStreamPipe openInputStreamPipe(int index, boolean forDownload) {
+        if (forDownload) {
             return openDownloadInputStreamPipe(index);
-        } else {
-            return null;
         }
+        InputStreamPipe pipe = openCacheInputStreamPipe(index);
+        return pipe != null ? pipe : openDownloadInputStreamPipe(index);
     }
 }

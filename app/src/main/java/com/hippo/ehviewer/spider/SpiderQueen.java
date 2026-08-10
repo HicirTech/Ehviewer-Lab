@@ -667,7 +667,7 @@ public final class SpiderQueen implements Runnable {
             return false;
         }
 
-        InputStreamPipe pipe = mSpiderDen.openInputStreamPipe(index);
+        InputStreamPipe pipe = mSpiderDen.openInputStreamPipe(index, false);
         if (null == pipe) {
             return false;
         }
@@ -694,7 +694,7 @@ public final class SpiderQueen implements Runnable {
             return null;
         }
 
-        InputStreamPipe pipe = mSpiderDen.openInputStreamPipe(index);
+        InputStreamPipe pipe = mSpiderDen.openInputStreamPipe(index, false);
         if (null == pipe) {
             return null;
         }
@@ -734,7 +734,7 @@ public final class SpiderQueen implements Runnable {
             return null;
         }
 
-        InputStreamPipe pipe = mSpiderDen.openInputStreamPipe(index);
+        InputStreamPipe pipe = mSpiderDen.openInputStreamPipe(index, false);
         if (null == pipe) {
             return null;
         }
@@ -1266,7 +1266,13 @@ public final class SpiderQueen implements Runnable {
         }
 
         // false for stop
-        private boolean downloadImage(long gid, int index, String pToken, String previousPToken, boolean force) {
+        /**
+         * @param forDownload whether this fetch is for the download store or for someone looking
+         *                    at the page. It decides where the bytes are written and where the
+         *                    read-back check looks; see {@code SpiderDen}.
+         */
+        private boolean downloadImage(long gid, int index, String pToken, String previousPToken,
+                                      boolean force, boolean forDownload) {
             String skipHathKey = null;
             List<String> skipHathKeys = new ArrayList<>(5);
             String originImageUrl = null;
@@ -1466,7 +1472,7 @@ public final class SpiderQueen implements Runnable {
                     OutputStreamPipe osPipe = null;
                     try {
                         // Get out put pipe
-                        osPipe = mSpiderDen.openOutputStreamPipe(index, extension);
+                        osPipe = mSpiderDen.openOutputStreamPipe(index, extension, forDownload);
                         if (osPipe == null) {
                             // Can't get pipe
                             error = GetText.getString(R.string.error_write_failed);
@@ -1539,7 +1545,7 @@ public final class SpiderQueen implements Runnable {
                     InputStreamPipe isPipe = null;
                     try {
                         // Get InputStreamPipe
-                        isPipe = mSpiderDen.openInputStreamPipe(index);
+                        isPipe = mSpiderDen.openInputStreamPipe(index, forDownload);
                         if (isPipe == null) {
                             // Can't get pipe
                             error = GetText.getString(R.string.error_reading_failed);
@@ -1627,6 +1633,12 @@ public final class SpiderQueen implements Runnable {
             int index;
             // From force request
             boolean force = false;
+            // Which queue the index came from is what says who this fetch is for. A page someone
+            // asked to look at is fetched for the reader even while a download is running on the
+            // same queen; the sweep below is the only thing fetching for the store. Reading that
+            // off the queen's mode instead is what #35 was: one shared flag, download wins, and
+            // the reader is dragged onto the share for pages that may not be written yet.
+            boolean forDownload = false;
             synchronized (mRequestPageQueue) {
                 if (!mForceRequestPageQueue.isEmpty()) {
                     index = mForceRequestPageQueue.remove();
@@ -1638,6 +1650,7 @@ public final class SpiderQueen implements Runnable {
                 } else if (mDownloadPage >= 0 && mDownloadPage < size) {
                     index = mDownloadPage;
                     mDownloadPage++;
+                    forDownload = true;
                 } else {
                     // No index any more, stop
                     return false;
@@ -1662,7 +1675,7 @@ public final class SpiderQueen implements Runnable {
             }
 
             // Check exist for not force request
-            if (!force && mSpiderDen.contain(index)) {
+            if (!force && mSpiderDen.contain(index, forDownload)) {
                 updatePageState(index, STATE_FINISHED);
                 return true;
             }
@@ -1753,7 +1766,7 @@ public final class SpiderQueen implements Runnable {
             }
 
             // Get image url
-            return downloadImage(mGid, index, pToken, previousPToken, force);
+            return downloadImage(mGid, index, pToken, previousPToken, force, forDownload);
         }
 
         private void cancelTimeCount() {
@@ -1852,7 +1865,7 @@ public final class SpiderQueen implements Runnable {
                     continue;
                 }
 
-                InputStreamPipe pipe = mSpiderDen.openInputStreamPipe(index);
+                InputStreamPipe pipe = mSpiderDen.openInputStreamPipe(index, false);
                 if (pipe == null) {
                     resetDecodeIndex();
                     // Resetting to STATE_NONE and re-requesting only makes sense when the page
@@ -1860,7 +1873,7 @@ public final class SpiderQueen implements Runnable {
                     // page is there, or we already retried, the pipe will not start working on
                     // its own: re-requesting just marks it finished again and re-queues this
                     // decode, spinning forever while the reader shows an endless spinner.
-                    boolean claimsPresent = mSpiderDen.contain(index);
+                    boolean claimsPresent = mSpiderDen.contain(index, false);
                     int tries = mDecodeRetryMap.merge(index, 1, Integer::sum);
                     if (claimsPresent || tries > MAX_DECODE_RETRY) {
                         Log.w(TAG, "openInputStreamPipe returned null for index " + index

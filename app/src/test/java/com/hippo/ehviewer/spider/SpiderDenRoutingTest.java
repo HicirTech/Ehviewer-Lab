@@ -167,10 +167,9 @@ public class SpiderDenRoutingTest {
         ShadowSmbSpiderStorage.reset();
     }
 
-    private SpiderDen den(int mode) {
+    private SpiderDen den() {
         SpiderDen den = new SpiderDen(info);
         den.setMGid(GID);
-        den.setMode(mode);
         return den;
     }
 
@@ -193,18 +192,23 @@ public class SpiderDenRoutingTest {
         return ShadowSmbSpiderStorage.calls.contains("openImageInputStreamPipe");
     }
 
-    // --- I1: MODE_READ must never write to the share ----------------------------------------
+    /** Reading a page to show someone. */
+    private static final boolean FOR_READER = false;
+    /** The downloader filling the share. */
+    private static final boolean FOR_DOWNLOAD = true;
+
+    // --- I1: a fetch for the reader never writes to the share --------------------------------
 
     /**
-     * SmbDirectDownloader owns share persistence end to end. If the reader wrote too, every page
-     * viewed would be re-uploaded.
+     * SmbDirectDownloader owns share persistence end to end. If pages fetched to be looked at were
+     * written too, every page anyone glanced at would be uploaded.
      */
     @Test
-    public void invariant1_readModeNeverWritesToTheShare() {
-        OutputStreamPipe pipe = den(SpiderQueen.MODE_READ).openOutputStreamPipe(INDEX, "jpg");
+    public void invariant1_aReaderFetchNeverWritesToTheShare() {
+        OutputStreamPipe pipe = den().openOutputStreamPipe(INDEX, "jpg", FOR_READER);
 
-        assertNotNull("read mode should still buffer the page in the cache", pipe);
-        assertFalse("read mode asked the share for a write pipe",
+        assertNotNull("the page should still be buffered in the cache", pipe);
+        assertFalse("a reader fetch asked the share for a write pipe",
                 ShadowSmbSpiderStorage.calls.contains("openImageOutputStreamPipe"));
     }
 
@@ -212,42 +216,62 @@ public class SpiderDenRoutingTest {
     public void invariant1_holdsEvenWithSyncDownloadWhileReadingOn() {
         Settings.putSyncDownloadWhileReading(true);
 
-        den(SpiderQueen.MODE_READ).openOutputStreamPipe(INDEX, "jpg");
+        den().openOutputStreamPipe(INDEX, "jpg", FOR_READER);
 
         assertFalse(ShadowSmbSpiderStorage.calls.contains("openImageOutputStreamPipe"));
     }
 
-    // --- I2: download-mode reads fall back to the cache (#35) --------------------------------
+    // --- I2: the reader is never sent to the share for a page it already has (#35) -----------
 
     /**
-     * SpiderQueen is a per-gid singleton whose mode is shared, so starting an SMB download flips
-     * the reader's den to MODE_DOWNLOAD. Pages not yet uploaded must still come from the cache,
-     * or the reader fails them with error_reading_failed.
+     * The bug this pins. A download running on the same gallery used to flip the shared den into
+     * download mode, and the reader went with it — fetching from the share pages the download had
+     * not finished uploading, for a gallery whose pages were sitting in the cache all along.
+     *
+     * <p>Not "falls back to the cache", which was the previous fix and only helped when the share
+     * had nothing at all: a file whose name exists but whose bytes are still being written answers
+     * yes, and the reader got a truncated read. Asking at all is the defect, so what is asserted
+     * here is that the share is never consulted.
      */
     @Test
-    public void invariant2_downloadModeFallsBackToCacheWhenNotOnShareYet() {
+    public void invariant2_aReaderFetchDoesNotTouchTheShareWhenTheCacheHasThePage() {
         seedCache();
-        ShadowSmbSpiderStorage.hasImage = false;
+        ShadowSmbSpiderStorage.hasImage = true;   // and it is on the share too, mid-write
 
-        InputStreamPipe pipe = den(SpiderQueen.MODE_DOWNLOAD).openInputStreamPipe(INDEX);
+        InputStreamPipe pipe = den().openInputStreamPipe(INDEX, FOR_READER);
 
         assertNotNull("page is in the cache but was not served", pipe);
-        assertTrue(askedShare());
+        assertFalse("the reader was sent to the share for a page it already had", askedShare());
     }
 
+    /** With nothing cached there is nowhere else to go, so the share is fair game. */
     @Test
-    public void invariant2_downloadModePrefersTheShareWhenItHasThePage() {
+    public void invariant2_aReaderFetchFallsBackToTheShare() {
         ShadowSmbSpiderStorage.hasImage = true;
 
-        assertNotNull(den(SpiderQueen.MODE_DOWNLOAD).openInputStreamPipe(INDEX));
+        assertNotNull(den().openInputStreamPipe(INDEX, FOR_READER));
         assertTrue(askedShare());
     }
 
     @Test
-    public void invariant2_downloadModeStillReturnsNullWhenNeitherHasThePage() {
+    public void invariant2_aReaderFetchIsNullWhenNobodyHasThePage() {
         ShadowSmbSpiderStorage.hasImage = false;
 
-        assertNull(den(SpiderQueen.MODE_DOWNLOAD).openInputStreamPipe(INDEX));
+        assertNull(den().openInputStreamPipe(INDEX, FOR_READER));
+    }
+
+    /**
+     * The other direction, and the reason routing cannot simply prefer the cache everywhere: the
+     * downloader reads back what it just wrote to check it. Served the cached copy, the check
+     * would pass without ever looking at what reached the share.
+     */
+    @Test
+    public void invariant2_aDownloadFetchReadsTheShareEvenWhenCached() {
+        seedCache();
+        ShadowSmbSpiderStorage.hasImage = true;
+
+        assertNotNull(den().openInputStreamPipe(INDEX, FOR_DOWNLOAD));
+        assertTrue("the download read-back was served from the cache", askedShare());
     }
 
     // --- I3: contain() must not claim un-uploaded pages -------------------------------------
@@ -258,27 +282,27 @@ public class SpiderDenRoutingTest {
      * opposite direction from I2 — easy to "unify" by accident.
      */
     @Test
-    public void invariant3_containIsFalseWhenOnlyTheCacheHasThePage() {
+    public void invariant3_containIsFalseForDownloadWhenOnlyTheCacheHasThePage() {
         seedCache();
         ShadowSmbSpiderStorage.hasImage = false;
 
-        assertFalse(den(SpiderQueen.MODE_DOWNLOAD).contain(INDEX));
+        assertFalse(den().contain(INDEX, FOR_DOWNLOAD));
     }
 
     @Test
-    public void invariant3_containIsTrueOnceTheShareHasThePage() {
+    public void invariant3_containIsTrueForDownloadOnceTheShareHasThePage() {
         ShadowSmbSpiderStorage.hasImage = true;
 
-        assertTrue(den(SpiderQueen.MODE_DOWNLOAD).contain(INDEX));
+        assertTrue(den().contain(INDEX, FOR_DOWNLOAD));
     }
 
     @Test
-    public void readMode_containAcceptsTheCache() {
+    public void readerContainAcceptsTheCache() {
         seedCache();
         ShadowSmbSpiderStorage.hasImage = false;
 
         assertTrue("the reader may serve a page the share does not have yet",
-                den(SpiderQueen.MODE_READ).contain(INDEX));
+                den().contain(INDEX, FOR_READER));
     }
 
     // --- I4: an unmarked gallery never touches a remote backend ------------------------------
@@ -292,10 +316,12 @@ public class SpiderDenRoutingTest {
         SmbStorage.unmarkGidAsSmbTarget(GID);
         seedCache();
 
-        SpiderDen den = den(SpiderQueen.MODE_READ);
-        den.openInputStreamPipe(INDEX);
-        den.openOutputStreamPipe(INDEX, "jpg");
-        den.contain(INDEX);
+        SpiderDen den = den();
+        // Reader-intent only: the download-intent paths fall through to the local download
+        // directory, which needs a database this test has no reason to stand up.
+        den.openInputStreamPipe(INDEX, FOR_READER);
+        den.openOutputStreamPipe(INDEX, "jpg", FOR_READER);
+        den.contain(INDEX, FOR_READER);
 
         assertEquals("[]", ShadowSmbSpiderStorage.calls.toString());
     }
@@ -307,7 +333,7 @@ public class SpiderDenRoutingTest {
         seedCache();
         ShadowSmbSpiderStorage.hasImage = true;
 
-        assertNotNull(den(SpiderQueen.MODE_READ).openInputStreamPipe(INDEX));
+        assertNotNull(den().openInputStreamPipe(INDEX, FOR_READER));
         assertFalse("cache hit should not have gone to the share", askedShare());
     }
 
@@ -315,14 +341,14 @@ public class SpiderDenRoutingTest {
     public void readMode_fallsBackToTheShareOnACacheMiss() {
         ShadowSmbSpiderStorage.hasImage = true;
 
-        assertNotNull(den(SpiderQueen.MODE_READ).openInputStreamPipe(INDEX));
+        assertNotNull(den().openInputStreamPipe(INDEX, FOR_READER));
         assertTrue(askedShare());
     }
 
     /** Spider info follows the same routing as images. */
     @Test
     public void spiderInfo_routesThroughTheBackendWhenPresent() {
-        SpiderDen den = den(SpiderQueen.MODE_DOWNLOAD);
+        SpiderDen den = den();
 
         assertNotNull(den.openSpiderInfoOutputStream(".ehviewer"));
         assertTrue(ShadowSmbSpiderStorage.calls.contains("openSpiderInfoOutputStream"));
