@@ -156,13 +156,16 @@ public final class SmbDownloadState {
         @NonNull public final String deviceName;
         /** False once the owner's file has gone stale; only then may another device take over. */
         public final boolean ownerAlive;
+        /** When the owner last wrote its file, by the share's clock. Zero if unknown. */
+        public final long lastSeenMillis;
 
         OwnedTask(@NonNull Task task, @NonNull String clientId, @NonNull String deviceName,
-                  boolean ownerAlive) {
+                  boolean ownerAlive, long lastSeenMillis) {
             this.task = task;
             this.clientId = clientId;
             this.deviceName = deviceName;
             this.ownerAlive = ownerAlive;
+            this.lastSeenMillis = lastSeenMillis;
         }
 
         /**
@@ -193,10 +196,17 @@ public final class SmbDownloadState {
     public static final class Published {
         @NonNull final ClientState state;
         final boolean alive;
+        /**
+         * The file's mtime — the heartbeat itself, carried through so the list can say how long
+         * ago another device was last heard from. A user deciding whether to take a download over
+         * needs that far more than the yes/no {@link #alive} the same number produced.
+         */
+        final long lastSeenMillis;
 
-        public Published(@NonNull ClientState state, boolean alive) {
+        public Published(@NonNull ClientState state, boolean alive, long lastSeenMillis) {
             this.state = state;
             this.alive = alive;
+            this.lastSeenMillis = lastSeenMillis;
         }
     }
 
@@ -228,8 +238,8 @@ public final class SmbDownloadState {
                 continue;
             }
             for (Task t : p.state.tasks) {
-                OwnedTask candidate =
-                        new OwnedTask(t, p.state.clientId, p.state.deviceName, p.alive);
+                OwnedTask candidate = new OwnedTask(
+                        t, p.state.clientId, p.state.deviceName, p.alive, p.lastSeenMillis);
                 OwnedTask current = best.get(t.gid);
                 if (current == null || wins(candidate, current)) {
                     best.put(t.gid, candidate);

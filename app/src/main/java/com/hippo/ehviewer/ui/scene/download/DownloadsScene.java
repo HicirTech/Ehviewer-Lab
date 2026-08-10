@@ -425,33 +425,6 @@ public class DownloadsScene extends ToolbarScene
         mActionFabDrawable = null;
     }
 
-    @SuppressLint("NotifyDataSetChanged")
-    /**
-     * Pulls the SMB saves out of a set of selected gids, leaving the database-backed ones behind.
-     *
-     * <p>A multi-select can span both kinds. Handing the whole set to DownloadManager would leave
-     * the SMB ones untouched while the UI reported success, so they are separated here and each
-     * half is sent where it belongs.
-     */
-    @NonNull
-    private List<com.hippo.ehviewer.smb.SmbTaskInfo> extractSmbTasks(@NonNull LongList gidList) {
-        List<com.hippo.ehviewer.smb.SmbTaskInfo> smb = new ArrayList<>();
-        List<DownloadInfo> list = mList;
-        if (list == null) {
-            return smb;
-        }
-        for (DownloadInfo info : list) {
-            if (info instanceof com.hippo.ehviewer.smb.SmbTaskInfo
-                    && gidList.contains(info.gid)) {
-                smb.add((com.hippo.ehviewer.smb.SmbTaskInfo) info);
-            }
-        }
-        for (com.hippo.ehviewer.smb.SmbTaskInfo t : smb) {
-            gidList.remove(t.gid);
-        }
-        return smb;
-    }
-
     public void updateForLabel() {
         if (null == mDownloadManager) {
             return;
@@ -1111,7 +1084,9 @@ public class DownloadsScene extends ToolbarScene
         }
 
         if (recyclerView.isInCustomChoice()) {
-            recyclerView.toggleItemChecked(position);
+            if (!isSmbAt(position)) {
+                recyclerView.toggleItemChecked(position);
+            }
             return true;
         } else {
             List<DownloadInfo> list = mList;
@@ -1170,12 +1145,45 @@ public class DownloadsScene extends ToolbarScene
             return false;
         }
 
+        if (isSmbAt(position)) {
+            return true;   // not selectable; see isSmbAt
+        }
         if (!recyclerView.isInCustomChoice()) {
             recyclerView.intoCustomChoiceMode();
         }
         recyclerView.toggleItemChecked(position);
 
         return true;
+    }
+
+    /**
+     * Whether the row at this adapter position is an SMB save, which cannot be multi-selected (#59).
+     *
+     * <p>The batch actions are Start, Stop, Delete and Move, and every one of them means something
+     * different for a gallery being saved to the share by some device — or nothing at all, when
+     * that device is not this one. Rather than teach each action what to do, and the next one
+     * somebody adds, these are simply kept out of a selection. Acting on one individually still
+     * works: that is what the row's own buttons and menu are for.
+     */
+    private boolean isSmbAt(int position) {
+        List<DownloadInfo> list = mList;
+        if (list == null) {
+            return false;
+        }
+        int index = positionInList(position);
+        return index >= 0 && index < list.size()
+                && com.hippo.ehviewer.smb.SmbTaskInfo.isSmb(list.get(index));
+    }
+
+    /** Undoes "select all" for the rows that were never selectable to begin with. */
+    private void uncheckSmbTasks(@NonNull MyEasyRecyclerView recyclerView) {
+        SparseBooleanArray checked = recyclerView.getCheckedItemPositions();
+        for (int i = checked.size() - 1; i >= 0; i--) {
+            int position = checked.keyAt(i);
+            if (checked.valueAt(i) && isSmbAt(position)) {
+                recyclerView.toggleItemChecked(position);
+            }
+        }
     }
 
     @SuppressLint("RtlHardcoded")
@@ -1220,6 +1228,7 @@ public class DownloadsScene extends ToolbarScene
 
         if (0 == position) {
             recyclerView.checkAll();
+            uncheckSmbTasks(recyclerView);
         } else {
             List<DownloadInfo> list = mList;
             if (list == null) {
@@ -1241,6 +1250,14 @@ public class DownloadsScene extends ToolbarScene
             for (int i = 0, n = stateArray.size(); i < n; i++) {
                 if (stateArray.valueAt(i)) {
                     DownloadInfo info = list.get(positionInList(stateArray.keyAt(i)));
+                    // SMB saves are excluded from selection, so one should never reach here. The
+                    // guard stays because this loop feeds every batch action there is, including
+                    // ones added later: "Start" hands its gids to DownloadService, which would
+                    // fetch the gallery to the phone while another device was saving it to the
+                    // share. Being wrong here is silent, and this is the one place to be sure.
+                    if (com.hippo.ehviewer.smb.SmbTaskInfo.isSmb(info)) {
+                        continue;
+                    }
                     if (collectDownloadInfo) {
                         downloadInfoList.add(info);
                     }
@@ -1266,11 +1283,6 @@ public class DownloadsScene extends ToolbarScene
                 case 2: { // Stop
                     if (gidList.isEmpty()) {
                         break;
-                    }
-                    for (com.hippo.ehviewer.smb.SmbTaskInfo t : extractSmbTasks(gidList)) {
-                        if (com.hippo.ehviewer.smb.SmbTaskInfo.isActionable(t)) {
-                            com.hippo.ehviewer.smb.SmbDirectDownloader.getInstance().pause(t.gid);
-                        }
                     }
                     if (null != mDownloadManager) {
                         mDownloadManager.stopRangeDownload(gidList);
@@ -2072,11 +2084,6 @@ public class DownloadsScene extends ToolbarScene
             }
 
             // Delete
-            for (com.hippo.ehviewer.smb.SmbTaskInfo t : extractSmbTasks(mGidList)) {
-                if (com.hippo.ehviewer.smb.SmbTaskInfo.isActionable(t)) {
-                    com.hippo.ehviewer.smb.SmbDirectDownloader.getInstance().cancel(t.gid);
-                }
-            }
             if (null != mDownloadManager) {
                 mDownloadManager.deleteRangeDownload(mGidList);
             }

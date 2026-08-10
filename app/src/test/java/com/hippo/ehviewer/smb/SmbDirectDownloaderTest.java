@@ -187,7 +187,7 @@ public class SmbDirectDownloaderTest {
                                                       SmbDownloadState.Task... tasks) {
         return new SmbDownloadState.Published(
                 new SmbDownloadState.ClientState(clientId, clientId, java.util.Arrays.asList(tasks)),
-                alive);
+                alive, 0L);
     }
 
     private static SmbDownloadState.Task stateTask(long gid, SmbDownloadState.TaskState st,
@@ -797,7 +797,7 @@ public class SmbDirectDownloaderTest {
                         java.util.Collections.singletonList(
                                 new SmbDownloadState.Task(5, "tok", "a title",
                                         SmbDownloadState.TaskState.ACTIVE, 7, 20, 100, null))),
-                true));
+                true, 1_700_000_000_000L));
 
         SmbTaskInfo t = sharedTask(5);
         assertEquals("a title", t.title);
@@ -805,6 +805,12 @@ public class SmbDirectDownloaderTest {
         assertEquals(7, t.finished);
         assertEquals(20, t.total);
         assertEquals(20, t.pages);
+        assertEquals("the row names the device doing it", "Study phone", t.deviceName);
+        // How long ago that device last checked in is what the row shows instead of a speed, and
+        // what tells a reader whether the download has stopped. It comes from the file's mtime,
+        // which is a fact only the reader of the directory has -- lose it here and the row can say
+        // nothing more useful than "alive" or "not".
+        assertEquals(1_700_000_000_000L, t.lastSeenMillis);
     }
 
     @Test

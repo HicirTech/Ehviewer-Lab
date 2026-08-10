@@ -40,7 +40,7 @@ public class SmbDownloadStateTest {
 
     private static Published published(String clientId, boolean alive, Task... tasks) {
         return new Published(
-                new ClientState(clientId, clientId + "-name", Arrays.asList(tasks)), alive);
+                new ClientState(clientId, clientId + "-name", Arrays.asList(tasks)), alive, 0L);
     }
 
     private static OwnedTask find(List<OwnedTask> merged, long gid) {
@@ -121,7 +121,7 @@ public class SmbDownloadStateTest {
                 Collections.singletonList(task(7, TaskState.ACTIVE, 900)));
 
         List<OwnedTask> merged = SmbDownloadState.merge(Arrays.asList(
-                new Published(future, true),
+                new Published(future, true, 0L),
                 published(ME, true, task(7, TaskState.QUEUED, 100))));
 
         assertEquals(1, merged.size());
@@ -238,7 +238,7 @@ public class SmbDownloadStateTest {
                 task(1, TaskState.QUEUED, 100),
                 task(2, TaskState.QUEUED, 100)));
         List<OwnedTask> merged = SmbDownloadState.merge(Arrays.asList(
-                new Published(self, true),
+                new Published(self, true, 0L),
                 published(OTHER, true, task(2, TaskState.ACTIVE, 900))));
 
         List<Task> kept = SmbDownloadState.withoutTakenOver(self, merged);
@@ -253,7 +253,7 @@ public class SmbDownloadStateTest {
         ClientState self = new ClientState(ME, "me",
                 Collections.singletonList(task(2, TaskState.QUEUED, 900)));
         List<OwnedTask> merged = SmbDownloadState.merge(Arrays.asList(
-                new Published(self, true),
+                new Published(self, true, 0L),
                 published(OTHER, true, task(2, TaskState.ACTIVE, 100))));
 
         assertEquals(1, SmbDownloadState.withoutTakenOver(self, merged).size());
@@ -265,7 +265,7 @@ public class SmbDownloadStateTest {
         ClientState self = new ClientState(ME, "me",
                 Collections.singletonList(task(2, TaskState.QUEUED, 100)));
         List<OwnedTask> merged = SmbDownloadState.merge(Arrays.asList(
-                new Published(self, true),
+                new Published(self, true, 0L),
                 published(OTHER, false, task(2, TaskState.ACTIVE, 900))));
 
         assertEquals(1, SmbDownloadState.withoutTakenOver(self, merged).size());
@@ -296,7 +296,7 @@ public class SmbDownloadStateTest {
         ClientState them = new ClientState(OTHER, "them",
                 Collections.singletonList(task(7, TaskState.ACTIVE, 100)));
         List<OwnedTask> merged = SmbDownloadState.merge(Arrays.asList(
-                new Published(them, true),
+                new Published(them, true, 0L),
                 published(ME, true, released(7, 900))));
 
         assertTrue("the marker must not be filtered out of what self-cleaning consults",
@@ -313,7 +313,7 @@ public class SmbDownloadStateTest {
         ClientState them = new ClientState(OTHER, "them",
                 Collections.singletonList(task(7, TaskState.ACTIVE, 100)));
         List<OwnedTask> merged = SmbDownloadState.merge(Arrays.asList(
-                new Published(them, true),
+                new Published(them, true, 0L),
                 published(ME, false, released(7, 900))));
 
         assertTrue(SmbDownloadState.withoutTakenOver(them, merged).isEmpty());

@@ -117,7 +117,7 @@ public final class SmbDownloadStateStore {
                         Log.w(TAG, "Ignoring unreadable client state: " + name);
                         continue;
                     }
-                    out.add(new Published(state, isAlive(mtime, now)));
+                    out.add(new Published(state, isAlive(mtime, now), mtime));
                 } catch (Throwable e) {
                     Log.w(TAG, "Could not read client state: " + name, e);
                 }

@@ -520,6 +520,7 @@
     <string name="smb_save_started">SMB save started: %s</string>
     <string name="smb_save_already_complete">Already saved to SMB, skipping</string>
     <string name="smb_save_claimed_elsewhere">Another device is already downloading this to the SMB share</string>
+    <string name="smb_task_owner_last_seen">%1$s · last seen %2$s</string>
     <string name="smb_take_over_title">Take over this download?</string>
     <string name="smb_take_over_message">“%1$s” has stopped responding. Take over “%2$s” and continue it on this device?</string>
     <string name="smb_take_over_confirm">Take over</string>

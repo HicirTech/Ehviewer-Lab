@@ -37,6 +37,15 @@ public final class SmbTaskInfo extends DownloadInfo {
     /** True when this device owns it, and may therefore act on it freely. */
     public final boolean mine;
 
+    /**
+     * When the owning device last wrote its file, by the share's clock. Zero if unknown.
+     *
+     * <p>Shown on the row rather than kept for the liveness check alone: "last seen four minutes
+     * ago" is what actually tells someone whether a download has stopped or is merely between
+     * heartbeats, and it is the thing to judge a takeover by.
+     */
+    public final long lastSeenMillis;
+
     private SmbTaskInfo(@NonNull SmbDownloadState.OwnedTask owned, boolean mine) {
         this.gid = owned.task.gid;
         this.token = owned.task.token;
@@ -47,12 +56,8 @@ public final class SmbTaskInfo extends DownloadInfo {
         this.downloaded = owned.task.finished;
         this.time = owned.task.claimedAt;
         this.state = owned.ownerAlive ? stateOf(owned.task.state) : STATE_FAILED;
-        // The row's "who" line, which for a normal download is the uploader and has nothing to say
-        // about an SMB save. Naming the device is the one thing these carry that an ordinary
-        // download does not, and it is what makes a queue several devices contribute to legible.
-        // Left empty for our own: the answer is "this one", and saying so on every row is noise.
-        this.uploader = mine ? null : owned.deviceName;
         this.deviceName = owned.deviceName;
+        this.lastSeenMillis = owned.lastSeenMillis;
         this.ownerClientId = owned.clientId;
         this.ownerAlive = owned.ownerAlive;
         this.mine = mine;

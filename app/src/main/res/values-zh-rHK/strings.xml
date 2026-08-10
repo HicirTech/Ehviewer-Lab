@@ -1065,6 +1065,7 @@
     <string name="smb_save_started">已開始儲存到 SMB：%s</string>
     <string name="smb_save_already_complete">已儲存到 SMB，略過</string>
     <string name="smb_save_claimed_elsewhere">另一台裝置正在把這本下載到 SMB 共享</string>
+    <string name="smb_task_owner_last_seen">%1$s · 最後一次回應 %2$s</string>
     <string name="smb_take_over_title">接管這個下載?</string>
     <string name="smb_take_over_message">「%1$s」已經失去回應。要接管「%2$s」並在本機繼續下載嗎?</string>
     <string name="smb_take_over_confirm">接管</string>

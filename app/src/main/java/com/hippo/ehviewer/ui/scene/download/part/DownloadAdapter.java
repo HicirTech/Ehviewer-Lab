@@ -192,6 +192,7 @@ public class DownloadAdapter extends RecyclerView.Adapter<DownloadAdapter.Downlo
 
             holder.title.setText(title);
             holder.uploader.setText(info.uploader);
+            bindSmbOwner(holder, info);
 
             // Handle rating display for imported archives
             if (info.archiveUri != null && info.archiveUri.startsWith("content://")) {
@@ -306,8 +307,27 @@ public class DownloadAdapter extends RecyclerView.Adapter<DownloadAdapter.Downlo
             holder.stop.setVisibility(View.GONE);
         }
 
+        hideFieldsAnSmbTaskHasNone(holder, info);
         hideControlsWeCannotHonour(holder, info);
         holder.state.setText(state);
+    }
+
+    /**
+     * Blanks the parts of the card an SMB task has nothing to put in (#59).
+     *
+     * <p>These are built from what a device published under {@code state/}, which is its queue and
+     * nothing more — no uploader, no rating, no category. Left alone they draw their empty values:
+     * a row of hollow stars, and a black <i>UNKNOWN</i> chip that comes from category zero and
+     * looks like a fact about the gallery rather than an absence of one.
+     */
+    private static void hideFieldsAnSmbTaskHasNone(DownloadHolder holder, DownloadInfo info) {
+        if (!com.hippo.ehviewer.smb.SmbTaskInfo.isSmb(info)) {
+            return;
+        }
+        holder.uploader.setVisibility(View.GONE);
+        holder.rating.setVisibility(View.GONE);
+        holder.category.setVisibility(View.GONE);
+        holder.readProgress.setVisibility(View.GONE);
     }
 
     /**
@@ -319,6 +339,36 @@ public class DownloadAdapter extends RecyclerView.Adapter<DownloadAdapter.Downlo
      * no button — it reads as the app having ignored the tap. An abandoned one keeps its start
      * button, because there it means "take this over".
      */
+    /**
+     * Says which device is saving an SMB task, and when it last checked in (#59).
+     *
+     * <p>The "when" is the part that decides things. Another device's row cannot say whether its
+     * download is moving — this one is not watching it, only reading what it last wrote — so how
+     * long ago it wrote is the whole signal: seconds means it is working, and minutes means
+     * something happened to it and the download is there to be taken over.
+     *
+     * <p>Nothing is said about this device's own tasks. The answer would be "this one, just now"
+     * on every row, which is noise.
+     */
+    private void bindSmbOwner(DownloadHolder holder, DownloadInfo info) {
+        if (!com.hippo.ehviewer.smb.SmbTaskInfo.isSmb(info)
+                || ((com.hippo.ehviewer.smb.SmbTaskInfo) info).mine) {
+            holder.smbOwner.setVisibility(View.GONE);
+            return;
+        }
+        com.hippo.ehviewer.smb.SmbTaskInfo smb = (com.hippo.ehviewer.smb.SmbTaskInfo) info;
+        Context context = mScene.getEHContext();
+        String text = smb.deviceName;
+        if (context != null && smb.lastSeenMillis > 0L) {
+            CharSequence ago = android.text.format.DateUtils.getRelativeTimeSpanString(
+                    smb.lastSeenMillis, System.currentTimeMillis(),
+                    android.text.format.DateUtils.SECOND_IN_MILLIS);
+            text = context.getString(R.string.smb_task_owner_last_seen, smb.deviceName, ago);
+        }
+        holder.smbOwner.setText(text);
+        holder.smbOwner.setVisibility(View.VISIBLE);
+    }
+
     private static void hideControlsWeCannotHonour(DownloadHolder holder, DownloadInfo info) {
         if (com.hippo.ehviewer.smb.SmbTaskInfo.isSmb(info)
                 && !com.hippo.ehviewer.smb.SmbTaskInfo.isActionable(info)
@@ -361,10 +411,6 @@ public class DownloadAdapter extends RecyclerView.Adapter<DownloadAdapter.Downlo
         // beside it already says whether anything is moving.
         if (com.hippo.ehviewer.smb.SmbTaskInfo.isSmb(info)) {
             holder.speed.setVisibility(View.GONE);
-            // Which device is doing it, kept on screen while it runs -- that is when knowing
-            // matters, and it is the row that would otherwise look like a download of this phone's
-            // own that had somehow started by itself.
-            holder.uploader.setVisibility(info.uploader != null ? View.VISIBLE : View.GONE);
             hideControlsWeCannotHonour(holder, info);
             return;
         }
@@ -690,6 +736,8 @@ public class DownloadAdapter extends RecyclerView.Adapter<DownloadAdapter.Downlo
         public final LoadImageView thumb;
         public final TextView title;
         public final TextView uploader;
+        /** Which device is saving an SMB task, and when it last checked in (#59). */
+        public final TextView smbOwner;
         public final SimpleRatingView rating;
         public final TextView category;
         public final TextView readProgress;
@@ -706,6 +754,7 @@ public class DownloadAdapter extends RecyclerView.Adapter<DownloadAdapter.Downlo
             thumb = itemView.findViewById(R.id.thumb);
             title = itemView.findViewById(R.id.title);
             uploader = itemView.findViewById(R.id.uploader);
+            smbOwner = itemView.findViewById(R.id.smb_owner);
             rating = itemView.findViewById(R.id.rating);
             category = itemView.findViewById(R.id.category);
             readProgress = itemView.findViewById(R.id.read_progress);
