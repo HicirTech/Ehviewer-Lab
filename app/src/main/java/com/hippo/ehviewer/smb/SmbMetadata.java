@@ -194,7 +194,8 @@ public final class SmbMetadata {
         // Atomic, like everything else written to the share: Local Inventory decides a gallery
         // exists by reading this file, and a half-written one reads as a gallery with no title.
         try (OutputStream os =
-                     SmbStorage.openAtomicOutputStream(galleryDir, SmbStorage.METADATA_FILE)) {
+                     SmbStorage.openAtomicOutputStream(
+                             galleryDir, SmbStorage.METADATA_FILE, info.gid)) {
             os.write(json.getBytes(StandardCharsets.UTF_8));
         }
     }

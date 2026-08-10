@@ -680,8 +680,8 @@ public final class SmbStorage {
      * these do overwrite — a re-downloaded page, a refreshed cover.
      */
     @NonNull
-    static OutputStream openAtomicOutputStream(@NonNull SmbFile dir, @NonNull String name)
-            throws IOException {
+    static OutputStream openAtomicOutputStream(@NonNull SmbFile dir, @NonNull String name,
+                                               long gid) throws IOException {
         final SmbFile target = new SmbFile(dir, name);
         // Unique per attempt so two writers of the same file cannot land on each other's
         // temporary, and so a temporary left by a killed process is never mistaken for this one.
@@ -715,6 +715,13 @@ public final class SmbStorage {
                 out.close();
                 try {
                     temp.renameTo(target, true);
+                    // The listing this gallery is looked up through is cached for a few seconds
+                    // and was taken before this file existed. Leaving it is what #35 actually
+                    // was: the downloader writes a page, immediately reads it back to check it,
+                    // is told by the stale listing that it is not there, calls that a failed
+                    // page -- and deletes the file it just wrote. The reader shares the page
+                    // state, so it shows "Reading Failed" for a page that was fine.
+                    invalidateListing(gid);
                 } catch (Throwable e) {
                     try {
                         temp.delete();
@@ -762,7 +769,7 @@ public final class SmbStorage {
                     // link does 6.4. Buffering here rather than widening SpiderQueen's array keeps
                     // the fix inside the smb package: SpiderQueen is upstream code and already the
                     // recurring conflict point on every upstream merge.
-                    os = openAtomicOutputStream(finalGalleryDir, finalName);
+                    os = openAtomicOutputStream(finalGalleryDir, finalName, info.gid);
                     return os;
                 }
 
@@ -921,7 +928,7 @@ public final class SmbStorage {
             galleryDir.mkdirs();
         }
 
-        copyUniDir(localDir, galleryDir);
+        copyUniDir(localDir, galleryDir, info.gid);
         SmbMetadata.writeMetadataWithDetail(context, galleryDir, info);
         downloadAndWriteCover(context, galleryDir, info);
     }
@@ -967,7 +974,8 @@ public final class SmbStorage {
         }
     }
 
-    private static void copyUniDir(@NonNull UniFile srcDir, @NonNull SmbFile targetDir) throws IOException {
+    private static void copyUniDir(@NonNull UniFile srcDir, @NonNull SmbFile targetDir,
+                                   long gid) throws IOException {
         UniFile[] children = srcDir.listFiles();
         if (children == null) {
             return;
@@ -982,7 +990,7 @@ public final class SmbStorage {
                 if (!subDir.exists()) {
                     subDir.mkdirs();
                 }
-                copyUniDir(child, subDir);
+                copyUniDir(child, subDir, gid);
             } else {
                 // Open the source first, hold it in a local so it's closed even if opening
                 // the SMB output stream throws (Java evaluates args left-to-right, so a
@@ -990,7 +998,7 @@ public final class SmbStorage {
                 InputStream in = child.openInputStream();
                 OutputStream out;
                 try {
-                    out = openAtomicOutputStream(targetDir, name);
+                    out = openAtomicOutputStream(targetDir, name, gid);
                 } catch (IOException e) {
                     IOUtils.closeQuietly(in);
                     throw e;
@@ -1028,7 +1036,7 @@ public final class SmbStorage {
             InputStream in = response.body().byteStream();
             OutputStream out;
             try {
-                out = openAtomicOutputStream(galleryDir, "cover" + extension);
+                out = openAtomicOutputStream(galleryDir, "cover" + extension, info.gid);
             } catch (IOException e) {
                 IOUtils.closeQuietly(in);
                 throw e;
