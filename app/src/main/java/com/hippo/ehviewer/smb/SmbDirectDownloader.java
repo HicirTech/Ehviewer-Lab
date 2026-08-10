@@ -253,7 +253,7 @@ public final class SmbDirectDownloader {
         if (wasAway) {
             Log.i(TAG, "Out of touch with the share for "
                     + (System.currentTimeMillis() - before) + "ms; re-reading the queue");
-            resyncAfterSilence();
+            reconcileWithShare();
         }
     }
 
@@ -269,41 +269,6 @@ public final class SmbDirectDownloader {
             // Failing to publish costs visibility to other devices, nothing local. The next beat
             // carries the same state, so there is nothing to recover here.
             Log.w(TAG, "Failed to publish download state", e);
-        }
-    }
-
-    /**
-     * Reconciles this device's queue with the share after it has been out of touch.
-     *
-     * <p>Anything another device has since claimed more recently is no longer ours, and is dropped
-     * without touching the share — the pages already written belong to whoever adopted it, and
-     * that is what makes a takeover a resumption rather than a restart.
-     *
-     * <p>The download is not suspended for the duration. This is one round trip, against a device
-     * that has by this point been writing to a folder it may not own for a minute and a half; the
-     * hundred milliseconds it would buy do not pay for releasing and re-obtaining a SpiderQueen
-     * mid-gallery.
-     */
-    private void resyncAfterSilence() {
-        try {
-            List<SmbDownloadState.Published> all = SmbDownloadStateStore.readAll();
-            SmbDownloadState.ClientState self = snapshotClientState();
-            List<SmbDownloadState.Task> kept =
-                    SmbDownloadState.withoutTakenOver(self, SmbDownloadState.merge(all));
-
-            List<Long> stillOurs = new ArrayList<>(kept.size());
-            for (SmbDownloadState.Task t : kept) {
-                stillOurs.add(t.gid);
-            }
-            for (SmbDownloadState.Task t : self.tasks) {
-                if (!stillOurs.contains(t.gid)) {
-                    Log.i(TAG, "gid=" + t.gid + " was taken over while we were away; standing down");
-                    SimpleHandler.getInstance().post(() -> yieldOnMainThread(t.gid));
-                }
-            }
-        } catch (Throwable e) {
-            // An unreadable share tells us nothing about who owns what, so nothing changes here.
-            Log.w(TAG, "Could not reconcile the queue after being out of touch", e);
         }
     }
 
@@ -389,34 +354,75 @@ public final class SmbDirectDownloader {
     }
 
     private void restoreNow() {
+        reconcileWithShare();
+    }
+
+    /**
+     * Makes this device's queue and the share agree, in both directions.
+     *
+     * <p>Used both when the queue first comes back and when this device has been out of touch, and
+     * it is the same job either way: whatever it thinks it is doing may be out of date, and the
+     * share is what everyone else is going by.
+     *
+     * <ul>
+     *   <li><b>Held here but not ours any more</b> — another device claimed it more recently while
+     *       we were away. Dropped without touching the share, since the pages already written
+     *       belong to whoever adopted it.</li>
+     *   <li><b>Published by us but not held here</b> — the process ended and took the queue with
+     *       it. Brought back, minus anything taken over in the meantime.</li>
+     * </ul>
+     *
+     * <p>Runs on the publisher thread; the queue edits are posted to the main one, where every
+     * other queue change happens.
+     */
+    private void reconcileWithShare() {
         final String selfId = Settings.getSmbClientId();
-        final List<SmbDownloadState.Task> mine;
+        final List<SmbDownloadState.Task> missing;
         try {
             List<SmbDownloadState.Published> all = SmbDownloadStateStore.readAll();
-            SmbDownloadState.ClientState self = null;
+            List<SmbDownloadState.OwnedTask> merged = SmbDownloadState.merge(all);
+
+            SmbDownloadState.ClientState held = snapshotClientState();
+            List<Long> stillOurs = gidsOf(SmbDownloadState.withoutTakenOver(held, merged));
+            for (SmbDownloadState.Task t : held.tasks) {
+                if (!stillOurs.contains(t.gid)) {
+                    Log.i(TAG, "gid=" + t.gid + " was taken over elsewhere; standing down");
+                    SimpleHandler.getInstance().post(() -> yieldOnMainThread(t.gid));
+                }
+            }
+
+            SmbDownloadState.ClientState published = null;
             for (SmbDownloadState.Published p : all) {
                 if (p.state.clientId.equals(selfId)) {
-                    self = p.state;
+                    published = p.state;
                     break;
                 }
             }
-            if (self == null) {
+            if (published == null) {
                 return;   // nothing of ours has ever been published
             }
-            mine = SmbDownloadState.withoutTakenOver(self, SmbDownloadState.merge(all));
+            List<Long> heldGids = gidsOf(held.tasks);
+            List<SmbDownloadState.Task> back = new ArrayList<>();
+            for (SmbDownloadState.Task t : SmbDownloadState.withoutTakenOver(published, merged)) {
+                if (!heldGids.contains(t.gid)) {
+                    back.add(t);
+                }
+            }
+            missing = back;
         } catch (Throwable e) {
-            Log.e(TAG, "Failed to restore download state", e);
+            Log.e(TAG, "Failed to reconcile with the share", e);
             return;
         }
-        if (mine.isEmpty()) {
-            // Everything we had is gone -- taken over, or finished elsewhere. Say so, so our file
-            // stops advertising claims we no longer hold.
+        if (missing.isEmpty()) {
+            // Either nothing was lost, or everything we had is gone -- taken over, or finished
+            // elsewhere. Say where we are either way, so our file stops advertising claims we no
+            // longer hold.
             publishState();
             return;
         }
         final Context ctx = appContext != null ? appContext : EhApplication.getInstance();
         SimpleHandler.getInstance().post(() -> {
-            for (SmbDownloadState.Task t : mine) {
+            for (SmbDownloadState.Task t : missing) {
                 GalleryInfo info = new GalleryInfo();
                 info.gid = t.gid;
                 info.token = t.token;
@@ -432,6 +438,9 @@ public final class SmbDirectDownloader {
                         takenOverFrom.put(t.gid, t.takenOverFrom);
                     }
                 }
+                // Paused tasks stay paused -- the user put them there. Anything else comes back
+                // queued, including what was mid-download when the process died, since nothing is
+                // running now.
                 if (t.state == SmbDownloadState.TaskState.PAUSED) {
                     synchronized (lock) {
                         paused.put(t.gid, info);
@@ -443,6 +452,15 @@ public final class SmbDirectDownloader {
             notifyObservers();
             publishState();
         });
+    }
+
+    @NonNull
+    private static List<Long> gidsOf(@NonNull List<SmbDownloadState.Task> tasks) {
+        List<Long> out = new ArrayList<>(tasks.size());
+        for (SmbDownloadState.Task t : tasks) {
+            out.add(t.gid);
+        }
+        return out;
     }
 
     /**
@@ -825,6 +843,12 @@ public final class SmbDirectDownloader {
                 this.appContext = svc.getApplicationContext();
             }
         }
+        // The service coming up is the one signal that does not depend on a screen being open --
+        // including when Android restarts it after killing the process, which it does precisely
+        // because there was work in flight. That work is on the share; this is what goes and gets
+        // it. Idempotent, so the ordinary case of the service starting for a fresh enqueue costs
+        // one no-op.
+        ensureRestored();
         SimpleHandler.getInstance().post(this::pumpOnMainThread);
     }
 
