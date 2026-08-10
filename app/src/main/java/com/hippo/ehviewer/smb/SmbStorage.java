@@ -242,26 +242,15 @@ public final class SmbStorage {
      * structural change ({@link #prepareGalleryDir}, {@link #removeImage},
      * {@link #deleteGalleryFolder}, {@link #finalizeDownloadedGallery}) invalidates it.
      */
-    private static final long LISTING_CACHE_TTL_MS = 5000L;
-
-    private static final class DirListing {
-        final long fetchedAt;
-        @NonNull final Set<String> names;
-
-        DirListing(long fetchedAt, @NonNull Set<String> names) {
-            this.fetchedAt = fetchedAt;
-            this.names = names;
-        }
-    }
-
-    private static final Map<Long, DirListing> LISTING_CACHE = new ConcurrentHashMap<>();
+    private static final GalleryListingCache LISTING_CACHE =
+            new GalleryListingCache(GalleryListingCache.DEFAULT_TTL_MS);
 
     @NonNull
     private static Set<String> galleryFilenames(@NonNull GalleryInfo info) {
-        DirListing cached = LISTING_CACHE.get(info.gid);
         long now = SystemClock.elapsedRealtime();
-        if (cached != null && now - cached.fetchedAt < LISTING_CACHE_TTL_MS) {
-            return cached.names;
+        Set<String> cached = LISTING_CACHE.get(info.gid, now);
+        if (cached != null) {
+            return cached;
         }
         Set<String> names = new HashSet<>();
         long tList = SystemClock.elapsedRealtime();
@@ -275,12 +264,12 @@ public final class SmbStorage {
             // Folder may not exist yet (gallery not saved) — treat as empty, cache the miss so we
             // don't re-probe a missing dir on every page.
         }
-        LISTING_CACHE.put(info.gid, new DirListing(now, names));
+        LISTING_CACHE.put(info.gid, names, now);
         return names;
     }
 
     private static void invalidateListing(long gid) {
-        LISTING_CACHE.remove(gid);
+        LISTING_CACHE.invalidate(gid);
     }
 
     public static boolean prepareGalleryDir(@NonNull GalleryInfo info) {
