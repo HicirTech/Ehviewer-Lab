@@ -190,9 +190,12 @@ public final class SmbMetadata {
     }
 
     private static void writeMetadata(@NonNull SmbFile galleryDir, @NonNull GalleryInfo info) throws IOException {
-        SmbFile metadata = new SmbFile(galleryDir, SmbStorage.METADATA_FILE);
         String json = info.toJson().toJSONString();
-        try (OutputStream os = metadata.getOutputStream()) {
+        // Atomic, like everything else written to the share: Local Inventory decides a gallery
+        // exists by reading this file, and a half-written one reads as a gallery with no title.
+        try (OutputStream os =
+                     SmbStorage.openAtomicOutputStream(
+                             galleryDir, SmbStorage.METADATA_FILE, info.gid)) {
             os.write(json.getBytes(StandardCharsets.UTF_8));
         }
     }

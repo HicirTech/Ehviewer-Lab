@@ -50,6 +50,12 @@ public final class SmbStorage {
 
     private static final String TAG = "SmbStorage";
     // Package-private: SmbMetadata reads/writes the same metadata.json.
+    /**
+     * Marks a write still in flight. Every image lookup builds the exact name it expects, so a
+     * temporary never answers one; this only has to be a suffix nothing else ends in.
+     */
+    static final String TEMP_SUFFIX = ".tmp";
+
     static final String METADATA_FILE = "metadata.json";
     private static final String SPIDER_INFO_FILE = ".ehviewer";
 
@@ -236,26 +242,15 @@ public final class SmbStorage {
      * structural change ({@link #prepareGalleryDir}, {@link #removeImage},
      * {@link #deleteGalleryFolder}, {@link #finalizeDownloadedGallery}) invalidates it.
      */
-    private static final long LISTING_CACHE_TTL_MS = 5000L;
-
-    private static final class DirListing {
-        final long fetchedAt;
-        @NonNull final Set<String> names;
-
-        DirListing(long fetchedAt, @NonNull Set<String> names) {
-            this.fetchedAt = fetchedAt;
-            this.names = names;
-        }
-    }
-
-    private static final Map<Long, DirListing> LISTING_CACHE = new ConcurrentHashMap<>();
+    private static final GalleryListingCache LISTING_CACHE =
+            new GalleryListingCache(GalleryListingCache.DEFAULT_TTL_MS);
 
     @NonNull
     private static Set<String> galleryFilenames(@NonNull GalleryInfo info) {
-        DirListing cached = LISTING_CACHE.get(info.gid);
         long now = SystemClock.elapsedRealtime();
-        if (cached != null && now - cached.fetchedAt < LISTING_CACHE_TTL_MS) {
-            return cached.names;
+        Set<String> cached = LISTING_CACHE.get(info.gid, now);
+        if (cached != null) {
+            return cached;
         }
         Set<String> names = new HashSet<>();
         long tList = SystemClock.elapsedRealtime();
@@ -269,12 +264,12 @@ public final class SmbStorage {
             // Folder may not exist yet (gallery not saved) — treat as empty, cache the miss so we
             // don't re-probe a missing dir on every page.
         }
-        LISTING_CACHE.put(info.gid, new DirListing(now, names));
+        LISTING_CACHE.put(info.gid, names, now);
         return names;
     }
 
     private static void invalidateListing(long gid) {
-        LISTING_CACHE.remove(gid);
+        LISTING_CACHE.invalidate(gid);
     }
 
     public static boolean prepareGalleryDir(@NonNull GalleryInfo info) {
@@ -655,6 +650,79 @@ public final class SmbStorage {
         return result;
     }
 
+
+    /**
+     * Opens a file on the share for writing so that no reader can ever see a half-written one.
+     *
+     * <p>Bytes go to a temporary name and are renamed onto the target when the stream closes. SMB
+     * has no other way to make a write look instantaneous: a file created under its final name
+     * appears in a directory listing as soon as it exists, and every reader here decides a page,
+     * cover or preview is available by finding its name. So for as long as a write is in flight,
+     * anybody looking sees a file that is present and incomplete — reads a truncated image, or
+     * fails outright — and a moment later the same read succeeds. That is #35.
+     *
+     * <p>Spider info has been written this way from the start. Nothing else was, which is why the
+     * symptom was never confined to reading pages: covers and previews come off the same share by
+     * the same rule.
+     *
+     * <p>Two-argument {@code renameTo}: the one-argument form refuses an existing target, and
+     * these do overwrite — a re-downloaded page, a refreshed cover.
+     */
+    @NonNull
+    static OutputStream openAtomicOutputStream(@NonNull SmbFile dir, @NonNull String name,
+                                               long gid) throws IOException {
+        final SmbFile target = new SmbFile(dir, name);
+        // Unique per attempt so two writers of the same file cannot land on each other's
+        // temporary, and so a temporary left by a killed process is never mistaken for this one.
+        final SmbFile temp = new SmbFile(dir, name + "." + System.nanoTime() + TEMP_SUFFIX);
+        final OutputStream out =
+                new java.io.BufferedOutputStream(temp.getOutputStream(), SMB_IO_BUFFER);
+        return new OutputStream() {
+            private boolean closed;
+
+            @Override
+            public void write(int b) throws IOException {
+                out.write(b);
+            }
+
+            @Override
+            public void write(@NonNull byte[] b, int off, int len) throws IOException {
+                out.write(b, off, len);
+            }
+
+            @Override
+            public void flush() throws IOException {
+                out.flush();
+            }
+
+            @Override
+            public void close() throws IOException {
+                if (closed) {
+                    return;
+                }
+                closed = true;
+                out.close();
+                try {
+                    temp.renameTo(target, true);
+                    // The listing this gallery is looked up through is cached for a few seconds
+                    // and was taken before this file existed. Leaving it is what #35 actually
+                    // was: the downloader writes a page, immediately reads it back to check it,
+                    // is told by the stale listing that it is not there, calls that a failed
+                    // page -- and deletes the file it just wrote. The reader shares the page
+                    // state, so it shows "Reading Failed" for a page that was fine.
+                    invalidateListing(gid);
+                } catch (Throwable e) {
+                    try {
+                        temp.delete();
+                    } catch (Throwable ignored) {
+                        // A stale temporary is skipped by every reader and cleaned up later.
+                    }
+                    throw new IOException("Failed to publish " + name, e);
+                }
+            }
+        };
+    }
+
     @Nullable
     public static OutputStreamPipe openSmbOutputStreamPipe(@NonNull GalleryInfo info, int index, @Nullable String extension) {
         try {
@@ -665,8 +733,8 @@ public final class SmbStorage {
             if (!ext.startsWith(".")) {
                 ext = "." + ext;
             }
-            SmbFile target = new SmbFile(getGalleryDir(info), SpiderDen.generateImageFilename(index, ext));
-            final SmbFile finalTarget = target;
+            final SmbFile finalGalleryDir = getGalleryDir(info);
+            final String finalName = SpiderDen.generateImageFilename(index, ext);
             return new OutputStreamPipe() {
                 private OutputStream os;
 
@@ -690,7 +758,7 @@ public final class SmbStorage {
                     // link does 6.4. Buffering here rather than widening SpiderQueen's array keeps
                     // the fix inside the smb package: SpiderQueen is upstream code and already the
                     // recurring conflict point on every upstream merge.
-                    os = new java.io.BufferedOutputStream(finalTarget.getOutputStream(), SMB_IO_BUFFER);
+                    os = openAtomicOutputStream(finalGalleryDir, finalName, info.gid);
                     return os;
                 }
 
@@ -849,7 +917,7 @@ public final class SmbStorage {
             galleryDir.mkdirs();
         }
 
-        copyUniDir(localDir, galleryDir);
+        copyUniDir(localDir, galleryDir, info.gid);
         SmbMetadata.writeMetadataWithDetail(context, galleryDir, info);
         downloadAndWriteCover(context, galleryDir, info);
     }
@@ -895,7 +963,8 @@ public final class SmbStorage {
         }
     }
 
-    private static void copyUniDir(@NonNull UniFile srcDir, @NonNull SmbFile targetDir) throws IOException {
+    private static void copyUniDir(@NonNull UniFile srcDir, @NonNull SmbFile targetDir,
+                                   long gid) throws IOException {
         UniFile[] children = srcDir.listFiles();
         if (children == null) {
             return;
@@ -910,16 +979,15 @@ public final class SmbStorage {
                 if (!subDir.exists()) {
                     subDir.mkdirs();
                 }
-                copyUniDir(child, subDir);
+                copyUniDir(child, subDir, gid);
             } else {
-                SmbFile targetFile = new SmbFile(targetDir, name);
                 // Open the source first, hold it in a local so it's closed even if opening
                 // the SMB output stream throws (Java evaluates args left-to-right, so a
                 // throw from getOutputStream() would otherwise leak the already-open input).
                 InputStream in = child.openInputStream();
                 OutputStream out;
                 try {
-                    out = targetFile.getOutputStream();
+                    out = openAtomicOutputStream(targetDir, name, gid);
                 } catch (IOException e) {
                     IOUtils.closeQuietly(in);
                     throw e;
@@ -951,14 +1019,13 @@ public final class SmbStorage {
                     extension = "." + ext;
                 }
             }
-            SmbFile coverFile = new SmbFile(galleryDir, "cover" + extension);
             // Open source first; the response body's byteStream is owned by the response
             // (closed via try-with-resources) so we just need to make sure the SMB output
             // open failing doesn't drop a still-uncopied body on the floor.
             InputStream in = response.body().byteStream();
             OutputStream out;
             try {
-                out = coverFile.getOutputStream();
+                out = openAtomicOutputStream(galleryDir, "cover" + extension, info.gid);
             } catch (IOException e) {
                 IOUtils.closeQuietly(in);
                 throw e;
