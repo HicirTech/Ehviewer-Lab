@@ -109,15 +109,31 @@ final class SmbTempFiles {
         return removed;
     }
 
-    /** Removes one temporary. Returns whether it is gone; failing is not worth anyone's attention. */
+    /**
+     * Removes one temporary. Returns whether it is gone.
+     *
+     * <p>Losing a race to delete is the expected outcome, not an error: {@code readAll} is called
+     * from more than one place at a time — the download list refreshing and the downloader
+     * reconciling with the share both do it — so two threads routinely reach the same abandoned
+     * file within a millisecond of each other and one of them is told there is no such file. That
+     * was observed on the real share the first time this ran. It is a success from where the caller
+     * stands, so it is reported as one, and only a delete that leaves the file behind is worth
+     * anyone's attention.
+     */
     static boolean delete(@NonNull SmbFile file) {
         try {
             file.delete();
             Log.i(TAG, "Removed abandoned temporary " + file.getName());
             return true;
         } catch (Throwable e) {
-            // Someone else swept it first, or the share said no. Either way the next pass tries
-            // again, and until then it is one stale file.
+            try {
+                if (!file.exists()) {
+                    return true;
+                }
+            } catch (Throwable ignored) {
+                // Cannot even ask. Fall through and report the original failure.
+            }
+            // The share said no. The next pass tries again; until then it is one stale file.
             Log.w(TAG, "Could not remove " + file.getName(), e);
             return false;
         }
