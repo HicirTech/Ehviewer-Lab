@@ -201,6 +201,10 @@ public class DownloadsScene extends ToolbarScene
             });
             return;
         }
+        // The queue lives on the share and so outlives the process, but nothing brings it back on
+        // its own. The screen that used to ask for it is gone, and this is the one that replaced
+        // it -- without this an interrupted download would sit on the share forever.
+        com.hippo.ehviewer.smb.SmbDirectDownloader.getInstance().ensureRestored();
         IoThreadPoolExecutor.Companion.getInstance().execute(() -> {
             final List<com.hippo.ehviewer.smb.SmbTaskInfo> fresh =
                     com.hippo.ehviewer.smb.SmbDirectDownloader.getInstance().snapshotSharedTasks();

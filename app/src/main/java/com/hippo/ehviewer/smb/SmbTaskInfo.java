@@ -46,7 +46,8 @@ public final class SmbTaskInfo extends DownloadInfo {
      */
     public final long lastSeenMillis;
 
-    private SmbTaskInfo(@NonNull SmbDownloadState.OwnedTask owned, boolean mine) {
+    private SmbTaskInfo(@NonNull SmbDownloadState.OwnedTask owned, boolean mine,
+                        @Nullable com.hippo.ehviewer.client.data.GalleryInfo metadata) {
         this.gid = owned.task.gid;
         this.token = owned.task.token;
         this.title = owned.task.title;
@@ -58,6 +59,22 @@ public final class SmbTaskInfo extends DownloadInfo {
         this.state = owned.ownerAlive ? stateOf(owned.task.state) : STATE_FAILED;
         this.deviceName = owned.deviceName;
         this.lastSeenMillis = owned.lastSeenMillis;
+        // The queue file says what is being downloaded and by whom; everything else a row draws
+        // comes from the gallery's own metadata on the share. Absent while a gallery is still
+        // being enqueued, and the row simply renders without it.
+        if (metadata != null) {
+            this.category = metadata.category;
+            this.thumb = metadata.thumb;
+            this.rating = metadata.rating;
+            this.posted = metadata.posted;
+            this.simpleLanguage = metadata.simpleLanguage;
+            if (this.title == null) {
+                this.title = metadata.title;
+            }
+            if (this.pages <= 0) {
+                this.pages = metadata.pages;
+            }
+        }
         this.ownerClientId = owned.clientId;
         this.ownerAlive = owned.ownerAlive;
         this.mine = mine;
@@ -67,11 +84,13 @@ public final class SmbTaskInfo extends DownloadInfo {
      * Adapts one merged entry for the list.
      *
      * @param selfClientId this device's identity, so it can tell its own work from everyone else's
+     * @param metadata     the gallery's own record on the share, or null if it is not there yet
      */
     @NonNull
     public static SmbTaskInfo of(@NonNull SmbDownloadState.OwnedTask owned,
-                                 @NonNull String selfClientId) {
-        return new SmbTaskInfo(owned, selfClientId.equals(owned.clientId));
+                                 @NonNull String selfClientId,
+                                 @Nullable com.hippo.ehviewer.client.data.GalleryInfo metadata) {
+        return new SmbTaskInfo(owned, selfClientId.equals(owned.clientId), metadata);
     }
 
     /**

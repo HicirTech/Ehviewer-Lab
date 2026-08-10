@@ -67,13 +67,7 @@ public final class SmbDirectDownloader {
     private final Map<Long, Long> claimedAt = new HashMap<>();
     /** For a gallery taken over from a device that went away, who it was taken from. */
     private final Map<Long, String> takenOverFrom = new HashMap<>();
-    /**
-     * Markers for galleries taken over and since finished with, keyed by gid.
-     *
-     * <p>Published alongside the real queue and pruned once the file they contradict lets go; see
-     * {@link SmbDownloadState.TaskState#RELEASED}.
-     */
-    private final LinkedHashMap<Long, SmbDownloadState.Task> released = new LinkedHashMap<>();
+
     /** Move-to-SMB batches in flight. Shares the same foreground notification surface. */
     private final Map<Integer, MoveBatch> moveBatches = new HashMap<>();
     private int nextMoveBatchId = 1;
@@ -225,12 +219,52 @@ public final class SmbDirectDownloader {
         }
     }
 
+    /**
+     * When this device last got its file onto the share, by its own clock. Zero until it has.
+     *
+     * <p>The same quantity every other device is judging this one by: its file's mtime is the
+     * moment of this write. So the device can work out for itself when it has been declared dead,
+     * without asking anybody.
+     */
+    private volatile long lastPublishedAtMillis;
+
+    /**
+     * A heartbeat: say where we are, and notice if we have been away.
+     *
+     * <p>The write is the whole of the normal path — no read, nothing to reconcile. What it also
+     * does is check its own last success: if this device has not managed to publish for
+     * {@link SmbDownloadStateStore#STALE_AFTER_MS}, then by everyone else's reckoning it is dead
+     * and its downloads are up for adoption, whatever it thinks it is doing.
+     *
+     * <p>That case is not hypothetical and it is not the same as crashing. Signal drops for a
+     * couple of minutes and comes back; the process never died, so it never restores, and left to
+     * itself it would carry on writing pages into a folder somebody else had taken over. So a
+     * device coming back from silence goes and looks at the real state of the queue before
+     * trusting its own.
+     */
+    private void beatNow() {
+        if (!SmbStorage.isConfigured()) {
+            return;
+        }
+        long before = lastPublishedAtMillis;
+        publishNow();
+        boolean wasAway = before > 0L
+                && System.currentTimeMillis() - before >= SmbDownloadStateStore.STALE_AFTER_MS;
+        if (wasAway) {
+            Log.i(TAG, "Out of touch with the share for "
+                    + (System.currentTimeMillis() - before) + "ms; re-reading the queue");
+            resyncAfterSilence();
+        }
+    }
+
     private void publishNow() {
         if (!SmbStorage.isConfigured()) {
             return;
         }
         try {
-            SmbDownloadStateStore.writeSelf(snapshotClientState());
+            if (SmbDownloadStateStore.writeSelf(snapshotClientState())) {
+                lastPublishedAtMillis = System.currentTimeMillis();
+            }
         } catch (Throwable e) {
             // Failing to publish costs visibility to other devices, nothing local. The next beat
             // carries the same state, so there is nothing to recover here.
@@ -239,23 +273,19 @@ public final class SmbDirectDownloader {
     }
 
     /**
-     * A heartbeat: look at what everyone else is claiming, then say where we are.
+     * Reconciles this device's queue with the share after it has been out of touch.
      *
-     * <p>The looking is what keeps a takeover from turning into two devices downloading the same
-     * gallery. Going quiet for ninety seconds does not require dying — a long enough drop in signal
-     * will do it — and a device that comes back from one is the same process that went into it, so
-     * it never restores and never learns it was declared gone. It finds out here instead, and
-     * stands down rather than writing pages into a folder someone else is now filling.
+     * <p>Anything another device has since claimed more recently is no longer ours, and is dropped
+     * without touching the share — the pages already written belong to whoever adopted it, and
+     * that is what makes a takeover a resumption rather than a restart.
      *
-     * <p>Only the heartbeat pays for the read. The other publishes are triggered by things this
-     * device just did, and it already knows about those.
+     * <p>The download is not suspended for the duration. This is one round trip, against a device
+     * that has by this point been writing to a folder it may not own for a minute and a half; the
+     * hundred milliseconds it would buy do not pay for releasing and re-obtaining a SpiderQueen
+     * mid-gallery.
      */
-    private void beatNow() {
-        if (!SmbStorage.isConfigured()) {
-            return;
-        }
+    private void resyncAfterSilence() {
         try {
-            String selfId = Settings.getSmbClientId();
             List<SmbDownloadState.Published> all = SmbDownloadStateStore.readAll();
             SmbDownloadState.ClientState self = snapshotClientState();
             List<SmbDownloadState.Task> kept =
@@ -267,16 +297,14 @@ public final class SmbDirectDownloader {
             }
             for (SmbDownloadState.Task t : self.tasks) {
                 if (!stillOurs.contains(t.gid)) {
-                    Log.i(TAG, "gid=" + t.gid + " was taken over elsewhere; standing down");
+                    Log.i(TAG, "gid=" + t.gid + " was taken over while we were away; standing down");
                     SimpleHandler.getInstance().post(() -> yieldOnMainThread(t.gid));
                 }
             }
-            pruneReleased(all, selfId);
         } catch (Throwable e) {
             // An unreadable share tells us nothing about who owns what, so nothing changes here.
-            Log.w(TAG, "Could not check for takeovers", e);
+            Log.w(TAG, "Could not reconcile the queue after being out of touch", e);
         }
-        publishNow();
     }
 
     /**
@@ -284,7 +312,7 @@ public final class SmbDirectDownloader {
      *
      * <p>Deliberately not {@link #cancel}: that deletes the gallery folder, and the folder now
      * belongs to whoever adopted the download. The pages already written are theirs to continue
-     * from — that is what makes a takeover a resumption rather than a restart.
+     * from -- that is what makes a takeover a resumption rather than a restart.
      */
     private void yieldOnMainThread(long gid) {
         ActiveJob jobToRelease;
@@ -295,9 +323,6 @@ public final class SmbDirectDownloader {
             progress.remove(gid);
             claimedAt.remove(gid);
             takenOverFrom.remove(gid);
-            // A marker can be overruled too, by somebody claiming the gallery again more recently.
-            // It has been answered, so there is nothing left for it to say.
-            released.remove(gid);
         }
         if (jobToRelease != null) {
             try {
@@ -378,23 +403,7 @@ public final class SmbDirectDownloader {
             if (self == null) {
                 return;   // nothing of ours has ever been published
             }
-            List<SmbDownloadState.Task> kept = SmbDownloadState.withoutTakenOver(
-                    self, SmbDownloadState.merge(all));
-            // Markers this device published before it last stopped. They are not work, so they are
-            // put back where they belong rather than queued -- restoring one as a download would
-            // re-fetch a gallery this device already finished.
-            List<SmbDownloadState.Task> work = new ArrayList<>(kept.size());
-            synchronized (lock) {
-                for (SmbDownloadState.Task t : kept) {
-                    if (t.state == SmbDownloadState.TaskState.RELEASED) {
-                        released.put(t.gid, t);
-                    } else {
-                        work.add(t);
-                    }
-                }
-            }
-            pruneReleased(all, selfId);
-            mine = work;
+            mine = SmbDownloadState.withoutTakenOver(self, SmbDownloadState.merge(all));
         } catch (Throwable e) {
             Log.e(TAG, "Failed to restore download state", e);
             return;
@@ -451,17 +460,11 @@ public final class SmbDirectDownloader {
         }
         try {
             String selfId = Settings.getSmbClientId();
-            List<SmbDownloadState.Published> all = SmbDownloadStateStore.readAll();
-            // The list refresh is the one thing that reads every file on a regular cadence, so it
-            // is where spent markers get noticed. Nothing here depends on the outcome.
-            if (pruneReleased(all, selfId)) {
-                publishState();
-            }
             List<SmbDownloadState.OwnedTask> merged =
-                    SmbDownloadState.visible(SmbDownloadState.merge(all));
+                    SmbDownloadState.merge(SmbDownloadStateStore.readAll());
             List<SmbTaskInfo> out = new ArrayList<>(merged.size());
             for (SmbDownloadState.OwnedTask o : merged) {
-                out.add(SmbTaskInfo.of(o, selfId));
+                out.add(SmbTaskInfo.of(o, selfId, galleryMetadata(o.task)));
             }
             return out;
         } catch (Throwable e) {
@@ -470,6 +473,36 @@ public final class SmbDirectDownloader {
             Log.w(TAG, "Could not read the shared task list", e);
             return new ArrayList<>();
         }
+    }
+
+    /**
+     * What the share already knows about a queued gallery beyond its place in the queue.
+     *
+     * <p>Category, cover and the rest live in the gallery's own {@code metadata.json}, written the
+     * moment it is enqueued. Copying them into {@code state/} as well would mean two records of the
+     * same thing that can disagree, so the row reads the one that is authoritative.
+     *
+     * <p>Cached because the list refreshes on every finished page, and a gallery's metadata does
+     * not change while it downloads. A miss is not cached: it means the owner has not written the
+     * skeleton yet, which is a thing that stops being true.
+     */
+    private final Map<Long, GalleryInfo> metadataCache =
+            java.util.Collections.synchronizedMap(new HashMap<>());
+
+    @Nullable
+    private GalleryInfo galleryMetadata(@NonNull SmbDownloadState.Task task) {
+        GalleryInfo cached = metadataCache.get(task.gid);
+        if (cached != null) {
+            return cached;
+        }
+        GalleryInfo hint = new GalleryInfo();
+        hint.gid = task.gid;
+        hint.title = task.title;
+        GalleryInfo read = SmbStorage.readGalleryMetadata(hint);
+        if (read != null) {
+            metadataCache.put(task.gid, read);
+        }
+        return read;
     }
 
     /**
@@ -514,37 +547,9 @@ public final class SmbDirectDownloader {
             for (GalleryInfo gi : paused.values()) {
                 tasks.add(taskFor(gi, SmbDownloadState.TaskState.PAUSED));
             }
-            // Not queue entries, and never shown -- these are what keeps an abandoned file's copy
-            // of a rescued gallery from resurfacing once this device has finished with it.
-            tasks.addAll(released.values());
         }
         return new SmbDownloadState.ClientState(
                 Settings.getSmbClientId(), Settings.getSmbDeviceName(), tasks);
-    }
-
-    /**
-     * Records that a gallery rescued from an abandoned device is done with.
-     *
-     * <p>Only for tasks that were taken over — anything this device queued itself simply leaves the
-     * list, because no other file is claiming it. The original claim time is carried over rather
-     * than restamped: it is what makes this marker beat the copy it is overruling, and it is
-     * already newer than that one.
-     *
-     * <p>Caller holds {@code lock}.
-     */
-    private void retireTakeover(long gid, @Nullable String from, @Nullable Long claimedAtMillis,
-                                @Nullable GalleryInfo info) {
-        if (from == null) {
-            return;
-        }
-        released.put(gid, new SmbDownloadState.Task(
-                gid,
-                info != null ? info.token : null,
-                info != null ? info.title : null,
-                SmbDownloadState.TaskState.RELEASED,
-                0, 0,
-                claimedAtMillis != null ? claimedAtMillis : System.currentTimeMillis(),
-                from));
     }
 
     /**
@@ -629,38 +634,20 @@ public final class SmbDirectDownloader {
         synchronized (lock) {
             claimedAt.put(task.gid, System.currentTimeMillis());
             takenOverFrom.put(task.gid, task.ownerClientId);
-            released.remove(task.gid);
+        }
+        // Take it out of the abandoned queue. The one write this app ever makes to another
+        // device's file, and only against one that has said nothing for STALE_AFTER_MS -- which is
+        // the condition that says no one else is writing it. Leaving it would have the stale copy
+        // resurface the moment this device finished and stopped claiming the gallery.
+        if (!SmbDownloadStateStore.removeTask(task.ownerClientId, task.gid)) {
+            // Not fatal: our claim is live and newer, so it wins the merge and the download goes
+            // ahead. The abandoned entry may reappear later as an orphan of a gallery already on
+            // the share, and taking that over again is harmless.
+            Log.w(TAG, "Took over gid=" + task.gid + " but could not clear it from "
+                    + task.ownerClientId);
         }
         SimpleHandler.getInstance().post(() -> start(ctx, info));
         return TakeOverResult.TAKEN;
-    }
-
-    /**
-     * Drops markers that have nothing left to contradict.
-     *
-     * <p>A {@link SmbDownloadState.TaskState#RELEASED} marker exists only to overrule one other
-     * file's copy of a gallery. Once that file stops naming it — the device came back and cleaned
-     * up, or somebody deleted it — the marker is dead weight, and keeping it would have this
-     * device's file grow by one entry for every orphan it ever rescued.
-     *
-     * <p>Runs on the publisher thread, off a read that was happening anyway.
-     *
-     * @return whether anything was dropped, and so whether the file needs rewriting.
-     */
-    private boolean pruneReleased(@NonNull List<SmbDownloadState.Published> all,
-                                  @NonNull String selfId) {
-        List<Long> gone = new ArrayList<>();
-        synchronized (lock) {
-            for (Long gid : released.keySet()) {
-                if (!SmbDownloadState.isNamedByAnotherClient(all, gid, selfId)) {
-                    gone.add(gid);
-                }
-            }
-            for (Long gid : gone) {
-                released.remove(gid);
-            }
-        }
-        return !gone.isEmpty();
     }
 
     /** Caller holds {@code lock}. */
@@ -724,9 +711,8 @@ public final class SmbDirectDownloader {
             GalleryInfo wasPaused = paused.remove(gid);
             ActiveJob j = active.remove(gid);
             progress.remove(gid);
-            Long claimed = claimedAt.remove(gid);
-            retireTakeover(gid, takenOverFrom.remove(gid), claimed,
-                    j != null ? j.info : (wasPaused != null ? wasPaused : queued));
+            claimedAt.remove(gid);
+            takenOverFrom.remove(gid);
             if (j != null) {
                 jobToRelease = j;
                 infoForDelete = j.info;
@@ -910,8 +896,8 @@ public final class SmbDirectDownloader {
         synchronized (lock) {
             job = active.remove(info.gid);
             progress.remove(info.gid);
-            Long claimed = claimedAt.remove(info.gid);
-            retireTakeover(info.gid, takenOverFrom.remove(info.gid), claimed, info);
+            claimedAt.remove(info.gid);
+            takenOverFrom.remove(info.gid);
         }
         if (job == null) {
             return;

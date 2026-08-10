@@ -149,10 +149,6 @@ public final class SmbDownloadStateStore {
     /**
      * Publishes this device's state, replacing whatever it last wrote.
      *
-     * <p>Written to a temporary name and renamed over the target, so a device reading at the wrong
-     * moment sees either the old file or the new one and never a half-written one. The two-argument
-     * rename is required: the single-argument form refuses an existing target.
-     *
      * <p>Retries because another device holding the file open blocks the rename until it lets go.
      *
      * @return whether the state reached the share.
@@ -161,54 +157,117 @@ public final class SmbDownloadStateStore {
         if (!SmbStorage.isConfigured()) {
             return false;
         }
-        String json = SmbDownloadState.serialize(state);
-        String target = state.clientId + SUFFIX;
-        // Unique per attempt-run so two writes from this device — which should not overlap, but
-        // might if a heartbeat and a state change race — cannot land on each other's temp file.
-        String temp = state.clientId + "." + System.nanoTime() + ".tmp";
-
         try {
-            CIFSContext cifs = SmbStorage.buildContext();
-            SmbFile dir = new SmbFile(stateRootUrl(), cifs);
+            SmbFile dir = new SmbFile(stateRootUrl(), SmbStorage.buildContext());
             if (!dir.exists()) {
                 dir.mkdirs();
             }
-            SmbFile tempFile = new SmbFile(dir, temp);
-            try (OutputStream os = new java.io.BufferedOutputStream(
-                    tempFile.getOutputStream(), SmbStorage.SMB_IO_BUFFER)) {
-                os.write(json.getBytes(StandardCharsets.UTF_8));
-            }
-
-            long deadline = System.currentTimeMillis() + WRITE_DEADLINE_MS;
-            long backoff = WRITE_BACKOFF_START_MS;
-            Throwable last = null;
-            while (true) {
-                try {
-                    tempFile.renameTo(new SmbFile(dir, target), true);
-                    return true;
-                } catch (Throwable e) {
-                    last = e;
-                    if (System.currentTimeMillis() + backoff >= deadline) {
-                        break;
-                    }
-                    try {
-                        Thread.sleep(backoff);
-                    } catch (InterruptedException ie) {
-                        Thread.currentThread().interrupt();
-                        break;
-                    }
-                    backoff = Math.min(backoff * 2, WRITE_BACKOFF_MAX_MS);
-                }
-            }
-            Log.w(TAG, "Gave up publishing state after " + WRITE_DEADLINE_MS + "ms", last);
-            try {
-                tempFile.delete();
-            } catch (Throwable ignored) {
-                // A leftover .tmp is skipped by readAll and overwritten next time.
-            }
-            return false;
+            return writeTo(dir, state.clientId, SmbDownloadState.serialize(state));
         } catch (Throwable e) {
             Log.e(TAG, "Failed to publish client state", e);
+            return false;
+        }
+    }
+
+    /**
+     * Puts {@code json} at {@code <clientId>.json}, atomically as far as any reader can tell.
+     *
+     * <p>Written to a temporary name and renamed over the target, so a device reading at the wrong
+     * moment sees either the old file or the new one and never a half-written one. The two-argument
+     * rename is required: the single-argument form refuses an existing target.
+     */
+    private static boolean writeTo(@NonNull SmbFile dir, @NonNull String clientId,
+                                   @NonNull String json) throws Exception {
+        String target = clientId + SUFFIX;
+        // Unique per attempt-run so two writes -- which should not overlap, but might if a
+        // heartbeat and a state change race -- cannot land on each other's temp file.
+        String temp = clientId + "." + System.nanoTime() + ".tmp";
+
+        SmbFile tempFile = new SmbFile(dir, temp);
+        try (OutputStream os = new java.io.BufferedOutputStream(
+                tempFile.getOutputStream(), SmbStorage.SMB_IO_BUFFER)) {
+            os.write(json.getBytes(StandardCharsets.UTF_8));
+        }
+
+        long deadline = System.currentTimeMillis() + WRITE_DEADLINE_MS;
+        long backoff = WRITE_BACKOFF_START_MS;
+        Throwable last = null;
+        while (true) {
+            try {
+                tempFile.renameTo(new SmbFile(dir, target), true);
+                return true;
+            } catch (Throwable e) {
+                last = e;
+                if (System.currentTimeMillis() + backoff >= deadline) {
+                    break;
+                }
+                try {
+                    Thread.sleep(backoff);
+                } catch (InterruptedException ie) {
+                    Thread.currentThread().interrupt();
+                    break;
+                }
+                backoff = Math.min(backoff * 2, WRITE_BACKOFF_MAX_MS);
+            }
+        }
+        Log.w(TAG, "Gave up writing " + target + " after " + WRITE_DEADLINE_MS + "ms", last);
+        try {
+            tempFile.delete();
+        } catch (Throwable ignored) {
+            // A leftover .tmp is skipped by readAll and overwritten next time.
+        }
+        return false;
+    }
+
+    /**
+     * Takes one gallery out of another device's published queue, for a takeover.
+     *
+     * <p><b>The single exception to "only its owner writes a file", and it is narrow.</b> The
+     * caller must have established that the owner's heartbeat has been stale for
+     * {@link #STALE_AFTER_MS} — which is exactly the condition that says nobody else is writing
+     * this file. Leaving the entry instead was the alternative, and it is worse: the abandoned copy
+     * would resurface the moment the device that rescued the gallery stopped claiming it, and if
+     * the original never came back it would sit there for good.
+     *
+     * <p>Read-modify-write, so a device that woke up between the two and queued something new could
+     * lose that entry. It is a narrow window against a device that has said nothing for a minute
+     * and a half, and the cost of losing is one queue entry rather than any downloaded pages.
+     *
+     * <p>Performs SMB I/O; call from a worker thread.
+     *
+     * @return whether the file is now free of the gallery — including when it never had it.
+     */
+    public static boolean removeTask(@NonNull String ownerClientId, long gid) {
+        if (!SmbStorage.isConfigured()) {
+            return false;
+        }
+        try {
+            CIFSContext cifs = SmbStorage.buildContext();
+            SmbFile dir = new SmbFile(stateRootUrl(), cifs);
+            SmbFile file = new SmbFile(dir, ownerClientId + SUFFIX);
+            if (!file.exists()) {
+                return true;
+            }
+            ClientState state = SmbDownloadState.parse(readAll(file));
+            if (state == null || !state.isReadable()) {
+                // Unreadable, or written by a build that knows more than this one. Rewriting it
+                // from what we managed to understand would throw away whatever we did not.
+                Log.w(TAG, "Not editing a state file this build cannot read: " + ownerClientId);
+                return false;
+            }
+            List<SmbDownloadState.Task> kept = new ArrayList<>(state.tasks.size());
+            for (SmbDownloadState.Task t : state.tasks) {
+                if (t.gid != gid) {
+                    kept.add(t);
+                }
+            }
+            if (kept.size() == state.tasks.size()) {
+                return true;   // already gone
+            }
+            return writeTo(dir, ownerClientId, SmbDownloadState.serialize(
+                    new ClientState(state.schemaVersion, state.clientId, state.deviceName, kept)));
+        } catch (Throwable e) {
+            Log.w(TAG, "Could not remove gid=" + gid + " from " + ownerClientId, e);
             return false;
         }
     }

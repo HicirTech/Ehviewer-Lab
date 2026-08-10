@@ -1161,6 +1161,39 @@ public final class SmbStorage {
         }
     }
 
+    /**
+     * Reads a gallery's {@code metadata.json} given only enough of a {@link GalleryInfo} to name
+     * its folder — the gid and title. Returns {@code null} if it is not there or not parseable.
+     *
+     * <p>Exists for the download list (#59), where a shared task carries the queue's fields and
+     * nothing else. Everything a row wants beyond that — category, cover, rating — is already on
+     * the share, written as a skeleton the moment a gallery is enqueued, so it is read from there
+     * rather than copied into {@code state/} and kept in step.
+     *
+     * <p>Performs SMB I/O; call from a worker thread, and cache the result.
+     */
+    @Nullable
+    public static GalleryInfo readGalleryMetadata(@NonNull GalleryInfo hint) {
+        if (!isConfigured()) {
+            return null;
+        }
+        try {
+            SmbFile metadata = new SmbFile(resolveGalleryDir(hint), METADATA_FILE);
+            if (!metadata.exists()) {
+                return null;
+            }
+            String json;
+            try (InputStream is = metadata.getInputStream()) {
+                json = readAll(is);
+            }
+            JSONObject object = JSONObject.parseObject(json);
+            return object == null ? null : GalleryInfo.galleryInfoFromJson(object);
+        } catch (Throwable e) {
+            Log.w(TAG, "Failed to read metadata for gid=" + hint.gid, e);
+            return null;
+        }
+    }
+
     /** jcifs reports directory names with a trailing slash; the gallery folder name has none. */
     @NonNull
     private static String trimTrailingSlash(@NonNull String name) {

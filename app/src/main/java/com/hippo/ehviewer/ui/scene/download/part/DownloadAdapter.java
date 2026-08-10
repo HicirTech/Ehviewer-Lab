@@ -315,18 +315,27 @@ public class DownloadAdapter extends RecyclerView.Adapter<DownloadAdapter.Downlo
     /**
      * Blanks the parts of the card an SMB task has nothing to put in (#59).
      *
-     * <p>These are built from what a device published under {@code state/}, which is its queue and
-     * nothing more — no uploader, no rating, no category. Left alone they draw their empty values:
-     * a row of hollow stars, and a black <i>UNKNOWN</i> chip that comes from category zero and
-     * looks like a fact about the gallery rather than an absence of one.
+     * <p>Most of what a row draws is read from the gallery's own {@code metadata.json} on the
+     * share, so these are usually filled like any other download's. What is missing is missing for
+     * a reason: a gallery only just enqueued has a skeleton and no more, and a black <i>UNKNOWN</i>
+     * chip from category zero reads as a fact about the gallery rather than an absence of one.
+     *
+     * <p>Read progress is always dropped. It is a local reading position, and nothing about a
+     * download happening on another device says where anyone has read to.
      */
     private static void hideFieldsAnSmbTaskHasNone(DownloadHolder holder, DownloadInfo info) {
         if (!com.hippo.ehviewer.smb.SmbTaskInfo.isSmb(info)) {
             return;
         }
-        holder.uploader.setVisibility(View.GONE);
-        holder.rating.setVisibility(View.GONE);
-        holder.category.setVisibility(View.GONE);
+        if (info.uploader == null || info.uploader.isEmpty()) {
+            holder.uploader.setVisibility(View.GONE);
+        }
+        if (info.rating <= 0f) {
+            holder.rating.setVisibility(View.GONE);
+        }
+        if (info.category == com.hippo.ehviewer.client.EhUtils.UNKNOWN) {
+            holder.category.setVisibility(View.GONE);
+        }
         holder.readProgress.setVisibility(View.GONE);
     }
 

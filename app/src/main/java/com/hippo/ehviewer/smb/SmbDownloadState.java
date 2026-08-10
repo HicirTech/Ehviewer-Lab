@@ -47,20 +47,7 @@ public final class SmbDownloadState {
     public enum TaskState {
         QUEUED,
         ACTIVE,
-        PAUSED,
-        /**
-         * A gallery this device took over from one that had gone away, and has since finished with.
-         *
-         * <p>Not a queue state and never shown — it is a marker saying "the copy still sitting in
-         * that other device's file is out of date, ignore it". Without one, finishing a taken-over
-         * download would drop it from this device's file and let the dead owner's stale entry
-         * surface again, so the reward for rescuing an orphan would be watching it come back.
-         *
-         * <p>It is dropped as soon as the file it was contradicting stops naming the gallery —
-         * either because that device came back and cleaned up after itself, or because it is gone
-         * for good and someone removed its file. See {@code SmbDirectDownloader}'s pruning.
-         */
-        RELEASED;
+        PAUSED;
 
         /**
          * Where this state sorts in the merged list: running work, then waiting, then held.
@@ -265,60 +252,8 @@ public final class SmbDownloadState {
         return out;
     }
 
-    /**
-     * The merged list with the entries a user should actually see.
-     *
-     * <p>Only {@link TaskState#RELEASED} is dropped, and only where it won the merge — which is
-     * exactly the case it exists for: a device that rescued an orphan and finished it, still
-     * carrying the marker that overrules the copy in the abandoned file.
-     *
-     * <p>Kept out of {@link #merge} on purpose. The merge is also what a device consults to learn
-     * that one of its own tasks has been claimed elsewhere ({@link #withoutTakenOver}), and hiding
-     * the marker from that would leave the returning device holding an entry nobody ever told it it
-     * had lost — and the marker's owner waiting forever for it to let go.
-     */
-    @NonNull
-    public static List<OwnedTask> visible(@NonNull List<OwnedTask> merged) {
-        List<OwnedTask> out = new ArrayList<>(merged.size());
-        for (OwnedTask o : merged) {
-            if (o.task.state != TaskState.RELEASED) {
-                out.add(o);
-            }
-        }
-        return out;
-    }
-
-    /**
-     * Whether any client other than {@code selfClientId} still names this gallery.
-     *
-     * <p>What tells a device it may stop publishing a {@link TaskState#RELEASED} marker: once the
-     * file it was contradicting no longer mentions the gallery, the marker has nothing left to do.
-     */
-    public static boolean isNamedByAnotherClient(@NonNull Collection<Published> published,
-                                                 long gid,
-                                                 @NonNull String selfClientId) {
-        for (Published p : published) {
-            if (p.state.clientId.equals(selfClientId) || !p.state.isReadable()) {
-                continue;
-            }
-            for (Task t : p.state.tasks) {
-                if (t.gid == gid) {
-                    return true;
-                }
-            }
-        }
-        return false;
-    }
-
     private static boolean wins(@NonNull OwnedTask candidate, @NonNull OwnedTask current) {
-        // A RELEASED entry is not a claim on the gallery, it is a record that somebody already
-        // dealt with it, so whether its author is still online says nothing about whether it is
-        // true. Deciding these on liveness would let an abandoned file outrank the very marker
-        // written to overrule it, purely because the device that rescued the gallery has since
-        // gone to sleep. Recency still applies: a later claim is somebody downloading it again.
-        boolean aboutSomethingFinished = candidate.task.state == TaskState.RELEASED
-                || current.task.state == TaskState.RELEASED;
-        if (!aboutSomethingFinished && candidate.ownerAlive != current.ownerAlive) {
+        if (candidate.ownerAlive != current.ownerAlive) {
             return candidate.ownerAlive;
         }
         return candidate.task.claimedAt > current.task.claimedAt;
@@ -329,17 +264,14 @@ public final class SmbDownloadState {
      *
      * <p>Its own entries do not block it — re-enqueuing something already queued here is handled by
      * the downloader — and neither does an orphan, which is the whole point of being able to take
-     * one over. Nor does a {@link TaskState#RELEASED} marker: that says somebody <em>finished</em>
-     * with the gallery, so it is the one state that should leave the way clear rather than bar it.
+     * one over.
      */
     public static boolean isClaimedByAnotherLiveClient(@NonNull List<OwnedTask> merged,
                                                        long gid,
                                                        @NonNull String selfClientId) {
         for (OwnedTask o : merged) {
             if (o.task.gid == gid) {
-                return o.ownerAlive
-                        && !o.clientId.equals(selfClientId)
-                        && o.task.state != TaskState.RELEASED;
+                return o.ownerAlive && !o.clientId.equals(selfClientId);
             }
         }
         return false;
@@ -363,13 +295,8 @@ public final class SmbDownloadState {
             for (OwnedTask o : merged) {
                 if (o.task.gid == t.gid
                         && !o.clientId.equals(self.clientId)
-                        && o.task.claimedAt > t.claimedAt
-                        // A live device's later claim beats ours. So does a RELEASED marker even
-                        // from a device that has since gone quiet: that one is a statement about
-                        // something already finished, not a claim on work in progress, and holding
-                        // out for its author to still be online would have us resume a download
-                        // that completed while we were away.
-                        && (o.ownerAlive || o.task.state == TaskState.RELEASED)) {
+                        && o.ownerAlive
+                        && o.task.claimedAt > t.claimedAt) {
                     lost = true;
                     break;
                 }
