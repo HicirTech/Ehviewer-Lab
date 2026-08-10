@@ -118,9 +118,11 @@
     <dimen name="slider_bubble_width">26dp</dimen>
     <dimen name="slider_bubble_height">32dp</dimen>
 
+    <!-- Where a FAB sits, on every screen that has one. Only ever added to, never replaced: the
+         download list adds the height of its pagination bar while that bar is showing. -->
     <dimen name="corner_fab_margin">16dp</dimen>
-    <dimen name="corner_fab_margin_download_bottom">70dp</dimen>
-    <dimen name="corner_fab_margin_download_right">3dp</dimen>
+
+    <dimen name="download_pagination_height">40dp</dimen>
 
     <dimen name="gallery_detail_thumb_width">128dp</dimen>
     <dimen name="gallery_detail_thumb_height">192dp</dimen>

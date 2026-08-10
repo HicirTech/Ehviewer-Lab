@@ -41,8 +41,11 @@
             app:backgroundTint="?attr/widgetColorThemeAccent"
             app:srcCompat="@drawable/v_refresh_dark_x24" />
 
-        <!-- Primary -->
+        <!-- Primary. The style is not optional: without it this falls back to the theme's
+             Widget.MaterialComponents.FloatingActionButton, and this one button ends up with a
+             different elevation and corner from every other primary FAB in the app (#74). -->
         <com.google.android.material.floatingactionbutton.FloatingActionButton
+            style="@style/Widget.Design.FloatingActionButton"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             app:backgroundTint="?attr/widgetColorThemePrimary"
