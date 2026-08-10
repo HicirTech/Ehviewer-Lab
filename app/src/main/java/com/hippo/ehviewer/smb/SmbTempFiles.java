@@ -5,6 +5,8 @@ import android.util.Log;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
+import jcifs.smb.NtStatus;
+import jcifs.smb.SmbException;
 import jcifs.smb.SmbFile;
 
 /**
@@ -126,16 +128,30 @@ final class SmbTempFiles {
             Log.i(TAG, "Removed abandoned temporary " + file.getName());
             return true;
         } catch (Throwable e) {
-            try {
-                if (!file.exists()) {
-                    return true;
-                }
-            } catch (Throwable ignored) {
-                // Cannot even ask. Fall through and report the original failure.
+            if (alreadyGone(e)) {
+                return true;
             }
             // The share said no. The next pass tries again; until then it is one stale file.
             Log.w(TAG, "Could not remove " + file.getName(), e);
             return false;
         }
+    }
+
+    /**
+     * Whether a failed delete failed because there was nothing left to delete.
+     *
+     * <p>Asked of the exception rather than by calling {@code exists()} afterwards. The
+     * {@link SmbFile} came out of a directory enumeration and carries the attributes that
+     * enumeration returned, so it will happily report a file it has just been told does not exist —
+     * which is what the first attempt at this did, and why the warning kept appearing.
+     */
+    private static boolean alreadyGone(@NonNull Throwable e) {
+        if (!(e instanceof SmbException)) {
+            return false;
+        }
+        int status = ((SmbException) e).getNtStatus();
+        return status == NtStatus.NT_STATUS_NO_SUCH_FILE
+                || status == NtStatus.NT_STATUS_OBJECT_NAME_NOT_FOUND
+                || status == NtStatus.NT_STATUS_OBJECT_PATH_NOT_FOUND;
     }
 }
