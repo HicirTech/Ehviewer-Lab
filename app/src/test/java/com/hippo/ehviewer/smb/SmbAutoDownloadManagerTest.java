@@ -79,6 +79,17 @@ public class SmbAutoDownloadManagerTest {
             return alreadyComplete;
         }
 
+        /**
+         * Starting a job now checks whether the gallery already has metadata on the share, so
+         * that a download restored or adopted rather than enqueued still gets a skeleton (#59).
+         * Unshadowed it reaches for a real connection -- isConfigured() says yes here -- and the
+         * seconds it spends failing outlast the pump.
+         */
+        @Implementation
+        protected static GalleryInfo readGalleryMetadata(GalleryInfo hint) {
+            return hint;   // already there; nothing for startJob to write
+        }
+
         @Implementation
         protected static boolean deleteGalleryFolder(GalleryInfo info) {
             return true;

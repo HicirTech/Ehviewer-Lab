@@ -1,0 +1,62 @@
+package com.hippo.ehviewer.smb;
+
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
+
+import org.junit.Test;
+
+/**
+ * When a device counts as still being there (#59).
+ *
+ * <p>The only evidence is the mtime of the file it publishes, judged against the reader's own
+ * clock — two clocks that were never synchronised. Everything downstream hangs off the answer: a
+ * device declared dead has its downloads offered to somebody else, and one wrongly declared alive
+ * keeps work nobody can reclaim.
+ *
+ * <p>No share and no clock: both sides of the comparison are arguments, which is why this rule can
+ * be stated rather than waited for.
+ */
+public class SmbDownloadStateStoreTest {
+
+    private static final long NOW = 1_700_000_000_000L;
+
+    @Test
+    public void aFileWrittenJustNowIsAlive() {
+        assertTrue(SmbDownloadStateStore.isAlive(NOW - 1_000L, NOW));
+    }
+
+    /**
+     * Several missed beats, not one. A heartbeat every 20 seconds against a 90 second window means
+     * a congested share or a moment of bad WiFi does not hand somebody's download away.
+     */
+    @Test
+    public void aFileUntouchedPastTheWindowIsNot() {
+        assertTrue(SmbDownloadStateStore.isAlive(
+                NOW - SmbDownloadStateStore.STALE_AFTER_MS + 1L, NOW));
+        assertFalse(SmbDownloadStateStore.isAlive(
+                NOW - SmbDownloadStateStore.STALE_AFTER_MS, NOW));
+    }
+
+    /**
+     * A timestamp ahead of this device's clock means the two disagree about the time, not that the
+     * file is impossibly old. Treating a running device's work as abandoned is much worse than
+     * being slow to reclaim a dead one's, so it counts as alive.
+     *
+     * <p>There is no branch for this in the implementation — the subtraction yields a negative age
+     * and falls through — and an earlier draft that added one was removed when mutation testing
+     * showed it changed nothing. The behaviour is still deliberate, so anything "tidied" into an
+     * absolute difference has to fail here.
+     */
+    @Test
+    public void aFileDatedInTheFutureIsAlive() {
+        assertTrue(SmbDownloadStateStore.isAlive(NOW + 10 * SmbDownloadStateStore.STALE_AFTER_MS,
+                NOW));
+    }
+
+    /** No usable timestamp: treating it as alive would make the task permanently unreclaimable. */
+    @Test
+    public void aFileWithNoTimestampIsNotAlive() {
+        assertFalse(SmbDownloadStateStore.isAlive(0L, NOW));
+        assertFalse(SmbDownloadStateStore.isAlive(-1L, NOW));
+    }
+}
