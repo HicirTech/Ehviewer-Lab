@@ -37,6 +37,9 @@ public final class SmbTaskInfo extends DownloadInfo {
     /** True when this device owns it, and may therefore act on it freely. */
     public final boolean mine;
 
+    /** True when it is somebody else's abandoned work, and so open to being adopted. */
+    public final boolean takeOverable;
+
     /**
      * When the owning device last wrote its file, by the share's clock. Zero if unknown.
      *
@@ -46,7 +49,8 @@ public final class SmbTaskInfo extends DownloadInfo {
      */
     public final long lastSeenMillis;
 
-    private SmbTaskInfo(@NonNull SmbDownloadState.OwnedTask owned, boolean mine, int state,
+    private SmbTaskInfo(@NonNull SmbDownloadState.OwnedTask owned, @NonNull String selfClientId,
+                        int state,
                         @Nullable com.hippo.ehviewer.client.data.GalleryInfo metadata) {
         this.gid = owned.task.gid;
         this.token = owned.task.token;
@@ -77,7 +81,11 @@ public final class SmbTaskInfo extends DownloadInfo {
         }
         this.ownerClientId = owned.clientId;
         this.ownerAlive = owned.ownerAlive;
-        this.mine = mine;
+        // Asked of the merged entry rather than worked out again here. Who may do what is one
+        // rule, and it belongs with the data it is about; stating it twice is how the two come to
+        // disagree.
+        this.mine = owned.isActionableBy(selfClientId);
+        this.takeOverable = owned.isTakeOverableBy(selfClientId);
     }
 
     /**
@@ -93,7 +101,7 @@ public final class SmbTaskInfo extends DownloadInfo {
                                  @NonNull String selfClientId,
                                  @Nullable com.hippo.ehviewer.client.data.GalleryInfo metadata,
                                  int state) {
-        return new SmbTaskInfo(owned, selfClientId.equals(owned.clientId), state, metadata);
+        return new SmbTaskInfo(owned, selfClientId, state, metadata);
     }
 
     /** Convenience for the adapter, which has a {@link DownloadInfo} and no idea what kind. */
@@ -118,10 +126,6 @@ public final class SmbTaskInfo extends DownloadInfo {
 
     /** Whether the item is somebody else's abandoned work, and so open to being adopted. */
     public static boolean canTakeOver(@Nullable DownloadInfo info) {
-        if (!(info instanceof SmbTaskInfo)) {
-            return false;
-        }
-        SmbTaskInfo smb = (SmbTaskInfo) info;
-        return !smb.mine && !smb.ownerAlive;
+        return info instanceof SmbTaskInfo && ((SmbTaskInfo) info).takeOverable;
     }
 }

@@ -180,14 +180,46 @@ public class DownloadsScene extends ToolbarScene
             this::refreshSmbTasks;
 
     /**
-     * Re-reads the shared list off the main thread and redraws when it lands.
+     * How often the share may be re-read, however often something asks.
      *
-     * <p>SMB is a feature that can be switched off, and when it is this screen is an ordinary
-     * download list again: no share is read and nothing of its is shown. Checked on every refresh
-     * rather than once at startup, so turning it off empties the list rather than leaving whatever
-     * was on screen when the switch flipped.
+     * <p>Two seconds because the thing being watched is a page count. The heartbeat that publishes
+     * it only runs every twenty, so nothing finer is even visible.
+     */
+    private static final long SMB_REFRESH_INTERVAL_MS = 2_000L;
+
+    private long mLastSmbRefreshAt;
+    private boolean mSmbRefreshScheduled;
+
+    /**
+     * Re-reads the shared list, at most every {@link #SMB_REFRESH_INTERVAL_MS}.
+     *
+     * <p>The downloader announces every finished page, and each announcement used to mean a full
+     * pass: enumerate {@code state/}, read every device's file, rebuild the list, redraw it. A
+     * hundred-page gallery did that a hundred times. Worse than the round trips was the redraw —
+     * a list rebuilding under a finger loses the gesture, so with a download running a long press
+     * on any row would sometimes simply not happen.
+     *
+     * <p>Rate-limited rather than dropped, with the last call in a burst always honoured: a page
+     * count that stopped a beat early would stay wrong until something else happened to ask.
      */
     private void refreshSmbTasks() {
+        long now = System.currentTimeMillis();
+        long since = now - mLastSmbRefreshAt;
+        if (since < SMB_REFRESH_INTERVAL_MS) {
+            if (!mSmbRefreshScheduled) {
+                mSmbRefreshScheduled = true;
+                SimpleHandler.getInstance().postDelayed(() -> {
+                    mSmbRefreshScheduled = false;
+                    refreshSmbTasks();
+                }, SMB_REFRESH_INTERVAL_MS - since);
+            }
+            return;
+        }
+        mLastSmbRefreshAt = now;
+        refreshSmbTasksNow();
+    }
+
+    private void refreshSmbTasksNow() {
         final boolean enabled = Settings.getSmbSaveEnabled()
                 && com.hippo.ehviewer.smb.SmbStorage.isConfigured();
         if (!enabled) {

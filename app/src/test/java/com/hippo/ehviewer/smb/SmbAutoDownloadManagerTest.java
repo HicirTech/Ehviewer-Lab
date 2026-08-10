@@ -30,17 +30,18 @@ import org.robolectric.annotation.Implements;
 import org.robolectric.shadow.api.Shadow;
 
 /**
- * Pins the dedup mark {@code SmbAutoDownloadManager} keeps per gallery (issue #51).
+ * Pins what stops a gallery being saved twice, and what stops it being saveable at all (#51).
  *
- * <p>This is the layer the known regression actually lived in: a gid left in {@code pendingGids}
- * makes every later enqueue a silent no-op until the process restarts — the app looks fine, saves
- * just stop happening. {@code SmbDirectDownloader} calls {@code clearPending} on cancel and on
- * finish precisely to avoid that, and nothing pinned it.
+ * <p>Both halves have to hold at once, and the known regression was the second: a gid stuck in a
+ * per-process dedup set made every later enqueue a silent no-op until a restart — the app looked
+ * fine, saves just stopped happening. That set has since been removed (#59) in favour of the
+ * claims on the share, which cannot get stuck because they are not this process's memory. The
+ * rules it produced still have to hold, so they are pinned through behaviour rather than through
+ * whatever currently implements them.
  *
- * <p>{@code pendingGids} is private with no getter, and is deliberately not read here. What
- * matters is the behaviour it produces, so every assertion goes through the public enqueue paths.
- * {@code SmbStorage.isGalleryComplete} runs only inside the enqueue's IO task, which makes it an
- * exact probe for "this enqueue was really accepted".
+ * <p>{@code SmbStorage.isGalleryComplete} runs only inside the enqueue's IO task, which makes it
+ * an exact probe for "this enqueue got past the gates"; obtaining a SpiderQueen is the probe for
+ * "a download actually began".
  *
  * <p>No production code is modified: shadows stand in for the share, the fetch engine and the
  * foreground service, all nested here as the rest of the suite does.
@@ -59,8 +60,10 @@ public class SmbAutoDownloadManagerTest {
 
     private static final long GID = 4035531L;
 
-    /** One entry per enqueue that got past the gates and the dedup mark. */
+    /** One entry per enqueue that got past the gates. */
     static final List<Long> accepted = Collections.synchronizedList(new ArrayList<>());
+    /** One entry per download actually begun -- the thing that must not happen twice. */
+    static final List<Long> started = Collections.synchronizedList(new ArrayList<>());
     static boolean configured = true;
     static boolean alreadyComplete = false;
 
@@ -109,6 +112,7 @@ public class SmbAutoDownloadManagerTest {
     public static class ShadowSpiderQueen {
         @Implementation
         protected static SpiderQueen obtainSpiderQueen(Context c, GalleryInfo info, int mode) {
+            started.add(info.gid);
             return Shadow.newInstanceOf(SpiderQueen.class);
         }
 
@@ -154,12 +158,11 @@ public class SmbAutoDownloadManagerTest {
     private static GalleryInfo gallery() {
         GalleryInfo info = new GalleryInfo();
         info.gid = GID;
-        info.title = "pending-mark fixture";
+        info.title = "enqueue fixture";
         info.pages = 10;
         return info;
     }
 
-    /** The enqueue hops onto the IO pool and back, so pump both until it settles. */
     /** Long enough that a busy CI runner is not a failure; only a stuck test ever waits this. */
     private static final long PUMP_DEADLINE_MS = 20_000L;
     /** Rounds of nothing arriving before the work is taken to have finished crossing threads. */
@@ -214,7 +217,7 @@ public class SmbAutoDownloadManagerTest {
         configured = true;
         alreadyComplete = false;
         accepted.clear();
-        SmbAutoDownloadManager.getInstance().clearPending(GID);
+        started.clear();
     }
 
     @After
@@ -222,9 +225,9 @@ public class SmbAutoDownloadManagerTest {
         // Both are process-wide singletons; leave nothing for the next test.
         SmbDirectDownloader.getInstance().cancel(GID);
         pump();
-        SmbAutoDownloadManager.getInstance().clearPending(GID);
         SmbStorage.unmarkGidAsSmbTarget(GID);
         accepted.clear();
+        started.clear();
     }
 
     // --- the enqueue gates, which differ per path --------------------------------------------
@@ -274,59 +277,59 @@ public class SmbAutoDownloadManagerTest {
         assertTrue(accepted.isEmpty());
     }
 
-    // --- the dedup mark ------------------------------------------------------------------------
+    // --- one download per gallery, and always saveable again -------------------------------------
 
+    /** Two taps in the same breath, before the first has been through the gates. */
     @Test
-    public void secondEnqueueWhileStillPendingIsDropped() {
+    public void twoEnqueuesInFlightAtOnceStillStartOneDownload() {
         SmbAutoDownloadManager.getInstance().enqueueManual(context, gallery());
         SmbAutoDownloadManager.getInstance().enqueueManual(context, gallery());
         pump();
 
-        assertEquals("the same gallery must not be enqueued twice", 1, accepted.size());
-    }
-
-    @Test
-    public void clearPendingReopensEnqueueing() {
-        SmbAutoDownloadManager.getInstance().enqueueManual(context, gallery());
-        pump();
-        assertEquals(1, accepted.size());
-
-        SmbAutoDownloadManager.getInstance().clearPending(GID);
-        SmbAutoDownloadManager.getInstance().enqueueManual(context, gallery());
-        pump();
-
-        assertEquals(2, accepted.size());
+        assertEquals("the same gallery must not be fetched twice", 1, started.size());
     }
 
     /**
-     * A gallery already complete on the share short-circuits — and must release its mark on the
-     * way out, or re-saving it after the share copy is removed would silently do nothing.
+     * Two enqueues, one download. With no local mark left to short-circuit the second, this now
+     * rests on the downloader's own queue rather than on remembering what was asked for.
      */
     @Test
-    public void alreadyCompleteGalleryReleasesItsMark() {
+    public void enqueuingTwiceStartsOneDownload() {
+        SmbAutoDownloadManager.getInstance().enqueueManual(context, gallery());
+        pump();
+        SmbAutoDownloadManager.getInstance().enqueueManual(context, gallery());
+        pump();
+
+        assertEquals("the gallery must be fetched once, however often it is asked for",
+                1, started.size());
+        assertEquals(SmbDirectDownloader.TaskSnapshot.State.ACTIVE, stateOf(GID));
+    }
+
+    /**
+     * The other half, and the regression this test class exists for: a gallery has to stay
+     * saveable. A short-circuit that left something behind used to make every later attempt a
+     * silent no-op.
+     */
+    @Test
+    public void aGalleryAlreadyOnTheShareCanBeSavedAgainOnceItIsGone() {
         alreadyComplete = true;
         SmbAutoDownloadManager.getInstance().enqueueManual(context, gallery());
         pump();
-        assertEquals(1, accepted.size());
         assertNull("nothing should be downloading for a complete gallery", stateOf(GID));
+        assertTrue(started.isEmpty());
 
         alreadyComplete = false;
         SmbAutoDownloadManager.getInstance().enqueueManual(context, gallery());
         pump();
 
-        assertEquals("the mark was not released on the complete short-circuit", 2, accepted.size());
-        assertNotNull(stateOf(GID));
+        assertNotNull("the short-circuit left the gallery unsaveable", stateOf(GID));
+        assertEquals(1, started.size());
     }
 
-    /**
-     * The regression this issue exists for: cancelling a download has to release the mark, or the
-     * gallery can never be enqueued again until the app restarts.
-     */
     @Test
-    public void cancellingTheDownloadReleasesTheMark() {
+    public void aCancelledDownloadCanBeStartedAgain() {
         SmbAutoDownloadManager.getInstance().enqueueManual(context, gallery());
         pump();
-        assertEquals(1, accepted.size());
         assertEquals(SmbDirectDownloader.TaskSnapshot.State.ACTIVE, stateOf(GID));
 
         SmbDirectDownloader.getInstance().cancel(GID);
@@ -336,8 +339,8 @@ public class SmbAutoDownloadManagerTest {
         SmbAutoDownloadManager.getInstance().enqueueManual(context, gallery());
         pump();
 
-        assertEquals("cancel left the gid marked pending, so the re-save was dropped",
-                2, accepted.size());
-        assertEquals(SmbDirectDownloader.TaskSnapshot.State.ACTIVE, stateOf(GID));
+        assertEquals("cancelling left something behind, so the re-save was dropped",
+                SmbDirectDownloader.TaskSnapshot.State.ACTIVE, stateOf(GID));
+        assertEquals(2, started.size());
     }
 }

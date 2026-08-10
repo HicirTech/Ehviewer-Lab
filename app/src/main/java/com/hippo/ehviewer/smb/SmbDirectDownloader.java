@@ -299,7 +299,6 @@ public final class SmbDirectDownloader {
             }
         }
         SmbStorage.unmarkGidAsSmbTarget(gid);
-        SmbAutoDownloadManager.getInstance().clearPending(gid);
         notifyObservers();
         updateNotification();
         SimpleHandler.getInstance().post(this::pumpOnMainThread);
@@ -900,10 +899,6 @@ public final class SmbDirectDownloader {
             });
         }
         SmbStorage.unmarkGidAsSmbTarget(gid);
-        // Allow this gid to be re-enqueued from the auto / manual paths in the same
-        // process. Without this, the dedup set in SmbAutoDownloadManager would silently
-        // drop every subsequent enqueue until the app restarts.
-        SmbAutoDownloadManager.getInstance().clearPending(gid);
         notifyObservers();
         publishState();
         updateNotification();
@@ -1085,9 +1080,6 @@ public final class SmbDirectDownloader {
         // Drop the claim promptly: the gallery is on the share now, and leaving it listed would
         // have other devices think it is still being worked on.
         publishState();
-        // Allow re-enqueue after a normal finish (e.g. user wants to re-download to
-        // overwrite, or a future feature triggers another save).
-        SmbAutoDownloadManager.getInstance().clearPending(info.gid);
         // Finalize metadata + cover on the IO pool.
         final Context ctx = appContext != null ? appContext : EhApplication.getInstance();
         IoThreadPoolExecutor.Companion.getInstance().execute(() -> {
