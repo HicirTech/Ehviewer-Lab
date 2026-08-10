@@ -329,8 +329,6 @@ public class DownloadAdapter extends RecyclerView.Adapter<DownloadAdapter.Downlo
      * a reason: a gallery only just enqueued has a skeleton and no more, and a black <i>UNKNOWN</i>
      * chip from category zero reads as a fact about the gallery rather than an absence of one.
      *
-     * <p>Read progress is always dropped. It is a local reading position, and nothing about a
-     * download happening on another device says where anyone has read to.
      */
     private static void hideFieldsAnSmbTaskHasNone(DownloadHolder holder, DownloadInfo info) {
         if (!com.hippo.ehviewer.smb.SmbTaskInfo.isSmb(info)) {
@@ -345,7 +343,6 @@ public class DownloadAdapter extends RecyclerView.Adapter<DownloadAdapter.Downlo
         if (info.category == com.hippo.ehviewer.client.EhUtils.UNKNOWN) {
             holder.category.setVisibility(View.GONE);
         }
-        holder.readProgress.setVisibility(View.GONE);
     }
 
     /**

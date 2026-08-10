@@ -1842,11 +1842,6 @@ public class DownloadsScene extends ToolbarScene
         List<DownloadInfo> requestList = new ArrayList<>();
         for (int i = 0; i < mList.size(); i++) {
             DownloadInfo info = mList.get(i);
-            // Reading position is a local record about a local download. An SMB save has none,
-            // and asking produces nothing but work.
-            if (com.hippo.ehviewer.smb.SmbTaskInfo.isSmb(info)) {
-                continue;
-            }
             if (!mSpiderInfoMap.containsKey(info.gid) || mSpiderInfoMap.get(info.gid) == null) {
                 requestList.add(info);
             }
