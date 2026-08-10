@@ -566,23 +566,20 @@ public final class SpiderDen {
         return sCache.getInputStreamPipe(key);
     }
 
+    /**
+     * Opens page {@code index} from the download store, and only from there.
+     *
+     * <p>No cache fallback. There used to be one — the first attempt at #35, put here because the
+     * reader was being routed down this path and needed rescuing. Now that a read goes where its
+     * caller asked, the only thing left on this path is the downloader reading back what it just
+     * wrote, and handing that a cached copy would let the check pass without anything having
+     * reached the store.
+     */
     @Nullable
     public InputStreamPipe openDownloadInputStreamPipe(int index) {
         GallerySpiderStorage remote = remoteStorage();
         if (remote != null) {
-            InputStreamPipe pipe = remote.openImageInputStreamPipe(index);
-            if (pipe != null) {
-                return pipe;
-            }
-            // Fall back to the cache, mirroring the copyFromCacheToDownloadDir bridge the
-            // phone-storage path below already has. Without this the remote branch is the
-            // only storage route with no cache fallback, and that gap is reachable from the
-            // reader: SpiderQueen is a per-gid singleton whose mode is shared, so when
-            // SmbDirectDownloader obtains the same queen in MODE_DOWNLOAD it flips the
-            // reader's den too. Every read then resolves to the share alone, and any page
-            // the download has not uploaded yet fails with error_reading_failed even though
-            // it is sitting in the cache.
-            return openCacheInputStreamPipe(index);
+            return remote.openImageInputStreamPipe(index);
         }
         UniFile dir = getDownloadDir();
         if (dir == null) {
@@ -633,6 +630,12 @@ public final class SpiderDen {
             return openDownloadInputStreamPipe(index);
         }
         InputStreamPipe pipe = openCacheInputStreamPipe(index);
-        return pipe != null ? pipe : openDownloadInputStreamPipe(index);
+        if (pipe != null) {
+            return pipe;
+        }
+        // The read-only variant: the other one copies cache into the download directory on a
+        // miss, and fetching a page to look at must not quietly start downloading it. Upstream
+        // gates that behind a setting, honoured on the write path above.
+        return openDownloadInputStreamPipeReadOnly(index);
     }
 }

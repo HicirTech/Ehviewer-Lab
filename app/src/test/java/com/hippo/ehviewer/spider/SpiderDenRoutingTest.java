@@ -274,6 +274,23 @@ public class SpiderDenRoutingTest {
         assertTrue("the download read-back was served from the cache", askedShare());
     }
 
+    /**
+     * And it is not rescued by the cache when the store has nothing.
+     *
+     * <p>A cache fallback used to sit on this path — the first attempt at #35, added when the
+     * reader was being dragged down it. Left in place it would let the downloader's read-back
+     * check pass on a copy that never reached the store, which is worse than the failure it was
+     * covering: a page recorded as uploaded that is not there.
+     */
+    @Test
+    public void invariant2_aDownloadFetchIsNotRescuedByTheCache() {
+        seedCache();
+        ShadowSmbSpiderStorage.hasImage = false;
+
+        assertNull("the download read-back was served a cached copy",
+                den().openInputStreamPipe(INDEX, FOR_DOWNLOAD));
+    }
+
     // --- I3: contain() must not claim un-uploaded pages -------------------------------------
 
     /**
