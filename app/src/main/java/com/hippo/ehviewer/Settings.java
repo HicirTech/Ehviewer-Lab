@@ -952,6 +952,75 @@ public class Settings {
     }
 
     /**
+     * This installation's identity among the devices sharing the SMB share.
+     *
+     * <p>Names this device's file under {@code state/}, so it has to be stable and it has to be
+     * unique. The display name below is neither: two tablets of the same model both default to
+     * {@code SM-X926B} and would write the same file, overwriting each other's queues — and
+     * renaming a device would abandon its old file, leaving claims nobody can clear until they go
+     * stale.
+     *
+     * <p>{@code ANDROID_ID} is what the platform offers for exactly this. Since Android 8 it is
+     * scoped to the app's signing key, the user and the device, so it identifies this installation
+     * and nothing broader — and unlike a value we generate ourselves it survives clearing the app's
+     * data, which would otherwise orphan whatever this device had published.
+     *
+     * <p>The fallback is only for the cases where it is unusable: absent, or the well-known
+     * duplicate that some old devices returned for everyone. It is stored, because a value we made
+     * up is worth nothing if we forget it.
+     */
+    public static final String KEY_SMB_CLIENT_ID = "smb_client_id";
+
+    /** Android 2.2 shipped a bug that gave a great many devices this same id. */
+    private static final String BROKEN_ANDROID_ID = "9774d56d682e549c";
+
+    @NonNull
+    public static synchronized String getSmbClientId() {
+        String androidId = null;
+        try {
+            androidId = android.provider.Settings.Secure.getString(
+                    sContext.getContentResolver(), android.provider.Settings.Secure.ANDROID_ID);
+        } catch (Throwable ignored) {
+            // No content resolver worth the name; fall through to the stored id.
+        }
+        if (androidId != null) {
+            androidId = androidId.trim();
+            if (!androidId.isEmpty() && !BROKEN_ANDROID_ID.equals(androidId)) {
+                return androidId;
+            }
+        }
+        String stored = getString(KEY_SMB_CLIENT_ID, null);
+        if (stored == null || stored.isEmpty()) {
+            stored = java.util.UUID.randomUUID().toString();
+            putString(KEY_SMB_CLIENT_ID, stored);
+        }
+        return stored;
+    }
+
+    /**
+     * What this device calls itself when another one is looking at its downloads.
+     *
+     * <p>Empty means "not set", and the getter falls back to the device model. Storing the fallback
+     * would freeze it, so a device that gets renamed in Android would keep reporting the old name.
+     */
+    public static final String KEY_SMB_DEVICE_NAME = "smb_device_name";
+
+    @NonNull
+    public static String getSmbDeviceName() {
+        String value = getString(KEY_SMB_DEVICE_NAME, "");
+        if (value != null) {
+            value = value.trim();
+            if (!value.isEmpty()) {
+                return value;
+            }
+        }
+        // Build.MODEL is a part number rather than a name ("SM-X926B"), but it is at least
+        // recognisable and needs no setup. The user can replace it in SMB settings.
+        String model = android.os.Build.MODEL;
+        return model == null || model.trim().isEmpty() ? "Android" : model.trim();
+    }
+
+    /**
      * Local Inventory sort mode. Values map to {@code SmbSortMode} ordinals
      * (0=DOWNLOAD_DATE_DESC, 1=POSTED_DATE_DESC, 2=TITLE_ASC, 3=CATEGORY).
      * Persisted so the user's preferred order is remembered across sessions.

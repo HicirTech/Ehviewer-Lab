@@ -99,8 +99,9 @@ public final class SmbStorage {
                 !TextUtils.isEmpty(Settings.getSmbShareName());
     }
 
+    // Package-private: SmbDownloadStateStore connects to the same share the same way.
     @NonNull
-    private static CIFSContext buildContext() {
+    static CIFSContext buildContext() {
         CIFSContext base = baseContext();
         String username = Settings.getSmbUsername();
         if (TextUtils.isEmpty(username)) {
@@ -164,9 +165,12 @@ public final class SmbStorage {
         return SmbPaths.buildGalleryRootUrl(buildSmbUrl());
     }
 
-    /** The configured share path itself. Only connectivity checks and directory setup use this. */
+    /**
+     * The configured share path itself. Connectivity checks and directory setup use it directly;
+     * everything else goes through {@link #galleryRootUrl()} or {@code SmbPaths.buildStateRootUrl}.
+     */
     @NonNull
-    private static String buildSmbUrl() {
+    static String buildSmbUrl() {
         return SmbPaths.buildShareUrl(
                 Settings.getSmbHost(),
                 Settings.getSmbPort(),
@@ -209,6 +213,12 @@ public final class SmbStorage {
      * no {@code mkdirs()}). {@link #getGalleryDir} did two existence round-trips (plus a possible
      * mkdirs) on every call, which is pure waste on the read path where the folder already exists —
      * and that cost was paid once per page, per existence probe. Read-only callers use this.
+     *
+     * <p>Waste is not the only reason. A query that creates a directory leaves one behind whenever
+     * the answer turns out to be "no and nothing follows" — an empty {@code <gid>-<title>/} that
+     * the inventory then counts towards its page total while rendering nothing for it. That is how
+     * this was found: the cross-client claim check in #59 returns after the completeness check, and
+     * every blocked enqueue littered the share.
      */
     @NonNull
     private static SmbFile resolveGalleryDir(@NonNull GalleryInfo info) throws IOException {
@@ -280,7 +290,7 @@ public final class SmbStorage {
 
     public static boolean isGallerySynced(@NonNull GalleryInfo info) {
         try {
-            SmbFile metadata = new SmbFile(getGalleryDir(info), METADATA_FILE);
+            SmbFile metadata = new SmbFile(resolveGalleryDir(info), METADATA_FILE);
             return metadata.exists();
         } catch (Throwable e) {
             return false;
@@ -350,7 +360,7 @@ public final class SmbStorage {
     public static boolean isGalleryComplete(@NonNull GalleryInfo info) {
         long tPerf = SystemClock.elapsedRealtime();
         try {
-            SmbFile galleryDir = getGalleryDir(info);
+            SmbFile galleryDir = resolveGalleryDir(info);
             SmbFile metadata = new SmbFile(galleryDir, METADATA_FILE);
             if (!metadata.exists()) {
                 return false;
@@ -486,7 +496,7 @@ public final class SmbStorage {
     public static InputStream openSpiderInfoInputStream(@NonNull GalleryInfo info) {
         long t0 = SystemClock.elapsedRealtime();
         try {
-            SmbFile file = new SmbFile(getGalleryDir(info), SPIDER_INFO_FILE);
+            SmbFile file = new SmbFile(resolveGalleryDir(info), SPIDER_INFO_FILE);
             if (!file.exists()) {
                 Log.i("SmbPerf", "spiderInfo.read gid=" + info.gid + " missing " + (SystemClock.elapsedRealtime() - t0) + "ms");
                 return null;
@@ -533,7 +543,7 @@ public final class SmbStorage {
      */
     @Nullable
     private static SmbFile findSmbCoverFile(@NonNull GalleryInfo info) throws IOException {
-        SmbFile galleryDir = getGalleryDir(info);
+        SmbFile galleryDir = resolveGalleryDir(info);
         for (String extension : com.hippo.ehviewer.gallery.GalleryProvider2.SUPPORT_IMAGE_EXTENSIONS) {
             SmbFile file = new SmbFile(galleryDir, "cover" + extension);
             if (file.exists()) {
@@ -1147,6 +1157,39 @@ public final class SmbStorage {
             return GalleryInfo.galleryInfoFromJson(object);
         } catch (Throwable e) {
             Log.e(TAG, "Failed to read SMB gallery metadata: " + ref.folderName, e);
+            return null;
+        }
+    }
+
+    /**
+     * Reads a gallery's {@code metadata.json} given only enough of a {@link GalleryInfo} to name
+     * its folder — the gid and title. Returns {@code null} if it is not there or not parseable.
+     *
+     * <p>Exists for the download list (#59), where a shared task carries the queue's fields and
+     * nothing else. Everything a row wants beyond that — category, cover, rating — is already on
+     * the share, written as a skeleton the moment a gallery is enqueued, so it is read from there
+     * rather than copied into {@code state/} and kept in step.
+     *
+     * <p>Performs SMB I/O; call from a worker thread, and cache the result.
+     */
+    @Nullable
+    public static GalleryInfo readGalleryMetadata(@NonNull GalleryInfo hint) {
+        if (!isConfigured()) {
+            return null;
+        }
+        try {
+            SmbFile metadata = new SmbFile(resolveGalleryDir(hint), METADATA_FILE);
+            if (!metadata.exists()) {
+                return null;
+            }
+            String json;
+            try (InputStream is = metadata.getInputStream()) {
+                json = readAll(is);
+            }
+            JSONObject object = JSONObject.parseObject(json);
+            return object == null ? null : GalleryInfo.galleryInfoFromJson(object);
+        } catch (Throwable e) {
+            Log.w(TAG, "Failed to read metadata for gid=" + hint.gid, e);
             return null;
         }
     }

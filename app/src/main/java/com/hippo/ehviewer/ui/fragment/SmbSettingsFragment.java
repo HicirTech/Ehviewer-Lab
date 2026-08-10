@@ -35,6 +35,8 @@ public class SmbSettingsFragment extends PreferenceFragmentCompat implements Pre
     @Nullable
     private EditTextPreference mSharePath;
     @Nullable
+    private EditTextPreference mDeviceName;
+    @Nullable
     private EditTextPreference mUsername;
     @Nullable
     private EditTextPreference mPassword;
@@ -58,6 +60,7 @@ public class SmbSettingsFragment extends PreferenceFragmentCompat implements Pre
         mPort = findPreference(Settings.KEY_SMB_PORT);
         mShareName = findPreference(Settings.KEY_SMB_SHARE_NAME);
         mSharePath = findPreference(Settings.KEY_SMB_SHARE_PATH);
+        mDeviceName = findPreference(Settings.KEY_SMB_DEVICE_NAME);
         mUsername = findPreference(Settings.KEY_SMB_USERNAME);
         mPassword = findPreference(Settings.KEY_SMB_PASSWORD);
         mTestConnection = findPreference("smb_test_connection");
@@ -93,6 +96,13 @@ public class SmbSettingsFragment extends PreferenceFragmentCompat implements Pre
             mSharePath.setOnPreferenceChangeListener(this);
             updateTextSummary(mSharePath, Settings.getSmbSharePath());
         }
+        if (mDeviceName != null) {
+            cacheHint(mDeviceName, null);
+            mDeviceName.setOnPreferenceChangeListener(this);
+            // Shows the resolved name, so an unset field displays the model that will actually be
+            // published rather than looking empty.
+            updateTextSummary(mDeviceName, Settings.getSmbDeviceName());
+        }
         if (mUsername != null) {
             // Username has no XML summary — fall back to a generic "tap to set" hint.
             cacheHint(mUsername, getString(R.string.settings_smb_field_unset));
@@ -127,6 +137,17 @@ public class SmbSettingsFragment extends PreferenceFragmentCompat implements Pre
                 mAutoDownloadSwitch.setChecked(false);
             }
             applyMasterState(enabled);
+            // Take effect now rather than the next time some screen happens to ask. Turning this
+            // off with a download running used to hide it from the list while its pages kept
+            // being written to the share.
+            //
+            // Posted, not called: this listener runs *before* the new value is persisted -- that
+            // is what returning true authorises -- so asking Settings here answers with the value
+            // being replaced. Which is precisely how this went out wrong the first time: the
+            // switch read off and the download carried on.
+            com.hippo.lib.yorozuya.SimpleHandler.getInstance().post(() ->
+                    com.hippo.ehviewer.smb.SmbDirectDownloader.getInstance()
+                            .onSmbAvailabilityChanged());
             return true;
         }
         if (preference == mAutoDownloadSwitch) {
@@ -140,6 +161,10 @@ public class SmbSettingsFragment extends PreferenceFragmentCompat implements Pre
             updateTextSummary(mShareName, value);
         } else if (preference == mSharePath) {
             updateTextSummary(mSharePath, value);
+        } else if (preference == mDeviceName) {
+            // Clearing it falls back to the model name, so show that rather than the empty value.
+            updateTextSummary(mDeviceName,
+                    value.trim().isEmpty() ? Settings.getSmbDeviceName() : value);
         } else if (preference == mUsername) {
             updateTextSummary(mUsername, value);
         } else if (preference == mPassword) {
@@ -154,6 +179,7 @@ public class SmbSettingsFragment extends PreferenceFragmentCompat implements Pre
         if (mPort != null) mPort.setEnabled(enabled);
         if (mShareName != null) mShareName.setEnabled(enabled);
         if (mSharePath != null) mSharePath.setEnabled(enabled);
+        if (mDeviceName != null) mDeviceName.setEnabled(enabled);
         if (mUsername != null) mUsername.setEnabled(enabled);
         if (mPassword != null) mPassword.setEnabled(enabled);
         if (mTestConnection != null) mTestConnection.setEnabled(enabled);

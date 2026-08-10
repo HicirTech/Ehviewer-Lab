@@ -81,6 +81,21 @@ public final class SmbPaths {
     }
 
     /**
+     * Where the devices sharing this share publish what they are downloading (#59) — one JSON file
+     * per client. A sibling of {@link #GALLERY_DIR} rather than a directory among the galleries, so
+     * the gallery enumeration never has to know it exists.
+     */
+    public static final String STATE_DIR = "state";
+
+    /** The share URL client state files live under: the configured path plus {@link #STATE_DIR}. */
+    @NonNull
+    public static String buildStateRootUrl(@NonNull String shareUrl) {
+        return shareUrl.endsWith("/")
+                ? shareUrl + STATE_DIR + "/"
+                : shareUrl + "/" + STATE_DIR + "/";
+    }
+
+    /**
      * The per-gallery folder name on the share: {@code <gid>-<title>}, sanitised to a filesystem-safe
      * string. Falls back to {@code "gallery"} when the gallery has no title.
      */

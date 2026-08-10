@@ -1,0 +1,322 @@
+package com.hippo.ehviewer.smb;
+
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
+
+import com.hippo.ehviewer.smb.SmbDownloadState.ClientState;
+import com.hippo.ehviewer.smb.SmbDownloadState.OwnedTask;
+import com.hippo.ehviewer.smb.SmbDownloadState.Published;
+import com.hippo.ehviewer.smb.SmbDownloadState.Task;
+
+import org.junit.Test;
+
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
+
+/**
+ * The rules by which several devices' published download state becomes one list (#59).
+ *
+ * <p>Every device writes only its own file, so the single view a user sees exists nowhere on disk —
+ * it is computed here, every time, out of files written by devices that never coordinated with each
+ * other. There is no server to arbitrate and no lock; these rules are the whole of the agreement.
+ *
+ * <p>Plain JUnit. This class touches no SMB, no Android and no clock — liveness arrives as an
+ * argument precisely so it can be stated rather than waited for.
+ *
+ * <p>Deliberately an anchor set. What is pinned here is what would be a silent data problem if it
+ * changed: a gallery downloaded twice, a device's queue quietly lost, work nobody can reclaim.
+ * Presentation details are left to the screen.
+ */
+public class SmbDownloadStateTest {
+
+    private static final String ME = "client-me";
+    private static final String OTHER = "client-other";
+
+    private static Task task(long gid, long claimedAt) {
+        return new Task(gid, "tok", "title " + gid, 0, 10, claimedAt, null);
+    }
+
+    /** @param alive whether that device's file was fresh when the directory was read */
+    private static Published published(String clientId, boolean alive, Task... tasks) {
+        return published(clientId, clientId + "-name", alive, tasks);
+    }
+
+    private static Published published(String clientId, String deviceName, boolean alive,
+                                       Task... tasks) {
+        return new Published(
+                new ClientState(clientId, deviceName, Arrays.asList(tasks)), alive, 0L);
+    }
+
+    private static OwnedTask find(List<OwnedTask> merged, long gid) {
+        for (OwnedTask o : merged) {
+            if (o.task.gid == gid) {
+                return o;
+            }
+        }
+        return null;
+    }
+
+    private static long[] gidsOf(List<OwnedTask> merged) {
+        long[] out = new long[merged.size()];
+        for (int i = 0; i < merged.size(); i++) {
+            out[i] = merged.get(i).task.gid;
+        }
+        return out;
+    }
+
+    // --- merge: at most one entry per gallery ----------------------------------------------------
+
+    @Test
+    public void merge_combinesDistinctGalleriesFromEveryClient() {
+        List<OwnedTask> merged = SmbDownloadState.merge(Arrays.asList(
+                published(ME, true, task(1, 100)),
+                published(OTHER, true, task(2, 100))));
+
+        assertEquals(2, merged.size());
+        assertEquals(ME, find(merged, 1).clientId);
+        assertEquals(OTHER, find(merged, 2).clientId);
+    }
+
+    /**
+     * The state a takeover leaves behind, and the rule that makes takeover safe at all.
+     *
+     * <p>A device that has gone away cannot be corrected and its clock cannot be trusted — nobody
+     * can even tell whether it is wrong. If a timestamp could beat liveness, one dead device could
+     * hold a gallery hostage from the device actually downloading it, forever.
+     */
+    @Test
+    public void merge_aLiveClaimBeatsADeadOneWhateverTheTimestampsSay() {
+        List<OwnedTask> merged = SmbDownloadState.merge(Arrays.asList(
+                published(OTHER, false, task(7, 9_000_000L)),
+                published(ME, true, task(7, 1L))));
+
+        assertEquals(1, merged.size());
+        assertEquals(ME, find(merged, 7).clientId);
+    }
+
+    /** Only once liveness cannot separate two claims does the timestamp decide. */
+    @Test
+    public void merge_betweenTwoLiveClaimsTheLaterOneWins() {
+        List<OwnedTask> merged = SmbDownloadState.merge(Arrays.asList(
+                published(OTHER, true, task(7, 500)),
+                published(ME, true, task(7, 900))));
+
+        assertEquals(ME, find(merged, 7).clientId);
+    }
+
+    /**
+     * A file written by a newer build is ignored rather than half-understood. Reading what we
+     * recognise and dropping the rest would make this device act on a partial picture of a
+     * gallery somebody else is working on.
+     */
+    @Test
+    public void merge_skipsFilesWithAnUnknownSchema() {
+        ClientState future = new ClientState(
+                SmbDownloadState.SCHEMA_VERSION + 1, OTHER, "future",
+                Collections.singletonList(task(7, 900)));
+
+        List<OwnedTask> merged = SmbDownloadState.merge(Arrays.asList(
+                new Published(future, true, 0L),
+                published(ME, true, task(7, 100))));
+
+        assertEquals(1, merged.size());
+        assertEquals("the newer file should not have won", ME, find(merged, 7).clientId);
+    }
+
+    @Test
+    public void merge_ofNothingIsEmpty() {
+        assertTrue(SmbDownloadState.merge(Collections.<Published>emptyList()).isEmpty());
+    }
+
+    // --- display order ---------------------------------------------------------------------------
+
+    /**
+     * One gallery per device first — the one that device is actually downloading — then everything
+     * queued behind, oldest claim first.
+     *
+     * <p>Which gallery a device is on is derived, never stored: the downloader takes its queue in
+     * claim order and runs one at a time, so the earliest claim a device still holds is the job in
+     * progress. Nothing published can say this, because the moment a device loses contact is the
+     * moment it can no longer correct what it said.
+     */
+    @Test
+    public void order_whatEachDeviceIsOnComesFirst() {
+        List<OwnedTask> merged = SmbDownloadState.merge(Arrays.asList(
+                published("a", "Alpha", true, task(1, 1000), task(2, 3000)),
+                published("b", "Bravo", true, task(3, 2000), task(4, 4000))));
+
+        assertEquals("[Alpha head, Bravo head, then the rest oldest-claim first]",
+                Arrays.toString(new long[]{1, 3, 2, 4}),
+                Arrays.toString(gidsOf(merged)));
+    }
+
+    /**
+     * Heads sort by device name, so a heartbeat landing never reshuffles rows under a reader.
+     *
+     * <p>The claim times are chosen so that name order, oldest-first and newest-first each give a
+     * different answer — otherwise this passes by coincidence, which is exactly what an earlier
+     * draft of it did.
+     */
+    @Test
+    public void order_headsSortByDeviceNameNotByClaimTime() {
+        List<OwnedTask> merged = SmbDownloadState.merge(Arrays.asList(
+                published("z", "Alpha", true, task(1, 5000)),
+                published("m", "Bravo", true, task(2, 1000)),
+                published("a", "Charlie", true, task(3, 9000))));
+
+        assertEquals("[by name; oldest-first would be 2,1,3 and newest-first 3,1,2]",
+                Arrays.toString(new long[]{1, 2, 3}), Arrays.toString(gidsOf(merged)));
+    }
+
+    // --- letting go of what is no longer ours ----------------------------------------------------
+
+    /**
+     * How the duplicate a takeover creates goes away on the losing side. A device that was offline
+     * cannot be told it lost a task — it has to notice on its next read and drop the entry itself.
+     */
+    @Test
+    public void selfClean_dropsWhatALiveClientHasSinceClaimed() {
+        ClientState self = new ClientState(ME, "me", Arrays.asList(task(1, 100), task(2, 100)));
+        List<OwnedTask> merged = SmbDownloadState.merge(Arrays.asList(
+                new Published(self, true, 0L),
+                published(OTHER, true, task(2, 900))));
+
+        List<Task> kept = SmbDownloadState.withoutTakenOver(self, merged);
+
+        assertEquals(1, kept.size());
+        assertEquals("gallery 2 was taken over and should be gone", 1, kept.get(0).gid);
+    }
+
+    /** A claim older than ours is not a takeover of ours. */
+    @Test
+    public void selfClean_keepsWhatAnotherClientClaimedEarlier() {
+        ClientState self = new ClientState(ME, "me", Collections.singletonList(task(2, 900)));
+        List<OwnedTask> merged = SmbDownloadState.merge(Arrays.asList(
+                new Published(self, true, 0L),
+                published(OTHER, true, task(2, 100))));
+
+        assertEquals(1, SmbDownloadState.withoutTakenOver(self, merged).size());
+    }
+
+    /** And a dead client's claim takes nothing from us, however new it looks. */
+    @Test
+    public void selfClean_keepsWhatOnlyADeadClientClaims() {
+        ClientState self = new ClientState(ME, "me", Collections.singletonList(task(2, 100)));
+        List<OwnedTask> merged = SmbDownloadState.merge(Arrays.asList(
+                new Published(self, true, 0L),
+                published(OTHER, false, task(2, 900))));
+
+        assertEquals(1, SmbDownloadState.withoutTakenOver(self, merged).size());
+    }
+
+    // --- not downloading the same gallery twice ---------------------------------------------------
+
+    @Test
+    public void claimed_byAnotherLiveClientBlocksEnqueue() {
+        List<OwnedTask> merged = SmbDownloadState.merge(Collections.singletonList(
+                published(OTHER, true, task(5, 100))));
+
+        assertTrue(SmbDownloadState.isClaimedByAnotherLiveClient(merged, 5, ME));
+    }
+
+    /** Our own claim is not something to block ourselves on. */
+    @Test
+    public void claimed_ownTasksDoNotBlock() {
+        List<OwnedTask> merged = SmbDownloadState.merge(Collections.singletonList(
+                published(ME, true, task(5, 100))));
+
+        assertFalse(SmbDownloadState.isClaimedByAnotherLiveClient(merged, 5, ME));
+    }
+
+    /**
+     * Nor does an abandoned one — that is the whole point of being able to take it over, and the
+     * negative half of this rule is the one worth pinning: without it an orphan is unreachable.
+     */
+    @Test
+    public void claimed_anOrphanDoesNotBlock() {
+        List<OwnedTask> merged = SmbDownloadState.merge(Collections.singletonList(
+                published(OTHER, false, task(5, 100))));
+
+        assertFalse(SmbDownloadState.isClaimedByAnotherLiveClient(merged, 5, ME));
+    }
+
+    @Test
+    public void claimed_saysNothingAboutAGalleryNobodyHas() {
+        assertFalse(SmbDownloadState.isClaimedByAnotherLiveClient(
+                SmbDownloadState.merge(Collections.<Published>emptyList()), 5, ME));
+    }
+
+    // --- who may do what --------------------------------------------------------------------------
+
+    /**
+     * Another device's download is not ours to pause or delete: it would carry on regardless, and
+     * removing it from the list would mean editing a file only its owner may write.
+     */
+    @Test
+    public void actionable_ownTasksOnly() {
+        OwnedTask mine = find(SmbDownloadState.merge(Collections.singletonList(
+                published(ME, true, task(1, 100)))), 1);
+        OwnedTask theirs = find(SmbDownloadState.merge(Collections.singletonList(
+                published(OTHER, true, task(2, 100)))), 2);
+
+        assertTrue(mine.isActionableBy(ME));
+        assertFalse(theirs.isActionableBy(ME));
+    }
+
+    /** An orphan is adopted, not operated on — and only an orphan, and never one's own. */
+    @Test
+    public void takeOver_onlySomebodyElsesAbandonedWork() {
+        OwnedTask orphan = find(SmbDownloadState.merge(Collections.singletonList(
+                published(OTHER, false, task(1, 100)))), 1);
+        OwnedTask live = find(SmbDownloadState.merge(Collections.singletonList(
+                published(OTHER, true, task(2, 100)))), 2);
+        OwnedTask ownAndQuiet = find(SmbDownloadState.merge(Collections.singletonList(
+                published(ME, false, task(3, 100)))), 3);
+
+        assertTrue(orphan.isTakeOverableBy(ME));
+        assertFalse(orphan.isActionableBy(ME));
+        assertFalse(live.isTakeOverableBy(ME));
+        assertFalse(ownAndQuiet.isTakeOverableBy(ME));
+    }
+
+    // --- the file on the share ---------------------------------------------------------------------
+
+    /** What one device writes, another must read back unchanged; there is no other channel. */
+    @Test
+    public void json_roundTripsEveryFieldThatMatters() {
+        ClientState written = new ClientState(ME, "Study phone", Collections.singletonList(
+                new Task(7, "tok7", "a title", 12, 36, 1700L, OTHER)));
+
+        ClientState read = SmbDownloadState.parse(SmbDownloadState.serialize(written));
+
+        assertNotNull(read);
+        assertEquals(ME, read.clientId);
+        assertEquals("Study phone", read.deviceName);
+        assertEquals(1, read.tasks.size());
+        Task t = read.tasks.get(0);
+        assertEquals(7, t.gid);
+        assertEquals("tok7", t.token);
+        assertEquals("a title", t.title);
+        assertEquals(12, t.finished);
+        assertEquals(36, t.total);
+        assertEquals(1700L, t.claimedAt);
+        assertEquals(OTHER, t.takenOverFrom);
+    }
+
+    /**
+     * One corrupt or half-written file must not take the whole list down with it. The worst case of
+     * ignoring one is that its owner looks idle; the worst case of throwing is that this device
+     * cannot see anybody.
+     */
+    @Test
+    public void parse_returnsNullRatherThanThrowing() {
+        assertNull(SmbDownloadState.parse(null));
+        assertNull(SmbDownloadState.parse(""));
+        assertNull(SmbDownloadState.parse("not json at all"));
+        assertNull(SmbDownloadState.parse("{\"tasks\":[]}"));   // no clientId: not usable
+    }
+}

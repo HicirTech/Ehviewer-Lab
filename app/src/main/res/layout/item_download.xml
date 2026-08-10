@@ -60,12 +60,28 @@
                 android:layout_below="@id/title"
                 android:layout_marginTop="2dp"/>
 
+            <!--
+                Which device is saving this to the share, and when it last said so (#59). Its own
+                line rather than the uploader's: they are different facts, and the gallery's
+                uploader is read from the share's metadata like any other row's. Gone on an
+                ordinary download, which collapses it and leaves that layout unchanged.
+            -->
+            <TextView
+                android:id="@+id/smb_owner"
+                style="@style/CardMessage"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_alignLeft="@id/title"
+                android:layout_below="@id/uploader"
+                android:layout_marginTop="2dp"
+                android:visibility="gone"/>
+
             <com.hippo.ehviewer.widget.SimpleRatingView
                 android:id="@+id/rating"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_alignLeft="@id/title"
-                android:layout_below="@id/uploader"
+                android:layout_below="@id/smb_owner"
                 android:layout_marginTop="2dp"/>
 
             <TextView
