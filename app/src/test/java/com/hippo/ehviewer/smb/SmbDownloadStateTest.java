@@ -168,12 +168,31 @@ public class SmbDownloadStateTest {
         assertFalse(theirs.isActionableBy(ME));
     }
 
-    /** Orphans are the deliberate exception — otherwise they could never be recovered. */
+    /**
+     * An orphan is adopted, not operated on. Acting on it directly would mean editing the file it
+     * lives in, which belongs to the device that went away.
+     */
     @Test
-    public void actionable_anOrphanIsOpenToAnyone() {
+    public void actionable_notEvenAnOrphan() {
         OwnedTask orphan = find(SmbDownloadState.merge(Collections.singletonList(
                 published(OTHER, false, task(1, TaskState.ACTIVE, 100)))), 1);
-        assertTrue(orphan.isActionableBy(ME));
+        assertFalse(orphan.isActionableBy(ME));
+        assertTrue("but it is open to being taken over", orphan.isTakeOverableBy(ME));
+    }
+
+    @Test
+    public void takeOver_notWhileTheOwnerIsStillThere() {
+        OwnedTask theirs = find(SmbDownloadState.merge(Collections.singletonList(
+                published(OTHER, true, task(1, TaskState.ACTIVE, 100)))), 1);
+        assertFalse(theirs.isTakeOverableBy(ME));
+    }
+
+    /** Nothing to take over from yourself, however long this device has been quiet. */
+    @Test
+    public void takeOver_neverOwnTasks() {
+        OwnedTask mine = find(SmbDownloadState.merge(Collections.singletonList(
+                published(ME, false, task(1, TaskState.ACTIVE, 100)))), 1);
+        assertFalse(mine.isTakeOverableBy(ME));
     }
 
     // --- duplicate-download prevention -----------------------------------------------------------
@@ -250,6 +269,101 @@ public class SmbDownloadStateTest {
                 published(OTHER, false, task(2, TaskState.ACTIVE, 900))));
 
         assertEquals(1, SmbDownloadState.withoutTakenOver(self, merged).size());
+    }
+
+    // --- the marker that keeps a rescued gallery rescued -------------------------------------------
+
+    /**
+     * The failure this exists to prevent. A device adopts an orphan, finishes it, and drops it from
+     * its own file — and the abandoned file still names it, so without a marker overruling that
+     * copy the gallery reappears as an orphan the moment the rescuer stops claiming it.
+     */
+    @Test
+    public void released_hidesTheAbandonedCopyItOverrules() {
+        List<Published> share = Arrays.asList(
+                published(OTHER, false, task(7, TaskState.ACTIVE, 100)),
+                published(ME, true, released(7, 900)));
+
+        assertNotNull("the marker still has to win the merge",
+                find(SmbDownloadState.merge(share), 7));
+        assertNull("but nothing should be shown for it",
+                find(SmbDownloadState.visible(SmbDownloadState.merge(share)), 7));
+    }
+
+    /** Losing to the marker is exactly what tells the returning device to let go. */
+    @Test
+    public void released_isVisibleToTheDeviceItTookFrom() {
+        ClientState them = new ClientState(OTHER, "them",
+                Collections.singletonList(task(7, TaskState.ACTIVE, 100)));
+        List<OwnedTask> merged = SmbDownloadState.merge(Arrays.asList(
+                new Published(them, true),
+                published(ME, true, released(7, 900))));
+
+        assertTrue("the marker must not be filtered out of what self-cleaning consults",
+                SmbDownloadState.withoutTakenOver(them, merged).isEmpty());
+    }
+
+    /**
+     * And it keeps working after the rescuer goes offline. A marker is a statement about something
+     * already finished, so unlike a live claim it does not need its author to still be around —
+     * otherwise a device coming back to a quiet share would resume a completed download.
+     */
+    @Test
+    public void released_stillFreesTheOwnerWhenItsAuthorHasGoneQuiet() {
+        ClientState them = new ClientState(OTHER, "them",
+                Collections.singletonList(task(7, TaskState.ACTIVE, 100)));
+        List<OwnedTask> merged = SmbDownloadState.merge(Arrays.asList(
+                new Published(them, true),
+                published(ME, false, released(7, 900))));
+
+        assertTrue(SmbDownloadState.withoutTakenOver(them, merged).isEmpty());
+    }
+
+    /** Somebody finished with it, so it is not a claim standing in the way of downloading it. */
+    @Test
+    public void released_doesNotBlockAFreshEnqueue() {
+        List<OwnedTask> merged = SmbDownloadState.merge(Collections.singletonList(
+                published(OTHER, true, released(7, 900))));
+
+        assertFalse(SmbDownloadState.isClaimedByAnotherLiveClient(merged, 7, ME));
+    }
+
+    /** Ordinary entries are not touched by the filter. */
+    @Test
+    public void visible_keepsRealWork() {
+        List<OwnedTask> merged = SmbDownloadState.merge(Arrays.asList(
+                published(ME, true, task(1, TaskState.ACTIVE, 100)),
+                published(OTHER, false, task(2, TaskState.QUEUED, 100))));
+
+        assertEquals(2, SmbDownloadState.visible(merged).size());
+    }
+
+    /** When to stop publishing a marker: once the file it contradicts stops naming the gallery. */
+    @Test
+    public void namedByAnotherClient_seesOnlyOtherDevices() {
+        List<Published> share = Arrays.asList(
+                published(ME, true, released(7, 900)),
+                published(OTHER, false, task(7, TaskState.ACTIVE, 100)));
+
+        assertTrue(SmbDownloadState.isNamedByAnotherClient(share, 7, ME));
+        assertFalse("our own copy must not keep the marker alive forever",
+                SmbDownloadState.isNamedByAnotherClient(
+                        Collections.singletonList(published(ME, true, released(7, 900))), 7, ME));
+    }
+
+    /** A marker survives a round trip through the file, or it would be forgotten on restart. */
+    @Test
+    public void released_survivesSerialisation() {
+        ClientState parsed = SmbDownloadState.parse(SmbDownloadState.serialize(
+                new ClientState(ME, "me", Collections.singletonList(released(7, 900)))));
+
+        assertNotNull(parsed);
+        assertEquals(TaskState.RELEASED, parsed.tasks.get(0).state);
+        assertEquals(OTHER, parsed.tasks.get(0).takenOverFrom);
+    }
+
+    private static Task released(long gid, long claimedAt) {
+        return new Task(gid, "tok", "title " + gid, TaskState.RELEASED, 0, 0, claimedAt, OTHER);
     }
 
     // --- json --------------------------------------------------------------------------------------

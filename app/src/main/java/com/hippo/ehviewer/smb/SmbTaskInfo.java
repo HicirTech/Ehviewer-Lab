@@ -47,6 +47,11 @@ public final class SmbTaskInfo extends DownloadInfo {
         this.downloaded = owned.task.finished;
         this.time = owned.task.claimedAt;
         this.state = owned.ownerAlive ? stateOf(owned.task.state) : STATE_FAILED;
+        // The row's "who" line, which for a normal download is the uploader and has nothing to say
+        // about an SMB save. Naming the device is the one thing these carry that an ordinary
+        // download does not, and it is what makes a queue several devices contribute to legible.
+        // Left empty for our own: the answer is "this one", and saying so on every row is noise.
+        this.uploader = mine ? null : owned.deviceName;
         this.deviceName = owned.deviceName;
         this.ownerClientId = owned.clientId;
         this.ownerAlive = owned.ownerAlive;
@@ -89,17 +94,26 @@ public final class SmbTaskInfo extends DownloadInfo {
     }
 
     /**
-     * Whether this device may act on the item at all.
+     * Whether this device may pause, resume or delete the item.
      *
-     * <p>Another device's running download is not ours to pause or delete — it would carry on
-     * regardless, since the decision lives in the process doing the work. An abandoned one is the
-     * exception, which is what makes orphans recoverable.
+     * <p>Another device's download is not ours to stop — it would carry on regardless, since the
+     * decision lives in the process doing the work — and not ours to delete, since taking it off
+     * the list means editing a file only its owner may write. An abandoned one is no exception:
+     * it must be taken over first, and is then simply this device's own.
      */
     public static boolean isActionable(@Nullable DownloadInfo info) {
         if (!(info instanceof SmbTaskInfo)) {
             return true;   // an ordinary download, handled the ordinary way
         }
+        return ((SmbTaskInfo) info).mine;
+    }
+
+    /** Whether the item is somebody else's abandoned work, and so open to being adopted. */
+    public static boolean canTakeOver(@Nullable DownloadInfo info) {
+        if (!(info instanceof SmbTaskInfo)) {
+            return false;
+        }
         SmbTaskInfo smb = (SmbTaskInfo) info;
-        return smb.mine || !smb.ownerAlive;
+        return !smb.mine && !smb.ownerAlive;
     }
 }

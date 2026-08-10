@@ -306,7 +306,26 @@ public class DownloadAdapter extends RecyclerView.Adapter<DownloadAdapter.Downlo
             holder.stop.setVisibility(View.GONE);
         }
 
+        hideControlsWeCannotHonour(holder, info);
         holder.state.setText(state);
+    }
+
+    /**
+     * Takes away the start/stop buttons on a download belonging to another device that is still
+     * running it (#59).
+     *
+     * <p>Neither would do anything: the download is being driven by a process on a different
+     * device, and this one cannot reach into it. A button that silently does nothing is worse than
+     * no button — it reads as the app having ignored the tap. An abandoned one keeps its start
+     * button, because there it means "take this over".
+     */
+    private static void hideControlsWeCannotHonour(DownloadHolder holder, DownloadInfo info) {
+        if (com.hippo.ehviewer.smb.SmbTaskInfo.isSmb(info)
+                && !com.hippo.ehviewer.smb.SmbTaskInfo.isActionable(info)
+                && !com.hippo.ehviewer.smb.SmbTaskInfo.canTakeOver(info)) {
+            holder.start.setVisibility(View.GONE);
+            holder.stop.setVisibility(View.GONE);
+        }
     }
 
     @SuppressLint("SetTextI18n")
@@ -342,6 +361,11 @@ public class DownloadAdapter extends RecyclerView.Adapter<DownloadAdapter.Downlo
         // beside it already says whether anything is moving.
         if (com.hippo.ehviewer.smb.SmbTaskInfo.isSmb(info)) {
             holder.speed.setVisibility(View.GONE);
+            // Which device is doing it, kept on screen while it runs -- that is when knowing
+            // matters, and it is the row that would otherwise look like a download of this phone's
+            // own that had somehow started by itself.
+            holder.uploader.setVisibility(info.uploader != null ? View.VISIBLE : View.GONE);
+            hideControlsWeCannotHonour(holder, info);
             return;
         }
         long speed = info.speed;
@@ -747,6 +771,10 @@ public class DownloadAdapter extends RecyclerView.Adapter<DownloadAdapter.Downlo
                 if (com.hippo.ehviewer.smb.SmbTaskInfo.isSmb(info)) {
                     if (com.hippo.ehviewer.smb.SmbTaskInfo.isActionable(info)) {
                         com.hippo.ehviewer.smb.SmbDirectDownloader.getInstance().resume(info.gid);
+                    } else if (com.hippo.ehviewer.smb.SmbTaskInfo.canTakeOver(info)) {
+                        // Another device's, but it stopped saying so. Starting one of these means
+                        // adopting it, which is enough of a change of ownership to ask about first.
+                        mScene.confirmTakeOverSmbTask((com.hippo.ehviewer.smb.SmbTaskInfo) info);
                     }
                     return;
                 }

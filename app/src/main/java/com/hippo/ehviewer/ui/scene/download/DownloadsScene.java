@@ -212,6 +212,53 @@ public class DownloadsScene extends ToolbarScene
             });
         });
     }
+
+    /**
+     * Asks before adopting a download whose owner has gone quiet (#59).
+     *
+     * <p>Worth a question rather than just a tap: the row looks like any other stalled download,
+     * but starting it moves a gallery from one device's queue into this one's, and the name of the
+     * device it is being taken from is the piece of information that makes that clear.
+     */
+    public void confirmTakeOverSmbTask(@NonNull com.hippo.ehviewer.smb.SmbTaskInfo task) {
+        Context context = getEHContext();
+        if (context == null) {
+            return;
+        }
+        String title = task.title != null ? task.title : String.valueOf(task.gid);
+        new AlertDialog.Builder(context)
+                .setTitle(R.string.smb_take_over_title)
+                .setMessage(getString(R.string.smb_take_over_message, task.deviceName, title))
+                .setNegativeButton(android.R.string.cancel, null)
+                .setPositiveButton(R.string.smb_take_over_confirm, (dialog, which) ->
+                        com.hippo.ehviewer.smb.SmbDirectDownloader.getInstance()
+                                .takeOver(context, task, this::onTakeOverFinished))
+                .show();
+    }
+
+    private void onTakeOverFinished(
+            @NonNull com.hippo.ehviewer.smb.SmbDirectDownloader.TakeOverResult result) {
+        Context context = getEHContext();
+        if (context == null) {
+            return;
+        }
+        switch (result) {
+            case TAKEN:
+                // The list still shows the old owner until the next read lands.
+                refreshSmbTasks();
+                break;
+            case OWNER_RETURNED:
+                Toast.makeText(context, R.string.smb_take_over_owner_returned,
+                        Toast.LENGTH_SHORT).show();
+                refreshSmbTasks();
+                break;
+            case FAILED:
+            default:
+                Toast.makeText(context, R.string.smb_take_over_failed, Toast.LENGTH_SHORT).show();
+                break;
+        }
+    }
+
     @Nullable
     private List<DownloadInfo> mList;
     @Nullable
