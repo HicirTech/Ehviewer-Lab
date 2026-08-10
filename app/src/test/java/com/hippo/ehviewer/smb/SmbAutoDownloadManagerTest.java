@@ -160,9 +160,32 @@ public class SmbAutoDownloadManagerTest {
     }
 
     /** The enqueue hops onto the IO pool and back, so pump both until it settles. */
+    /** Long enough that a busy CI runner is not a failure; only a stuck test ever waits this. */
+    private static final long PUMP_DEADLINE_MS = 20_000L;
+    /** Rounds of nothing arriving before the work is taken to have finished crossing threads. */
+    private static final int PUMP_QUIET_ROUNDS = 25;
+
+    /**
+     * Lets whatever was handed to a background thread find its way back to the main one.
+     *
+     * <p>The path under test crosses threads — an enqueue goes to the IO pool, posts back to the
+     * main looper, and the publisher thread writes somewhere in the middle — so there is no single
+     * thing to await, only a point at which nothing further arrives.
+     *
+     * <p>Waits for that quiet rather than for a fixed number of rounds. The fixed version spent
+     * the same second whatever happened, and a second turned out to be a coin toss under load:
+     * this class passed on its own and failed in a full run, purely because the suite had grown.
+     * A CI runner is busier again. This returns as soon as the main thread has had nothing to do
+     * for {@link #PUMP_QUIET_ROUNDS} in a row — usually a fraction of the old cost — and only a
+     * genuinely stuck test pays the deadline.
+     */
     private void pump() {
-        for (int i = 0; i < 100; i++) {
+        long deadline = System.currentTimeMillis() + PUMP_DEADLINE_MS;
+        int quiet = 0;
+        while (quiet < PUMP_QUIET_ROUNDS && System.currentTimeMillis() < deadline) {
+            boolean hadWork = !shadowOf(Looper.getMainLooper()).isIdle();
             shadowOf(Looper.getMainLooper()).idle();
+            quiet = hadWork ? 0 : quiet + 1;
             try {
                 Thread.sleep(10);
             } catch (InterruptedException e) {
