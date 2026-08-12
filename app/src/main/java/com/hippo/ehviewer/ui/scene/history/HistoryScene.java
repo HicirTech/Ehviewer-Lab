@@ -54,6 +54,8 @@ import com.hippo.ehviewer.R;
 import com.hippo.ehviewer.Settings;
 import com.hippo.ehviewer.client.EhCacheKeyFactory;
 import com.hippo.ehviewer.client.EhUtils;
+import com.hippo.ehviewer.smb.SmbSavedGalleries;
+import com.hippo.ehviewer.widget.SmbStatusBadge;
 import com.hippo.ehviewer.client.data.GalleryInfo;
 import com.hippo.ehviewer.dao.HistoryInfo;
 import com.hippo.ehviewer.ui.CommonOperations;
@@ -90,6 +92,13 @@ public class HistoryScene extends ToolbarScene
     private ViewTransition mViewTransition;
     @Nullable
     private RecyclerView.Adapter<?> mAdapter;
+
+    /** Redraws the cards once the list of galleries already on the share arrives (#83). */
+    private final SmbSavedGalleries.Observer mSavedObserver = () -> {
+        if (mAdapter != null) {
+            mAdapter.notifyDataSetChanged();
+        }
+    };
     @Nullable
     private LazyList<HistoryInfo> mLazyList;
 
@@ -125,6 +134,8 @@ public class HistoryScene extends ToolbarScene
         mAdapter.setHasStableIds(true);
         mAdapter = swipeManager.createWrappedAdapter(mAdapter);
         mRecyclerView.setAdapter(mAdapter);
+        SmbSavedGalleries.getInstance().addObserver(mSavedObserver);
+        SmbSavedGalleries.getInstance().refresh();
         final GeneralItemAnimator animator = new SwipeDismissItemAnimator();
         animator.setSupportsChangeAnimations(false);
         mRecyclerView.setItemAnimator(animator);
@@ -168,6 +179,7 @@ public class HistoryScene extends ToolbarScene
     @Override
     public void onDestroyView() {
         super.onDestroyView();
+        SmbSavedGalleries.getInstance().removeObserver(mSavedObserver);
 
         if (null != mLazyList) {
             mLazyList.close();
@@ -309,6 +321,9 @@ public class HistoryScene extends ToolbarScene
         public final TextView category;
         public final TextView posted;
         public final TextView simpleLanguage;
+        /** The card is an <include> of item_gallery_list, so the badge comes with it. */
+        @Nullable
+        public final SmbStatusBadge smbBadge;
 
         public HistoryHolder(View itemView) {
             super(itemView);
@@ -320,6 +335,7 @@ public class HistoryScene extends ToolbarScene
             rating = (SimpleRatingView) itemView.findViewById(R.id.rating);
             category = (TextView) itemView.findViewById(R.id.category);
             posted = (TextView) itemView.findViewById(R.id.posted);
+            smbBadge = itemView.findViewById(R.id.smb_badge);
             simpleLanguage = (TextView) itemView.findViewById(R.id.simple_language);
         }
 
@@ -385,6 +401,7 @@ public class HistoryScene extends ToolbarScene
             }
             holder.posted.setText(gi.posted);
             holder.simpleLanguage.setText(gi.simpleLanguage);
+            SmbStatusBadge.bindSaved(holder.smbBadge, gi.gid);
 
             // Update transition name
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {

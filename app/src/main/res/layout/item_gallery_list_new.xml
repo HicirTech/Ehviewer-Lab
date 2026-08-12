@@ -34,6 +34,21 @@
             app:minAspect="0.333"
             />
 
+        <!--
+          The one corner of this card that speaks about the SMB share: a closed ring once the
+          gallery is finished and sitting there (#83). Gone unless the screen binding this card
+          has something to say. Same slot and shape as the badge on item_gallery_list, so the
+          answer is in the same place whichever list you are looking at.
+        -->
+        <com.hippo.ehviewer.widget.SmbStatusBadge
+            android:id="@+id/smb_badge"
+            android:layout_width="20dp"
+            android:layout_height="20dp"
+            android:layout_alignTop="@id/thumb_new"
+            android:layout_alignRight="@id/thumb_new"
+            android:layout_margin="4dp"
+            android:visibility="gone" />
+
         <TextView
             android:id="@+id/title"
             style="@style/CardTitle"

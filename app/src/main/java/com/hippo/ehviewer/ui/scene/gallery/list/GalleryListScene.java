@@ -71,6 +71,7 @@ import com.hippo.drawable.DrawerArrowDrawable;
 import com.hippo.drawerlayout.DrawerLayout;
 import com.hippo.easyrecyclerview.EasyRecyclerView;
 import com.hippo.easyrecyclerview.FastScroller;
+import com.hippo.ehviewer.smb.SmbSavedGalleries;
 import com.hippo.ehviewer.EhApplication;
 import com.hippo.ehviewer.EhDB;
 import com.hippo.ehviewer.FavouriteStatusRouter;
@@ -207,6 +208,17 @@ public final class GalleryListScene extends BaseScene
     private ViewTransition mViewTransition;
     @Nullable
     private GalleryListAdapter mAdapter;
+
+    /**
+     * Redraws the cards once the list of galleries already on the share arrives (#83). It lands a
+     * fraction of a second after the screen opens, and at most once per change, so the whole-list
+     * redraw is affordable here in a way a per-second one would not be.
+     */
+    private final SmbSavedGalleries.Observer mSavedObserver = () -> {
+        if (mAdapter != null) {
+            mAdapter.notifyDataSetChanged();
+        }
+    };
     @Nullable
     public GalleryListHelper mHelper;
     @Nullable
@@ -349,6 +361,7 @@ public final class GalleryListScene extends BaseScene
         assert context != null;
         AssertUtils.assertNotNull(context);
         executorService = EhApplication.getExecutorService(context);
+        SmbSavedGalleries.getInstance().addObserver(mSavedObserver);
         mClient = EhApplication.getEhClient(context);
         mDownloadManager = EhApplication.getDownloadManager(context);
         mFavouriteStatusRouter = EhApplication.getFavouriteStatusRouter(context);
@@ -459,6 +472,7 @@ public final class GalleryListScene extends BaseScene
         mUrlBuilder = null;
         mDownloadManager.removeDownloadInfoListener(mDownloadInfoListener);
         mFavouriteStatusRouter.removeListener(mFavouriteStatusRouterListener);
+        SmbSavedGalleries.getInstance().removeObserver(mSavedObserver);
         EventBus.getDefault().unregister(this);
     }
 
@@ -1190,6 +1204,8 @@ public final class GalleryListScene extends BaseScene
     @Override
     public void onResume() {
         super.onResume();
+        // Coming back from a detail or the reader, where a download may have been started.
+        SmbSavedGalleries.getInstance().refresh();
         if (mBookmarksDraw == null) {
             return;
         }

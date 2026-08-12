@@ -51,6 +51,7 @@ import java.lang.annotation.RetentionPolicy;
 import java.util.concurrent.ExecutorService;
 
 import com.hippo.ehviewer.spider.SpiderQueen;
+import com.hippo.ehviewer.widget.SmbStatusBadge;
 
 abstract class GalleryAdapter extends RecyclerView.Adapter<GalleryHolder> {
 
@@ -247,6 +248,7 @@ abstract class GalleryAdapter extends RecyclerView.Adapter<GalleryHolder> {
                 }
                 holder.favourited.setVisibility((mShowFavourited && gi.favoriteSlot >= -1 && gi.favoriteSlot <= 10) ? View.VISIBLE : View.GONE);
                 holder.downloaded.setVisibility(mDownloadManager.containDownloadInfo(gi.gid) ? View.VISIBLE : View.GONE);
+                SmbStatusBadge.bindSaved(holder.smbBadge, gi.gid);
                 break;
             }
             case TYPE_GRID: {

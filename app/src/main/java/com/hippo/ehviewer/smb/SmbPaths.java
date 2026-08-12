@@ -139,4 +139,31 @@ public final class SmbPaths {
         }
         return true;
     }
+
+    /** Returned instead of a gid by {@link #parseGid} when the name is not a gallery folder's. */
+    public static final long NOT_A_GALLERY = -1L;
+
+    /**
+     * The gid a gallery folder's name begins with, or {@link #NOT_A_GALLERY}.
+     *
+     * <p>The folder name is the only place a gid can be read without opening anything, which is
+     * what makes "which galleries are on the share?" one directory enumeration rather than one
+     * {@code metadata.json} read per gallery (#83).
+     *
+     * <p>Accepts exactly what {@link #isGalleryFolderName} accepts, so the two cannot come to
+     * disagree about which entries count. A gid too large for a long is rejected rather than
+     * wrapped: a wrong gid would mark the wrong gallery, which is worse than marking none.
+     */
+    public static long parseGid(@Nullable String folderName) {
+        if (!isGalleryFolderName(folderName)) {
+            return NOT_A_GALLERY;
+        }
+        //noinspection ConstantConditions -- isGalleryFolderName rejects null
+        String digits = folderName.substring(0, folderName.indexOf('-'));
+        try {
+            return Long.parseLong(digits);
+        } catch (NumberFormatException e) {
+            return NOT_A_GALLERY;
+        }
+    }
 }
