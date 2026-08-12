@@ -505,15 +505,51 @@ public class DownloadsScene extends ToolbarScene
         queryUnreadSpiderInfo();
     }
 
+    /**
+     * Keeps the FAB clear of the pagination bar without moving it on the screens that have none
+     * (#74).
+     *
+     * <p>This screen used to hold its FAB 70dp up and 3dp in from the edge where every other screen
+     * puts one at 16dp, because the bar below it is 40dp tall. The bar is hidden unless pagination
+     * is switched on <em>and</em> the list runs past a page, so most of the time that bought a FAB
+     * sitting somewhere else than the rest of the app for no reason at all.
+     *
+     * <p>The bar's real height is not its declared 40dp — it carries a layout weight, so it settles
+     * a few dp shorter — hence measuring rather than assuming, with the declared height standing in
+     * until a layout pass has happened.
+     */
+    private void updateFabClearance() {
+        if (mFabLayout == null || !isAdded()) {
+            return;
+        }
+        Resources resources = getResources();
+        int margin = resources.getDimensionPixelOffset(R.dimen.corner_fab_margin);
+        int clearance = 0;
+        if (mPaginationIndicator != null && mPaginationIndicator.getVisibility() == View.VISIBLE) {
+            int measured = mPaginationIndicator.getHeight();
+            clearance = measured > 0
+                    ? measured
+                    : resources.getDimensionPixelOffset(R.dimen.download_pagination_height);
+            if (measured <= 0) {
+                // Not laid out yet. Take the real height once it is, or the FAB keeps the estimate.
+                mPaginationIndicator.post(this::updateFabClearance);
+            }
+        }
+        mFabLayout.setPadding(mFabLayout.getPaddingLeft(), mFabLayout.getPaddingTop(),
+                margin, margin + clearance);
+    }
+
     private void updatePaginationIndicator() {
         if (mPaginationIndicator == null || mList == null) {
             return;
         }
         if (mList.size() < paginationSize || !canPagination) {
             mPaginationIndicator.setVisibility(View.GONE);
+            updateFabClearance();
             return;
         }
         mPaginationIndicator.setVisibility(View.VISIBLE);
+        updateFabClearance();
         needInitPageSize = true;
         mPaginationIndicator.initPaginationIndicator(pageSize, perPageCountChoices, mList.size(), indexPage);
 //        mPaginationIndicator.setTotalCount();

@@ -59,7 +59,7 @@
                 <com.sxj.paginationlib.PaginationIndicator
                     android:id="@+id/indicator"
                     android:layout_width="match_parent"
-                    android:layout_height="40dp"
+                    android:layout_height="@dimen/download_pagination_height"
                     android:layout_weight="1"
                     android:visibility="gone"
                     app:number_tip_count="5"
@@ -97,8 +97,8 @@
             android:id="@+id/fab_layout"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
-            android:paddingRight="@dimen/corner_fab_margin_download_right"
-            android:paddingBottom="@dimen/corner_fab_margin_download_bottom">
+            android:paddingRight="@dimen/corner_fab_margin"
+            android:paddingBottom="@dimen/corner_fab_margin">
 
             <com.google.android.material.floatingactionbutton.FloatingActionButton
                 style="@style/Widget.Design.FloatingActionButton.Mini"
