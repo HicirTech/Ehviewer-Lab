@@ -50,12 +50,6 @@ public final class SmbStorage {
 
     private static final String TAG = "SmbStorage";
     // Package-private: SmbMetadata reads/writes the same metadata.json.
-    /**
-     * Marks a write still in flight. Every image lookup builds the exact name it expects, so a
-     * temporary never answers one; this only has to be a suffix nothing else ends in.
-     */
-    static final String TEMP_SUFFIX = ".tmp";
-
     static final String METADATA_FILE = "metadata.json";
     private static final String SPIDER_INFO_FILE = ".ehviewer";
 
@@ -672,9 +666,7 @@ public final class SmbStorage {
     static OutputStream openAtomicOutputStream(@NonNull SmbFile dir, @NonNull String name,
                                                long gid) throws IOException {
         final SmbFile target = new SmbFile(dir, name);
-        // Unique per attempt so two writers of the same file cannot land on each other's
-        // temporary, and so a temporary left by a killed process is never mistaken for this one.
-        final SmbFile temp = new SmbFile(dir, name + "." + System.nanoTime() + TEMP_SUFFIX);
+        final SmbFile temp = new SmbFile(dir, SmbTempFiles.nameFor(name));
         final OutputStream out =
                 new java.io.BufferedOutputStream(temp.getOutputStream(), SMB_IO_BUFFER);
         return new OutputStream() {
@@ -939,6 +931,10 @@ public final class SmbStorage {
             }
             SmbMetadata.writeMetadataWithDetail(context, galleryDir, info, resolvedPages);
             downloadAndWriteCover(context, galleryDir, info);
+            // The one moment this folder is both certainly ours and worth a listing: an earlier
+            // run of this download that was killed mid-page left its temporaries here, and nothing
+            // else will ever look (#75).
+            SmbTempFiles.sweep(galleryDir, System.currentTimeMillis());
         } catch (Throwable e) {
             Log.e(TAG, "Failed to finalize SMB gallery gid=" + info.gid, e);
         } finally {

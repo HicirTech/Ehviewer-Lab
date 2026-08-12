@@ -106,7 +106,10 @@ public final class SmbDownloadStateStore {
             for (SmbFile child : children) {
                 String name = child.getName();
                 if (!name.endsWith(SUFFIX)) {
-                    // .tmp files from a write in flight, and anything else that wanders in.
+                    // A write in flight, or anything else that wanders in. Neither is read; the
+                    // first is also cleared away once it is old enough to have been abandoned
+                    // (#75), which is a thing only a device listing this directory can notice.
+                    sweepIfAbandoned(child, now);
                     continue;
                 }
                 try {
@@ -126,6 +129,30 @@ public final class SmbDownloadStateStore {
             Log.e(TAG, "Failed to list " + SmbPaths.STATE_DIR + "/", e);
         }
         return out;
+    }
+
+    /**
+     * Clears one leftover of an interrupted publish, if it has been there long enough to be one.
+     *
+     * <p>The temporary belongs to another device as often as not, which everywhere else in this
+     * class would be forbidden — a device's file is its own. The exception holds because of what
+     * the age means: a publish gives up on its rename after {@link #WRITE_DEADLINE_MS} and deletes
+     * its own temporary, so one that has sat for {@link SmbTempFiles#ABANDONED_AFTER_MS} is not a
+     * write in progress. Its writer is gone, and it is the one thing on the share nobody will ever
+     * read.
+     *
+     * <p>Done from the read because that is where the directory is already listed. Nobody makes a
+     * trip for this.
+     */
+    private static void sweepIfAbandoned(@NonNull SmbFile child, long nowMillis) {
+        try {
+            if (SmbTempFiles.isAbandoned(child.getName(), child.lastModified(), nowMillis)) {
+                SmbTempFiles.delete(child);
+            }
+        } catch (Throwable e) {
+            // Housekeeping. Reading everyone's state is the job here and must not fail over it.
+            Log.w(TAG, "Could not examine " + child.getName(), e);
+        }
     }
 
     /** Package-private so the staleness rule can be exercised without a share. */
@@ -179,11 +206,7 @@ public final class SmbDownloadStateStore {
     private static boolean writeTo(@NonNull SmbFile dir, @NonNull String clientId,
                                    @NonNull String json) throws Exception {
         String target = clientId + SUFFIX;
-        // Unique per attempt-run so two writes -- which should not overlap, but might if a
-        // heartbeat and a state change race -- cannot land on each other's temp file.
-        String temp = clientId + "." + System.nanoTime() + ".tmp";
-
-        SmbFile tempFile = new SmbFile(dir, temp);
+        SmbFile tempFile = new SmbFile(dir, SmbTempFiles.nameFor(clientId));
         try (OutputStream os = new java.io.BufferedOutputStream(
                 tempFile.getOutputStream(), SmbStorage.SMB_IO_BUFFER)) {
             os.write(json.getBytes(StandardCharsets.UTF_8));
@@ -211,11 +234,9 @@ public final class SmbDownloadStateStore {
             }
         }
         Log.w(TAG, "Gave up writing " + target + " after " + WRITE_DEADLINE_MS + "ms", last);
-        try {
-            tempFile.delete();
-        } catch (Throwable ignored) {
-            // A leftover .tmp is skipped by readAll and overwritten next time.
-        }
+        // Giving up is the one abandonment this process is around to clean up after itself. The
+        // other -- being killed outright -- is what the sweep in readAll is for.
+        SmbTempFiles.delete(tempFile);
         return false;
     }
 
