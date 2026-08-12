@@ -32,6 +32,24 @@
             app:minAspect="0.333"
             app:retryType="click" />
 
+        <!--
+          How far along the device downloading this gallery onto the share is (#77). Only Local
+          Inventory ever shows it; every other screen inflating this card leaves it gone. Declared
+          after the thumb so it draws over the cover, and inside the thumb's bounds so it costs the
+          card no height.
+
+          Top rather than bottom: a cover shorter than the thumb is drawn from the top, so the
+          bottom corner is empty space on wide covers and the badge floated below the artwork.
+        -->
+        <com.hippo.ehviewer.widget.DownloadProgressBadge
+            android:id="@+id/smb_downloading_badge"
+            android:layout_width="20dp"
+            android:layout_height="20dp"
+            android:layout_alignTop="@id/thumb"
+            android:layout_alignRight="@id/thumb"
+            android:layout_margin="4dp"
+            android:visibility="gone" />
+
         <TextView
             android:id="@+id/title"
             style="@style/CardTitle"
