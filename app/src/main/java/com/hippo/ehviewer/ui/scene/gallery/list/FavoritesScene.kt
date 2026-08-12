@@ -242,6 +242,13 @@ class FavoritesScene : BaseScene(), EasyRecyclerView.OnItemClickListener,
         outState.putIntArray(KEY_FAV_COUNT_ARRAY, mFavCountArray)
     }
 
+    override fun onResume() {
+        super.onResume()
+        // Settings is a separate activity, so coming back from switching SMB off does not rebuild
+        // this view. Without this the marks would sit there until it happened to be recreated.
+        SmbSavedGalleries.getInstance().refresh()
+    }
+
     override fun onDestroy() {
         super.onDestroy()
 

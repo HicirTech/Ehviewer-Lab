@@ -177,6 +177,14 @@ public class HistoryScene extends ToolbarScene
     }
 
     @Override
+    public void onResume() {
+        super.onResume();
+        // Settings is a separate activity, so coming back from switching SMB off does not rebuild
+        // this view. Without this the marks would sit there until it happened to be recreated.
+        SmbSavedGalleries.getInstance().refresh();
+    }
+
+    @Override
     public void onDestroyView() {
         super.onDestroyView();
         SmbSavedGalleries.getInstance().removeObserver(mSavedObserver);

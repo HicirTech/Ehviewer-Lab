@@ -106,17 +106,20 @@ public final class SmbSavedGalleries {
     }
 
     /**
-     * What is known right now. Never blocks, never touches the share, and is empty until the first
-     * refresh lands — a card asks this while binding, and binding cannot wait on a NAS.
+     * Whether this gallery is finished and on the share.
+     *
+     * <p>Never blocks and never touches the share: a card asks this while binding, and binding
+     * cannot wait on a NAS. Answers false until the first refresh lands.
+     *
+     * <p>The switch is checked here rather than only at refresh time, so that turning SMB off
+     * takes effect on every screen at once. Left to the refresh, it would depend on which hook each
+     * screen happened to use — the online list refreshes on resume and would clear immediately,
+     * while History and Favourites refresh when their view is built and would keep showing marks
+     * for a share the user has just switched off. A {@code SharedPreferences} read per card is not
+     * a price worth paying to avoid.
      */
-    @NonNull
-    public Set<Long> snapshot() {
-        return saved;
-    }
-
-    /** Convenience for the one thing every caller actually asks. */
     public boolean contains(long gid) {
-        return saved.contains(gid);
+        return enabled() && saved.contains(gid);
     }
 
     /**
@@ -155,10 +158,20 @@ public final class SmbSavedGalleries {
             worker.execute(() -> {
                 try {
                     Set<Long> fresh = read();
-                    if (fresh != null) {
-                        loadedAt = SystemClock.elapsedRealtime();
-                        publish(fresh);
+                    if (fresh == null) {
+                        return;
                     }
+                    // Asked again on the way out. A read takes a few hundred milliseconds, and the
+                    // switch can go off inside that window: the refresh that noticed would have
+                    // published an empty set already, and this one would then put the old answer
+                    // back. Note that read() itself cannot notice — listGalleryRefs only checks
+                    // that a host is configured, which it still is.
+                    if (!enabled()) {
+                        publish(Collections.<Long>emptySet());
+                        return;
+                    }
+                    loadedAt = SystemClock.elapsedRealtime();
+                    publish(fresh);
                 } finally {
                     refreshing.set(false);
                 }
