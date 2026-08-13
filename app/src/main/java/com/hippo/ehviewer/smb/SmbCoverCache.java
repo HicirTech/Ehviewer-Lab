@@ -37,6 +37,15 @@ import java.util.Set;
  * <p>Measured before this existed, twelve covers on a real NAS: 456 ms finding them plus 403 ms
  * copying them, every millisecond of it on one {@code Conaco-Disk} thread.
  *
+ * <p><b>The staged files are decode buffers, not a cache: nothing here is trusted across a
+ * restart.</b> The first touch in each process wipes whatever a previous process left, so every
+ * launch reads the share again. The first version of this trusted the files indefinitely, and that
+ * was an architectural mistake in a multi-device app — device B re-syncs a gallery, the cover on
+ * the share changes, and device A would have shown its stale copy forever, blind to exactly the
+ * kind of cross-device change #59 exists to surface. The share is the only source of truth; local
+ * bytes exist only because the image decoder needs a real file descriptor, and only for as long as
+ * the process that fetched them.
+ *
  * <p>Cheap to be wrong about. A cover that has not arrived yet is not an error — the container
  * falls back to reading it from the share exactly as it did before, so the worst a failed prefetch
  * costs is the time it would have cost anyway.
@@ -53,15 +62,49 @@ public final class SmbCoverCache {
      */
     private static final Set<Long> REQUESTED = Collections.synchronizedSet(new HashSet<>());
 
+    /** Memoised, and plantable by tests the same way {@code SmbPreviewCache.sCacheDir} is. */
+    private static volatile File sCacheDir;
+
+    /** Whether this process has already thrown away what a previous one staged. */
+    private static boolean sSweptThisProcess;
+
     private SmbCoverCache() {}
 
     private static File cacheDir() {
-        File dir = new File(EhApplication.getInstance().getCacheDir(), CACHE_SUBDIR);
+        File dir = sCacheDir;
+        if (dir == null) {
+            dir = new File(EhApplication.getInstance().getCacheDir(), CACHE_SUBDIR);
+            sCacheDir = dir;
+        }
         if (!dir.exists()) {
             //noinspection ResultOfMethodCallIgnored
             dir.mkdirs();
         }
+        sweepOnce(dir);
         return dir;
+    }
+
+    /**
+     * Empties the directory the first time this process looks at it.
+     *
+     * <p>This is the line that keeps the staging from being a cache. A file left by a previous
+     * process reflects the share as it was then; showing it would mean trusting a dead process's
+     * view of a share that other devices write to. Everything else in this class may run
+     * concurrently, so the sweep is serialized, and everything routes through {@link #cacheDir()}
+     * before touching a file.
+     */
+    private static synchronized void sweepOnce(File dir) {
+        if (sSweptThisProcess) {
+            return;
+        }
+        File[] leftovers = dir.listFiles();
+        if (leftovers != null) {
+            for (File f : leftovers) {
+                //noinspection ResultOfMethodCallIgnored
+                f.delete();
+            }
+        }
+        sSweptThisProcess = true;
     }
 
     /** Where a gallery's cover is staged. Deterministic, so a later read can just look. */
