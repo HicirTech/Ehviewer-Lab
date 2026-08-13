@@ -102,6 +102,16 @@
     <string name="local_inventory_delete_confirm_title">Delete this gallery?</string>
     <string name="local_inventory_delete_confirm_message">“%s” will be erased from the SMB share. This cannot be undone.</string>
     <string name="local_inventory_delete_failed">Could not delete it from the SMB share</string>
+    <string name="local_inventory_resync">Re-sync with e-hentai</string>
+    <string name="local_inventory_resync_title">Re-sync this gallery</string>
+    <string name="local_inventory_resync_metadata">Gallery info, except the title</string>
+    <string name="local_inventory_resync_pages">Missing pages only</string>
+    <string name="local_inventory_resync_both">Info (except the title) and missing pages</string>
+    <string name="local_inventory_resync_running">Re-syncing\u2026</string>
+    <string name="local_inventory_resync_done">Gallery info updated</string>
+    <string name="local_inventory_resync_failed">Could not reach e-hentai. Nothing was changed.</string>
+    <string name="local_inventory_resync_queued">Queued. Missing pages will be downloaded.</string>
+    <string name="smb_page_repair_failed">The page was reloaded, but it could not be written back to the SMB share</string>
     <string name="news">News</string>
     <string name="settings">Settings</string>
     <string name="stub" translatable="false">Stub</string>

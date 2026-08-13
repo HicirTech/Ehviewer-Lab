@@ -444,6 +444,83 @@ public final class SpiderDen {
         }
     }
 
+    /**
+     * Puts the cached copy of one page onto the SMB share, replacing whatever is there (#16).
+     *
+     * <p>For the reader's "refresh this page": a page whose file on the share is corrupt reads back
+     * corrupt no matter how often it is re-requested, because the re-download lands in the cache
+     * and {@link #openOutputStreamPipe} deliberately refuses to write to the share while reading —
+     * otherwise every page anyone looked at would start an SMB write. This is the narrow exception:
+     * one page, asked for by hand, copied over once the good bytes are already in hand.
+     *
+     * <p>Copied rather than downloaded straight to the share, and copied only after the fetch has
+     * succeeded, so the file on the share is only ever replaced by something that exists. Deleting
+     * it first and re-fetching would be simpler and would leave the gallery worse than it started
+     * whenever the network is down.
+     *
+     * <p>The write itself is atomic (temp name, then rename), so no reader ever sees a half-written
+     * page either.
+     *
+     * <p>Performs SMB I/O; call from a worker thread.
+     */
+    public static boolean copyFromCacheToRemote(@NonNull GalleryInfo info, int index) {
+        if (sCache == null) {
+            return false;
+        }
+        GallerySpiderStorage remote = SmbSpiderStorage.createIfTarget(info, info.gid);
+        if (remote == null) {
+            return false;
+        }
+        String key = EhCacheKeyFactory.getImageKey(info.gid, index);
+        InputStreamPipe pipe = sCache.getInputStreamPipe(key);
+        if (pipe == null) {
+            return false;
+        }
+        OutputStreamPipe osPipe = null;
+        try {
+            // The extension has to come from the bytes: the share names pages by it, and a
+            // re-download can legitimately come back in a different format from the one there now.
+            BitmapFactory.Options options = new BitmapFactory.Options();
+            options.inJustDecodeBounds = true;
+            pipe.obtain();
+            BitmapFactory.decodeStream(pipe.open(), null, options);
+            pipe.close();
+            String extension = MimeTypeMap.getSingleton().getExtensionFromMimeType(options.outMimeType);
+            if (extension == null) {
+                return false;
+            }
+            extension = fixExtensionStatic('.' + extension);
+
+            osPipe = remote.openImageOutputStreamPipe(index, extension);
+            if (osPipe == null) {
+                return false;
+            }
+            osPipe.obtain();
+            pipe.obtain();
+            IOUtils.copy(pipe.open(), osPipe.open());
+            return true;
+        } catch (Throwable e) {
+            android.util.Log.w("SpiderDen", "Could not put the cached page on the share gid=" + info.gid
+                    + ", index=" + index, e);
+            return false;
+        } finally {
+            if (osPipe != null) {
+                osPipe.close();
+                osPipe.release();
+            }
+            pipe.close();
+            pipe.release();
+        }
+    }
+
+    /** {@link #fixExtension} without an instance, for the static copy above. */
+    private static String fixExtensionStatic(String extension) {
+        if (Utilities.contain(GalleryProvider2.SUPPORT_IMAGE_EXTENSIONS, extension)) {
+            return extension;
+        }
+        return GalleryProvider2.SUPPORT_IMAGE_EXTENSIONS[0];
+    }
+
     public boolean contain(int index) {
         if (mMode == SpiderQueen.MODE_READ) {
             return containInCache(index) || containInDownloadDir(index);

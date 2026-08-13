@@ -210,13 +210,96 @@ public final class SmbMetadata {
         writeMetadata(galleryDir, enriched);
     }
 
+    /**
+     * Re-reads this gallery's record from e-hentai and overwrites the one on the share (#16).
+     *
+     * <p>The passive path ({@link #enrichLocalMetadataIfMissing}) only runs when the local record
+     * has no tags and quietly leaves it alone when the fetch fails — right for something nobody
+     * asked for. This is the opposite: the user asked, so a fetch that came back with nothing has
+     * to be reported rather than written over the top as if it were an update.
+     *
+     * <p><b>The title is never changed.</b> It is the one field that is also a path: the folder is
+     * named {@code <gid>-<title>} and {@code SmbStorage.resolveGalleryDir} builds the path back out
+     * of the record. Writing a new title without renaming the folder would send every later lookup
+     * at a directory that does not exist — and {@code getGalleryDir} would create it, leaving an
+     * empty gallery in the inventory and the real one unreachable. Renaming the folder instead is
+     * its own problem, with its own races, and has its own issue.
+     *
+     * <p>Performs network and SMB I/O; call from a worker thread.
+     *
+     * @return the record now on the share, or null if nothing was written
+     */
+    @Nullable
+    public static GalleryInfo resyncMetadata(@NonNull Context context, @NonNull GalleryInfo info) {
+        if (!SmbStorage.isConfigured()) {
+            return null;
+        }
+        if (TextUtils.isEmpty(info.token)) {
+            // The detail URL is gid plus token; without one there is nothing to ask for.
+            Log.w(TAG, "Cannot resync gid=" + info.gid + ": no token in the local record");
+            return null;
+        }
+        try {
+            SmbFile galleryDir = SmbStorage.resolveGalleryDir(info);
+            if (!galleryDir.exists()) {
+                Log.w(TAG, "Cannot resync gid=" + info.gid + ": not on the share");
+                return null;
+            }
+            GalleryInfo fresh = fetchEnriched(context, info, info.pages);
+            if (fresh == null) {
+                return null;
+            }
+            writeMetadata(galleryDir, keepPathFields(fresh, info));
+            return fresh;
+        } catch (Throwable e) {
+            Log.w(TAG, "Failed to resync gid=" + info.gid, e);
+            return null;
+        }
+    }
+
+    /**
+     * Puts back the fields a re-sync is not allowed to change, and returns the record to write.
+     *
+     * <p>Exactly one field: the title. It is the only one that is also a path — the folder is named
+     * {@code <gid>-<title>} by {@link SmbPaths#buildGalleryFolderName} and
+     * {@code SmbStorage.resolveGalleryDir} builds the path back out of the record. Let a new title
+     * through and every later lookup goes to a directory that does not exist, {@code getGalleryDir}
+     * creates it, and the gallery is replaced in the inventory by an empty one.
+     *
+     * <p>Its own method, and tested, because it looks like a line worth deleting.
+     */
+    @NonNull
+    static GalleryInfo keepPathFields(@NonNull GalleryInfo fresh, @NonNull GalleryInfo local) {
+        fresh.title = local.title;
+        return fresh;
+    }
+
+    /**
+     * The detail-backed record, or the one we already had when the fetch does not produce one.
+     *
+     * <p>For the write paths that must produce a record either way: a download finishing cannot be
+     * held up by e-hentai being unreachable.
+     */
     @NonNull
     private static GalleryInfo enrichWithGalleryTags(@NonNull Context context, @NonNull GalleryInfo info, int fallbackPages) {
+        GalleryInfo enriched = fetchEnriched(context, info, fallbackPages);
+        return enriched != null ? enriched : info;
+    }
+
+    /**
+     * Fetches the gallery detail and folds it into a record, or null if it could not be fetched.
+     *
+     * <p>Null rather than the original, because "we could not reach e-hentai" and "e-hentai says
+     * this is unchanged" are different answers. Only a caller with a user waiting on it needs to
+     * tell them apart, and it cannot if this hands back its own input either way.
+     */
+    @Nullable
+    private static GalleryInfo fetchEnriched(@NonNull Context context, @NonNull GalleryInfo info, int fallbackPages) {
         try {
             String detailUrl = EhUrl.getGalleryDetailUrl(info.gid, info.token);
             GalleryDetail detail = EhEngine.getGalleryDetail(null, EhApplication.getOkHttpClient(context), detailUrl);
             if (detail == null) {
-                return info;
+                return null;
             }
 
             // Supplement any fields the detail page didn't fill from the original info.
@@ -251,7 +334,7 @@ public final class SmbMetadata {
             return detail;
         } catch (Throwable e) {
             Log.w(TAG, "Failed to enrich tags from gallery detail gid=" + info.gid, e);
-            return info;
+            return null;
         }
     }
 }
