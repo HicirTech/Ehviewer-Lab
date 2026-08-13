@@ -60,12 +60,15 @@ public final class SmbConcurrency {
 
     /**
      * One is meaningful — it means "serial", and it is the right answer for a share that misbehaves
-     * under concurrency. The ceiling exists so a runaway stored value cannot open unbounded
-     * sockets; sixty-four because a 140-gallery library was still gaining at sixteen, so sixteen
-     * was demonstrably too low a lid for the auto-tune to search under.
+     * under concurrency. The ceiling exists so a runaway stored value cannot queue unbounded work;
+     * it has been raised twice by measurements, sixteen to sixty-four and then to a hundred and
+     * twenty-eight, because each time the auto-tune's winner landed exactly on the lid — and a
+     * winner on the lid is a censored answer, not an optimum. Workers here are not sockets:
+     * jcifs-ng multiplexes requests over its pooled transport under SMB2 credits, which is why a
+     * hundred-odd outstanding reads of tiny files keep paying on a ~44 ms round-trip link.
      */
     public static final int MIN = 1;
-    public static final int MAX = 64;
+    public static final int MAX = 128;
 
     private SmbConcurrency() {}
 

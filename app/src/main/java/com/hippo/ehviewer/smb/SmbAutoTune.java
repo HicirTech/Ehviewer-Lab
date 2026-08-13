@@ -48,7 +48,7 @@ import jcifs.smb.SmbFile;
  * never accumulated. The sweep runs on its own pool so it neither resizes nor competes with the
  * pools the app is using for real work.
  *
- * <p>The sweep covers 1–64 by sampling {@link #CANDIDATES} rather than walking all sixty-four
+ * <p>The sweep covers 1–128 by sampling {@link #CANDIDATES} rather than walking all sixty-four
  * values: between neighbours the curve cannot turn around, so the intermediate points only add
  * run time and noise. A level higher than the number of work items cannot be distinguished from
  * one equal to it, so candidates above the sample size are skipped rather than reported as ties.
@@ -57,14 +57,16 @@ public final class SmbAutoTune {
 
     private static final String TAG = "SmbAutoTune";
 
-    /** The sampled ladder over 1–64. */
-    static final int[] CANDIDATES = {1, 2, 4, 6, 8, 12, 16, 24, 32, 48, 64};
+    /** The sampled ladder over 1–128. */
+    static final int[] CANDIDATES = {1, 2, 4, 6, 8, 12, 16, 24, 32, 48, 64, 96, 128};
 
     /**
-     * How many metadata files one level reads. Small files, so even 128 is a couple hundred
-     * kilobytes per level; fewer would stop levels above the count from meaning anything.
+     * How many metadata files one level reads. Small files, so even this many is a few hundred
+     * kilobytes per level. It must sit comfortably above the top candidate, or the top levels
+     * collapse into each other: at a sample equal to the level, every item runs at once and the
+     * level above it measures the same thing.
      */
-    private static final int METADATA_SAMPLE = 128;
+    private static final int METADATA_SAMPLE = 192;
 
     /** Page images are hundreds of kilobytes each, so the sample is smaller. */
     private static final int IMAGE_SAMPLE = 16;
