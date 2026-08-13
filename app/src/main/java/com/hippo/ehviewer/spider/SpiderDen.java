@@ -521,11 +521,102 @@ public final class SpiderDen {
         return GalleryProvider2.SUPPORT_IMAGE_EXTENSIONS[0];
     }
 
+    private boolean mPhoneCopyResolved;
+    @Nullable
+    private UniFile mPhoneCopyDir;
+
+    /**
+     * This gallery's folder in phone storage, if it has one.
+     *
+     * <p>Resolved once per den and remembered, including the answer "there is none". The lookup
+     * lists the download directory when the database has no name for the gallery, and asking that
+     * once per page would put a storage-access-framework listing between every page of a download.
+     *
+     * <p>{@code getExistingGalleryDownloadDir} never creates anything: a gallery that was never
+     * downloaded to the phone leaves no trace in the download database from being asked about.
+     */
+    @Nullable
+    private UniFile phoneCopyDir() {
+        synchronized (mDownloadDirLock) {
+            if (!mPhoneCopyResolved) {
+                mPhoneCopyResolved = true;
+                mPhoneCopyDir = getExistingGalleryDownloadDir(mGalleryInfo);
+            }
+            return mPhoneCopyDir;
+        }
+    }
+
+    /**
+     * Puts a page the phone already holds onto the share, and says whether it managed to.
+     *
+     * <p>The other half of "move a download to the share": with this, moving is an ordinary SMB
+     * download whose pages happen to be found locally instead of fetched. It is not limited to
+     * moves, because there is no reason to re-download a page from e-hentai when the same page is
+     * sitting in phone storage.
+     */
+    private boolean copyFromPhoneToRemote(int index) {
+        GallerySpiderStorage remote = remoteStorage();
+        if (remote == null) {
+            return false;
+        }
+        UniFile dir = phoneCopyDir();
+        if (dir == null) {
+            return false;
+        }
+        for (String extension : GalleryProvider2.SUPPORT_IMAGE_EXTENSIONS) {
+            UniFile file = dir.findFile(generateImageFilename(index, extension));
+            if (file == null) {
+                continue;
+            }
+            OutputStreamPipe osPipe = null;
+            InputStream is = null;
+            try {
+                osPipe = remote.openImageOutputStreamPipe(index, extension);
+                if (osPipe == null) {
+                    return false;
+                }
+                osPipe.obtain();
+                is = file.openInputStream();
+                IOUtils.copy(is, osPipe.open());
+                return true;
+            } catch (Throwable e) {
+                android.util.Log.w("SpiderDen", "Could not put the phone's copy of page " + index
+                        + " on the share, gid=" + mGid, e);
+                return false;
+            } finally {
+                IOUtils.closeQuietly(is);
+                if (osPipe != null) {
+                    osPipe.close();
+                    osPipe.release();
+                }
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Whether page {@code index} is available to this den, putting it where it belongs if it is
+     * somewhere else.
+     *
+     * <p>Reading only asks. Downloading also moves: a page already in hand must not be fetched from
+     * e-hentai a second time, whichever hand it is in. For a share-backed gallery there are two
+     * such hands, and until now neither was reachable — {@code copyFromCacheToDownloadDir} goes
+     * through {@code getDownloadDir()}, which returns null the moment a remote backend is active,
+     * so the bridge existed but could never fire. That is why reading a new gallery with
+     * auto-download on fetches the first pages twice: they land in the cache while the den is still
+     * in read mode, and the download that follows cannot see them there.
+     */
     public boolean contain(int index) {
         if (mMode == SpiderQueen.MODE_READ) {
             return containInCache(index) || containInDownloadDir(index);
         } else if (mMode == SpiderQueen.MODE_DOWNLOAD) {
-            return containInDownloadDir(index) || copyFromCacheToDownloadDir(index);
+            if (containInDownloadDir(index)) {
+                return true;
+            }
+            if (remoteStorage() != null) {
+                return copyFromCacheToRemote(mGalleryInfo, index) || copyFromPhoneToRemote(index);
+            }
+            return copyFromCacheToDownloadDir(index);
         } else {
             return false;
         }
