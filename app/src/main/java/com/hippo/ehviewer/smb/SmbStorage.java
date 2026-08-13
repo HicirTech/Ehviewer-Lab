@@ -592,6 +592,37 @@ public final class SmbStorage {
     }
 
     /**
+     * One gallery's cover, read off the share into memory.
+     *
+     * <p>For the prefetch: bytes land in RAM and nowhere else, so the share stays the only durable
+     * copy anywhere. The buffered read matters for the usual reason — jcifs sizes its on-the-wire
+     * requests from the caller's array.
+     */
+    @Nullable
+    static byte[] readCoverBytes(@NonNull GalleryInfo info) {
+        long t0 = SystemClock.elapsedRealtime();
+        try {
+            SmbFile file = findSmbCoverFile(info);
+            if (file == null) {
+                return null;
+            }
+            ByteArrayOutputStream out = new ByteArrayOutputStream();
+            try (InputStream in = new java.io.BufferedInputStream(
+                    file.getInputStream(), SMB_IO_BUFFER)) {
+                IOUtils.copy(in, out);
+            }
+            byte[] bytes = out.toByteArray();
+            Log.i("SmbPerf", "cover.fetch gid=" + info.gid + " bytes=" + bytes.length
+                    + " " + (SystemClock.elapsedRealtime() - t0) + "ms thr="
+                    + Thread.currentThread().getName());
+            return bytes.length > 0 ? bytes : null;
+        } catch (Throwable e) {
+            Log.w(TAG, "Failed to read cover bytes gid=" + info.gid, e);
+            return null;
+        }
+    }
+
+    /**
      * Stage the on-share cover to a local temp file and return a {@link FileInputStream}-backed
      * pipe. Conaco's image decoder requires a real file descriptor (same constraint as page
      * loads), so SmbFileInputStream cannot be returned directly.

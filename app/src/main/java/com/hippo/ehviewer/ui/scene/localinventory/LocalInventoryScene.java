@@ -38,7 +38,7 @@ import com.hippo.ehviewer.Settings;
 import com.hippo.ehviewer.client.EhCacheKeyFactory;
 import com.hippo.ehviewer.client.EhUtils;
 import com.hippo.ehviewer.client.data.GalleryInfo;
-import com.hippo.ehviewer.smb.SmbCoverCache;
+import com.hippo.ehviewer.smb.SmbCoverPrefetch;
 import com.hippo.ehviewer.smb.SmbCoverDataContainer;
 import com.hippo.ehviewer.smb.SmbDeviceColor;
 import com.hippo.ehviewer.smb.SmbDirectDownloader;
@@ -687,7 +687,7 @@ public class LocalInventoryScene extends ToolbarScene
                     updated++;
                     // A re-sync can bring a different cover; the staged copy would keep showing
                     // the old one until the process restarted.
-                    SmbCoverCache.evict(gi.gid);
+                    SmbCoverPrefetch.evict(gi.gid);
                     SimpleHandler.getInstance().post(() -> replaceRow(fresh));
                 }
             }
@@ -864,7 +864,7 @@ public class LocalInventoryScene extends ToolbarScene
         SmbStorage.unmarkGidAsSmbTarget(gi.gid);
         // Local leftovers that would otherwise be served for a gallery that no longer exists.
         SmbPreviewCache.evictGallery(gi.gid);
-        SmbCoverCache.evict(gi.gid);
+        SmbCoverPrefetch.evict(gi.gid);
         try {
             EhApplication.getConaco(appContext).getBeerBelly()
                     .remove(EhCacheKeyFactory.getThumbKey(gi.gid));
@@ -1179,7 +1179,7 @@ public class LocalInventoryScene extends ToolbarScene
             // Start pulling this page's covers now, several at once, rather than leaving them to
             // Conaco's serial disk thread to fetch one at a time as each row is drawn. Fire and
             // forget: a cover that does not arrive in time is read the old way.
-            SmbCoverCache.prefetch(data);
+            SmbCoverPrefetch.prefetch(data);
             return new PageResult(data, pages);
         }
 
