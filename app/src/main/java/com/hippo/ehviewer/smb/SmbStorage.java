@@ -1061,6 +1061,14 @@ public final class SmbStorage {
             return new ArrayList<>();
         }
 
+        // The expensive half of the inventory, and until now the unmeasured one: every sort other
+        // than "recently downloaded" needs fields that only exist inside metadata.json, so this
+        // opens one per gallery before the list can show anything. `reads` is therefore the number
+        // that matters — the elapsed time on its own says nothing without knowing how many folders
+        // it covered.
+        long tLoad = SystemClock.elapsedRealtime();
+        int reads = 0;
+
         // Collect (gallery, metadata.json mtime) entries: the mtime feeds the
         // DOWNLOAD_DATE_DESC ordering and isn't a field on GalleryInfo. Other modes ignore it.
         List<SmbSortMode.Entry> entries = new ArrayList<>();
@@ -1092,6 +1100,7 @@ public final class SmbStorage {
                 try (InputStream is = metadata.getInputStream()) {
                     json = readAll(is);
                 }
+                reads++;
                 JSONObject object = JSONObject.parseObject(json);
                 if (object == null) {
                     continue;
@@ -1107,11 +1116,21 @@ public final class SmbStorage {
             }
         } catch (Throwable e) {
             Log.e(TAG, "Failed to load SMB inventory", e);
+            Log.w("SmbPerf", "inventory.load mode=" + mode + " reads=" + reads
+                    + " FAILED after " + (SystemClock.elapsedRealtime() - tLoad) + "ms thr="
+                    + Thread.currentThread().getName());
             // Return whatever was collected before the failure, in insertion order.
             return toGalleryList(entries);
         }
 
+        // Sorting is in memory and should be nothing next to the reads above; timed separately so
+        // that stays a fact rather than an assumption.
+        long tSort = SystemClock.elapsedRealtime();
         Collections.sort(entries, mode.comparator());
+        Log.i("SmbPerf", "inventory.load mode=" + mode + " n=" + entries.size()
+                + " reads=" + reads + " " + (SystemClock.elapsedRealtime() - tLoad) + "ms"
+                + " sort=" + (SystemClock.elapsedRealtime() - tSort) + "ms"
+                + " thr=" + Thread.currentThread().getName());
         return toGalleryList(entries);
     }
 
@@ -1158,6 +1177,10 @@ public final class SmbStorage {
         if (!isConfigured()) {
             return refs;
         }
+        // Timed here rather than only at the callers. SmbSavedGalleries already reports its own
+        // `list=` figure, but that is one caller's view of this; the Local Inventory's first paint
+        // goes through the same call and had no number at all.
+        long t0 = SystemClock.elapsedRealtime();
         try {
             CIFSContext cifs = buildContext();
             SmbFile galleryRoot = new SmbFile(galleryRootUrl(), cifs);
@@ -1206,6 +1229,9 @@ public final class SmbStorage {
         } catch (Throwable e) {
             Log.e(TAG, "Failed to list SMB gallery folders", e);
         }
+        Log.i("SmbPerf", "inventory.refs n=" + refs.size() + " "
+                + (SystemClock.elapsedRealtime() - t0) + "ms thr="
+                + Thread.currentThread().getName());
         return refs;
     }
 
@@ -1219,12 +1245,19 @@ public final class SmbStorage {
         if (!isConfigured()) {
             return null;
         }
+        // One line per call, like materialize and preview: this runs once per row as rows scroll
+        // into view, so it is the per-row cost, and an average would hide the one folder that takes
+        // ten times the rest.
+        long t0 = SystemClock.elapsedRealtime();
         try {
             CIFSContext cifs = buildContext();
             SmbFile galleryRoot = new SmbFile(galleryRootUrl(), cifs);
             SmbFile folder = new SmbFile(galleryRoot, ref.folderName + "/");
             SmbFile metadata = new SmbFile(folder, METADATA_FILE);
             if (!metadata.exists()) {
+                Log.i("SmbPerf", "inventory.info " + ref.folderName + " missing "
+                        + (SystemClock.elapsedRealtime() - t0) + "ms thr="
+                        + Thread.currentThread().getName());
                 return null;
             }
             String json;
@@ -1235,9 +1268,15 @@ public final class SmbStorage {
             if (object == null) {
                 return null;
             }
-            return GalleryInfo.galleryInfoFromJson(object);
+            GalleryInfo info = GalleryInfo.galleryInfoFromJson(object);
+            Log.i("SmbPerf", "inventory.info gid=" + info.gid + " bytes=" + json.length()
+                    + " " + (SystemClock.elapsedRealtime() - t0) + "ms thr="
+                    + Thread.currentThread().getName());
+            return info;
         } catch (Throwable e) {
             Log.e(TAG, "Failed to read SMB gallery metadata: " + ref.folderName, e);
+            Log.w("SmbPerf", "inventory.info " + ref.folderName + " EXCEPTION after "
+                    + (SystemClock.elapsedRealtime() - t0) + "ms: " + e);
             return null;
         }
     }
