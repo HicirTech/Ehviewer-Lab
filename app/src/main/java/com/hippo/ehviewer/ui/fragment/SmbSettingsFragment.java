@@ -334,12 +334,17 @@ public class SmbSettingsFragment extends PreferenceFragmentCompat implements Pre
                     com.hippo.ehviewer.smb.SmbAutoTune.run((stage, conc) ->
                             SimpleHandler.getInstance().post(() -> {
                                 if (mAutoTune != null) {
-                                    mAutoTune.setSummary(getString(
-                                            R.string.settings_smb_autotune_running,
-                                            "metadata".equals(stage)
-                                                    ? getString(R.string.settings_smb_autotune_stage_metadata)
-                                                    : getString(R.string.settings_smb_autotune_stage_image),
-                                            conc));
+                                    if ("collect".equals(stage)) {
+                                        mAutoTune.setSummary(getString(
+                                                R.string.settings_smb_autotune_collecting));
+                                    } else {
+                                        mAutoTune.setSummary(getString(
+                                                R.string.settings_smb_autotune_running,
+                                                "metadata".equals(stage)
+                                                        ? getString(R.string.settings_smb_autotune_stage_metadata)
+                                                        : getString(R.string.settings_smb_autotune_stage_image),
+                                                conc));
+                                    }
                                 }
                             }));
             SimpleHandler.getInstance().post(() -> {

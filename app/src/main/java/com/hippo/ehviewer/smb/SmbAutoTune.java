@@ -68,8 +68,14 @@ public final class SmbAutoTune {
      */
     private static final int METADATA_SAMPLE = 192;
 
-    /** Page images are hundreds of kilobytes each, so the sample is smaller. */
-    private static final int IMAGE_SAMPLE = 16;
+    /**
+     * Page images too must sample past the top candidate, or the image sweep is censored the way
+     * the metadata sweep once was — its first run reported "16 is fastest" purely because sixteen
+     * pages were all it had. The cost is honest to name: pages run hundreds of kilobytes, so a
+     * full sweep moves a few hundred megabytes through the link. It moves them through a 64 KB
+     * scratch per worker and drops them; nothing accumulates, whatever the level.
+     */
+    private static final int IMAGE_SAMPLE = 128;
 
     /**
      * How close to the winner a lower concurrency has to be to take the crown anyway. Run-to-run
@@ -172,7 +178,12 @@ public final class SmbAutoTune {
             }
 
             // Pages for the image pass: first page of each of the first galleries that have one.
-            // Collected via the metadata read above where possible.
+            // Collected via the metadata read above where possible. Collection is itself a pile
+            // of share round-trips, so it reports progress — on a large library it takes longer
+            // than some measurement levels do.
+            if (progress != null) {
+                progress.on("collect", 0);
+            }
             List<SmbFile> images = new ArrayList<>();
             for (SmbStorage.GalleryRef ref : refs) {
                 if (images.size() >= IMAGE_SAMPLE) {

@@ -1083,11 +1083,12 @@
     <string name="settings_smb_benchmark_result">枚举 %1$d 本画廊:%2$d 毫秒\n\n画廊记录,%3$d 并发:\n%4$d 本用时 %5$d 毫秒(每本 %6$s 毫秒)\n\n页面图片,%7$d 并发:\n%8$d 张用时 %9$d 毫秒(%10$s MB/秒)</string>
     <string name="settings_smb_benchmark_hint">改动上面的设置后再测一次即可对比。每次结果都有些许波动,微小差异应视为没有差异。</string>
     <string name="settings_smb_autotune">自动测出最快并发</string>
-    <string name="settings_smb_autotune_summary">对当前共享扫描 1–128 并发 —— 真实读取你的画廊,无任何缓存参与 —— 并应用最快的值。大库最多需要一分钟。</string>
+    <string name="settings_smb_autotune_summary">对当前共享扫描 1–128 并发 —— 真实读取你的画廊,无任何缓存参与 —— 并应用最快的值。大库上图片阶段会搬运真实数据,预计需要几分钟。</string>
     <string name="settings_smb_autotune_running">正在测 %1$s,并发 %2$d…</string>
     <string name="settings_smb_autotune_stage_metadata">画廊记录</string>
     <string name="settings_smb_autotune_stage_image">页面图片</string>
     <string name="settings_smb_autotune_applied">已应用:画廊记录 %1$d 并发,图片 %2$d 并发。</string>
     <string name="settings_smb_autotune_meta_header">画廊记录(共享上 %1$d 本):</string>
     <string name="settings_smb_autotune_image_header">页面图片(取样 %1$d 张):</string>
+    <string name="settings_smb_autotune_collecting">正在收集取样页…</string>
 </resources>
