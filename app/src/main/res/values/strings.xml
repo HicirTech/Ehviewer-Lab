@@ -1167,4 +1167,12 @@
     <string name="settings_smb_benchmark_unconfigured">Fill in the host and share name first.</string>
     <string name="settings_smb_benchmark_result">Listing %1$d galleries: %2$d ms\n\nGallery records, %3$d at a time:\n%4$d read in %5$d ms (%6$s ms each)\n\nPage images, %7$d at a time:\n%8$d read in %9$d ms (%10$s MB/s)</string>
     <string name="settings_smb_benchmark_hint">Change a setting above and measure again to compare. The figures move a little run to run, so treat a small difference as no difference.</string>
+    <string name="settings_smb_autotune">Find the fastest concurrency</string>
+    <string name="settings_smb_autotune_summary">Sweeps 1–64 workers against this share — real reads of your galleries, nothing cached — and applies the fastest. Takes up to a minute on a large library.</string>
+    <string name="settings_smb_autotune_running">Measuring %1$s at %2$d…</string>
+    <string name="settings_smb_autotune_stage_metadata">gallery records</string>
+    <string name="settings_smb_autotune_stage_image">page images</string>
+    <string name="settings_smb_autotune_applied">Applied: %1$d for gallery records, %2$d for images.</string>
+    <string name="settings_smb_autotune_meta_header">Gallery records (%1$d on share):</string>
+    <string name="settings_smb_autotune_image_header">Page images (%1$d sampled):</string>
 </resources>

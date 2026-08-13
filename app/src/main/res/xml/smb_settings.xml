@@ -79,22 +79,24 @@
         android:title="@string/settings_smb_disable_signing"
         android:summary="@string/settings_smb_disable_signing_summary" />
 
-    <androidx.preference.ListPreference
+    <androidx.preference.EditTextPreference
         android:key="smb_metadata_concurrency"
         android:defaultValue="6"
-        android:entries="@array/smb_concurrency_entries"
-        android:entryValues="@array/smb_concurrency_values"
         android:title="@string/settings_smb_metadata_concurrency"
         android:summary="@string/settings_smb_metadata_concurrency_summary"
         app:iconSpaceReserved="false" />
 
-    <androidx.preference.ListPreference
+    <androidx.preference.EditTextPreference
         android:key="smb_image_concurrency"
         android:defaultValue="6"
-        android:entries="@array/smb_concurrency_entries"
-        android:entryValues="@array/smb_concurrency_values"
         android:title="@string/settings_smb_image_concurrency"
         android:summary="@string/settings_smb_image_concurrency_summary"
+        app:iconSpaceReserved="false" />
+
+    <androidx.preference.Preference
+        android:key="smb_auto_tune"
+        android:title="@string/settings_smb_autotune"
+        android:summary="@string/settings_smb_autotune_summary"
         app:iconSpaceReserved="false" />
 
     <androidx.preference.Preference

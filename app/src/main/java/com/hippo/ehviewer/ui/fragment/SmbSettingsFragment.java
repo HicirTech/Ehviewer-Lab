@@ -46,8 +46,9 @@ public class SmbSettingsFragment extends PreferenceFragmentCompat implements Pre
     @Nullable
     private Preference mTestConnection;
     private Preference mBenchmark;
-    private Preference mMetadataConcurrency;
-    private Preference mImageConcurrency;
+    private Preference mAutoTune;
+    private EditTextPreference mMetadataConcurrency;
+    private EditTextPreference mImageConcurrency;
 
     /**
      * Snapshot of each EditText preference's XML-defined {@code android:summary} taken before
@@ -71,8 +72,23 @@ public class SmbSettingsFragment extends PreferenceFragmentCompat implements Pre
         mPassword = findPreference(Settings.KEY_SMB_PASSWORD);
         mTestConnection = findPreference("smb_test_connection");
         mBenchmark = findPreference("smb_benchmark");
+        mAutoTune = findPreference("smb_auto_tune");
         mMetadataConcurrency = findPreference(Settings.KEY_SMB_METADATA_CONCURRENCY);
         mImageConcurrency = findPreference(Settings.KEY_SMB_IMAGE_CONCURRENCY);
+
+        // Plain number boxes, clamped on entry. A dropdown of blessed values was wrong twice
+        // over: the blessed values came from one library size, and the tuner below can land on
+        // any number in 1..64.
+        for (EditTextPreference pref : new EditTextPreference[]{
+                mMetadataConcurrency, mImageConcurrency}) {
+            if (pref == null) {
+                continue;
+            }
+            pref.setOnBindEditTextListener(editText ->
+                    editText.setInputType(InputType.TYPE_CLASS_NUMBER));
+            pref.setOnPreferenceChangeListener(this);
+        }
+        updateConcurrencySummaries();
 
         if (mPassword != null) {
             mPassword.setOnBindEditTextListener(editText -> editText.setInputType(
@@ -136,6 +152,12 @@ public class SmbSettingsFragment extends PreferenceFragmentCompat implements Pre
                 return true;
             });
         }
+        if (mAutoTune != null) {
+            mAutoTune.setOnPreferenceClickListener(preference -> {
+                runAutoTune();
+                return true;
+            });
+        }
 
         applyMasterState(Settings.getSmbSaveEnabled());
     }
@@ -143,6 +165,24 @@ public class SmbSettingsFragment extends PreferenceFragmentCompat implements Pre
     @Override
     public boolean onPreferenceChange(Preference preference, Object newValue) {
         final String value = newValue == null ? "" : String.valueOf(newValue);
+        if (preference == mMetadataConcurrency || preference == mImageConcurrency) {
+            // Clamp on entry, and store what was actually accepted, so the summary never shows
+            // a number the pools will silently refuse.
+            // Typed input clamps to the nearest bound, unlike a corrupt stored value, which
+            // falls back to the default: someone who types 999 means "a lot", and answering
+            // with 6 would look like the box ignored them. Unparseable input changes nothing.
+            int parsed;
+            try {
+                parsed = Integer.parseInt(value.trim());
+            } catch (NumberFormatException e) {
+                return false;
+            }
+            int clamped = Math.max(com.hippo.ehviewer.smb.SmbConcurrency.MIN,
+                    Math.min(com.hippo.ehviewer.smb.SmbConcurrency.MAX, parsed));
+            ((EditTextPreference) preference).setText(String.valueOf(clamped));
+            updateConcurrencySummaries();
+            return false;   // we stored the clamped value ourselves
+        }
         if (preference == mMasterSwitch) {
             boolean enabled = Boolean.TRUE.equals(newValue);
             // When the master switch turns off, also force auto-download off (writing to
@@ -199,6 +239,7 @@ public class SmbSettingsFragment extends PreferenceFragmentCompat implements Pre
         if (mPassword != null) mPassword.setEnabled(enabled);
         if (mTestConnection != null) mTestConnection.setEnabled(enabled);
         if (mBenchmark != null) mBenchmark.setEnabled(enabled);
+        if (mAutoTune != null) mAutoTune.setEnabled(enabled);
         if (mMetadataConcurrency != null) mMetadataConcurrency.setEnabled(enabled);
         if (mImageConcurrency != null) mImageConcurrency.setEnabled(enabled);
     }
@@ -256,6 +297,109 @@ public class SmbSettingsFragment extends PreferenceFragmentCompat implements Pre
      * that could show one, and a share that takes ten seconds to answer would otherwise look like
      * a button that does nothing.
      */
+    /** The two number boxes show their current value, the way host and port beside them do. */
+    private void updateConcurrencySummaries() {
+        if (mMetadataConcurrency != null) {
+            mMetadataConcurrency.setSummary(getString(
+                    R.string.settings_smb_metadata_concurrency_summary,
+                    String.valueOf(com.hippo.ehviewer.smb.SmbConcurrency.metadata())));
+        }
+        if (mImageConcurrency != null) {
+            mImageConcurrency.setSummary(getString(
+                    R.string.settings_smb_image_concurrency_summary,
+                    String.valueOf(com.hippo.ehviewer.smb.SmbConcurrency.image())));
+        }
+    }
+
+    /**
+     * Sweeps 1–64 against the real share and applies the winners.
+     *
+     * <p>Progress goes to the row's own summary — the sweep takes tens of seconds on a big
+     * library and a button that long-silently works is indistinguishable from one that is
+     * broken. The result dialog shows the whole table, not just the verdict, so a user whose
+     * share behaves oddly can see the shape and not merely the number.
+     */
+    private void runAutoTune() {
+        Context context = getContext();
+        if (context == null) {
+            return;
+        }
+        final Context appContext = context.getApplicationContext();
+        final CharSequence idleSummary = mAutoTune == null ? null : mAutoTune.getSummary();
+        if (mAutoTune != null) {
+            mAutoTune.setEnabled(false);
+        }
+        IoThreadPoolExecutor.Companion.getInstance().execute(() -> {
+            final com.hippo.ehviewer.smb.SmbAutoTune.Result result =
+                    com.hippo.ehviewer.smb.SmbAutoTune.run((stage, conc) ->
+                            SimpleHandler.getInstance().post(() -> {
+                                if (mAutoTune != null) {
+                                    mAutoTune.setSummary(getString(
+                                            R.string.settings_smb_autotune_running,
+                                            "metadata".equals(stage)
+                                                    ? getString(R.string.settings_smb_autotune_stage_metadata)
+                                                    : getString(R.string.settings_smb_autotune_stage_image),
+                                            conc));
+                                }
+                            }));
+            SimpleHandler.getInstance().post(() -> {
+                if (mAutoTune != null) {
+                    mAutoTune.setEnabled(true);
+                    mAutoTune.setSummary(idleSummary);
+                }
+                if (!isAdded() || getContext() == null) {
+                    return;
+                }
+                if (!result.ok) {
+                    new AlertDialog.Builder(requireContext())
+                            .setTitle(R.string.settings_smb_autotune)
+                            .setMessage("empty".equals(result.problem)
+                                    ? R.string.settings_smb_benchmark_empty
+                                    : R.string.settings_smb_benchmark_unconfigured)
+                            .setPositiveButton(android.R.string.ok, null)
+                            .show();
+                    return;
+                }
+                // Apply, then let the boxes above reflect it immediately.
+                Settings.putString(Settings.KEY_SMB_METADATA_CONCURRENCY,
+                        String.valueOf(result.bestMetadata));
+                Settings.putString(Settings.KEY_SMB_IMAGE_CONCURRENCY,
+                        String.valueOf(result.bestImage));
+                if (mMetadataConcurrency != null) {
+                    mMetadataConcurrency.setText(String.valueOf(result.bestMetadata));
+                }
+                if (mImageConcurrency != null) {
+                    mImageConcurrency.setText(String.valueOf(result.bestImage));
+                }
+                updateConcurrencySummaries();
+                new AlertDialog.Builder(requireContext())
+                        .setTitle(R.string.settings_smb_autotune)
+                        .setMessage(describeTune(result))
+                        .setPositiveButton(android.R.string.ok, null)
+                        .show();
+            });
+        });
+    }
+
+    @NonNull
+    private CharSequence describeTune(@NonNull com.hippo.ehviewer.smb.SmbAutoTune.Result r) {
+        StringBuilder sb = new StringBuilder();
+        sb.append(getString(R.string.settings_smb_autotune_applied,
+                r.bestMetadata, r.bestImage)).append("\n\n");
+        sb.append(getString(R.string.settings_smb_autotune_meta_header, r.galleries)).append('\n');
+        for (java.util.Map.Entry<Integer, Long> e : r.metadataMillis.entrySet()) {
+            sb.append(e.getKey()).append(": ").append(e.getValue()).append(" ms\n");
+        }
+        if (!r.imageMillis.isEmpty()) {
+            sb.append('\n').append(getString(
+                    R.string.settings_smb_autotune_image_header, r.imagesSampled)).append('\n');
+            for (java.util.Map.Entry<Integer, Long> e : r.imageMillis.entrySet()) {
+                sb.append(e.getKey()).append(": ").append(e.getValue()).append(" ms\n");
+            }
+        }
+        return sb.toString();
+    }
+
     private void runBenchmark() {
         Context context = getContext();
         if (context == null) {

@@ -1135,4 +1135,12 @@
     <string name="settings_smb_benchmark_unconfigured">請先填寫主機和共享名。</string>
     <string name="settings_smb_benchmark_result">枚舉 %1$d 本畫廊:%2$d 毫秒\n\n畫廊記錄,%3$d 並發:\n%4$d 本用時 %5$d 毫秒(每本 %6$s 毫秒)\n\n頁面圖片,%7$d 並發:\n%8$d 張用時 %9$d 毫秒(%10$s MB/秒)</string>
     <string name="settings_smb_benchmark_hint">改動上面的設定後再測一次即可對比。每次結果都有些許波動,微小差異應視為沒有差異。</string>
+    <string name="settings_smb_autotune">自動測出最快並發</string>
+    <string name="settings_smb_autotune_summary">對目前共享掃描 1–64 並發 —— 真實讀取你的畫廊,無任何快取參與 —— 並套用最快的值。大庫最多需要一分鐘。</string>
+    <string name="settings_smb_autotune_running">正在測 %1$s,並發 %2$d…</string>
+    <string name="settings_smb_autotune_stage_metadata">畫廊記錄</string>
+    <string name="settings_smb_autotune_stage_image">頁面圖片</string>
+    <string name="settings_smb_autotune_applied">已套用:畫廊記錄 %1$d 並發,圖片 %2$d 並發。</string>
+    <string name="settings_smb_autotune_meta_header">畫廊記錄(共享上 %1$d 本):</string>
+    <string name="settings_smb_autotune_image_header">頁面圖片(取樣 %1$d 張):</string>
 </resources>
