@@ -1155,4 +1155,16 @@
     <string name="imported_archive_category">Local Import</string>
     <!-- TagSelectActivity -->
     <string name="tag_search_entrance">Tag Selector</string>
+    <string name="settings_smb_metadata_concurrency">Metadata reads at once</string>
+    <string name="settings_smb_metadata_concurrency_summary">%s at a time. Reading gallery records one by one is what makes a large inventory slow to sort; too many only adds contention.</string>
+    <string name="settings_smb_image_concurrency">Image reads at once</string>
+    <string name="settings_smb_image_concurrency_summary">%s at a time. Page images are large, so past a point the link is full and more readers only wait on each other.</string>
+    <string name="settings_smb_benchmark">Measure this share</string>
+    <string name="settings_smb_benchmark_summary">Times a directory listing, a batch of gallery records and a few page images, using the two settings above. Reads only — nothing is written to the share.</string>
+    <string name="settings_smb_benchmark_running">Measuring…</string>
+    <string name="settings_smb_benchmark_title">Share performance</string>
+    <string name="settings_smb_benchmark_empty">There are no galleries on the share yet, so there is nothing to measure. Save one and try again.</string>
+    <string name="settings_smb_benchmark_unconfigured">Fill in the host and share name first.</string>
+    <string name="settings_smb_benchmark_result">Listing %1$d galleries: %2$d ms\n\nGallery records, %3$d at a time:\n%4$d read in %5$d ms (%6$s ms each)\n\nPage images, %7$d at a time:\n%8$d read in %9$d ms (%10$s MB/s)</string>
+    <string name="settings_smb_benchmark_hint">Change a setting above and measure again to compare. The figures move a little run to run, so treat a small difference as no difference.</string>
 </resources>

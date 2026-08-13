@@ -952,6 +952,28 @@ public class Settings {
     }
 
     /**
+     * How many small files (a gallery's {@code metadata.json}) to read from the share at once.
+     *
+     * <p>Stored as a string because the settings screen offers it as a list; the bounds, the
+     * default and why it is six are in {@code SmbConcurrency}. Read through that class rather than
+     * from here, so an out-of-range value someone typed cannot reach a thread pool.
+     */
+    public static final String KEY_SMB_METADATA_CONCURRENCY = "smb_metadata_concurrency";
+
+    public static int getSmbMetadataConcurrency() {
+        return getIntFromStr(KEY_SMB_METADATA_CONCURRENCY,
+                com.hippo.ehviewer.smb.SmbConcurrency.DEFAULT_METADATA);
+    }
+
+    /** How many page images to read from the share at once. See {@code SmbConcurrency}. */
+    public static final String KEY_SMB_IMAGE_CONCURRENCY = "smb_image_concurrency";
+
+    public static int getSmbImageConcurrency() {
+        return getIntFromStr(KEY_SMB_IMAGE_CONCURRENCY,
+                com.hippo.ehviewer.smb.SmbConcurrency.DEFAULT_IMAGE);
+    }
+
+    /**
      * This installation's identity among the devices sharing the SMB share.
      *
      * <p>Names this device's file under {@code state/}, so it has to be stable and it has to be

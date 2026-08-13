@@ -66,40 +66,16 @@ public final class SmbStorage {
     static final int SMB_IO_BUFFER = 256 * 1024;
 
     /**
-     * How many gallery folders to read at once when the whole inventory has to be read.
+     * Reads the whole inventory's metadata concurrently. How many at once is a setting — see
+     * {@link SmbConcurrency} for what the cost actually is and how the default was measured.
      *
-     * <p>The cost of that read is not bandwidth. Measured against a real NAS, twelve galleries took
-     * 612 ms of which the in-memory sort was 1 ms: the other 611 ms was waiting for one round trip
-     * after another, each for a JSON file of a couple of kilobytes. Waiting for several at once is
-     * therefore nearly free, and {@link SmbPreviewCache} already relies on the same property for
-     * page prefetch.
-     *
-     * <p>Six because it was measured, not because that is what the preview cache happens to use.
-     * Median of four runs each, twelve galleries, same share and device:
-     *
-     * <pre>
-     *   serial   612 ms
-     *   2        409 ms
-     *   4        245 ms
-     *   6        171 ms
-     *   8        166 ms
-     * </pre>
-     *
-     * <p>Six and eight are the same answer inside the noise, so the curve is flat by six and a
-     * higher number only means more sockets against a NAS that may have other clients. Worth
-     * re-measuring rather than trusting if the share or the network changes: the useful figure is
-     * where the curve flattens, not this particular six.
+     * <p>Shared rather than created per call: opening the inventory is something a user does often,
+     * and spinning up threads each time to have them idle a moment later is the waste a pool exists
+     * to avoid. Daemon threads, so they never hold the process up.
      */
-    private static final int INVENTORY_PARALLELISM = 6;
-
-    /**
-     * Shared rather than created per call: opening the inventory is something a user does often,
-     * and spinning up six threads each time to have them idle a moment later is waste the pool
-     * exists to avoid. Daemon threads, so they never hold the process up.
-     */
-    private static final java.util.concurrent.ExecutorService INVENTORY_EXECUTOR =
+    private static final java.util.concurrent.ThreadPoolExecutor INVENTORY_EXECUTOR =
             new java.util.concurrent.ThreadPoolExecutor(
-                    INVENTORY_PARALLELISM, INVENTORY_PARALLELISM,
+                    SmbConcurrency.DEFAULT_METADATA, SmbConcurrency.DEFAULT_METADATA,
                     10L, java.util.concurrent.TimeUnit.SECONDS,
                     new java.util.concurrent.LinkedBlockingQueue<>(),
                     r -> {
@@ -109,8 +85,19 @@ public final class SmbStorage {
                     });
 
     static {
-        ((java.util.concurrent.ThreadPoolExecutor) INVENTORY_EXECUTOR)
-                .allowCoreThreadTimeOut(true);
+        INVENTORY_EXECUTOR.allowCoreThreadTimeOut(true);
+    }
+
+    /**
+     * The pool the inventory reads on, resized to whatever the setting says now.
+     *
+     * <p>Package-private so the settings screen's benchmark measures the same pool the app uses,
+     * rather than a copy of it that might behave differently.
+     */
+    @NonNull
+    static java.util.concurrent.ThreadPoolExecutor inventoryExecutor() {
+        SmbConcurrency.resize(INVENTORY_EXECUTOR, SmbConcurrency.metadata());
+        return INVENTORY_EXECUTOR;
     }
 
     /**
@@ -1144,10 +1131,11 @@ public final class SmbStorage {
                 folders.add(child);
             }
 
+            java.util.concurrent.ThreadPoolExecutor pool = inventoryExecutor();
             List<java.util.concurrent.Future<SmbSortMode.Entry>> pending =
                     new ArrayList<>(folders.size());
             for (SmbFile child : folders) {
-                pending.add(INVENTORY_EXECUTOR.submit(() -> readEntry(child)));
+                pending.add(pool.submit(() -> readEntry(child)));
             }
             // Collected in submission order, so the list this builds is the same one the serial
             // version built. It is sorted immediately afterwards anyway, but two orderings that
