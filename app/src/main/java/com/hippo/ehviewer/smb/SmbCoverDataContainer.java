@@ -6,6 +6,7 @@ import com.hippo.conaco.DataContainer;
 import com.hippo.conaco.ProgressNotifier;
 import com.hippo.streampipe.InputStreamPipe;
 
+import java.io.IOException;
 import java.io.InputStream;
 
 /**
@@ -52,6 +53,36 @@ public class SmbCoverDataContainer implements DataContainer {
     @Nullable
     @Override
     public InputStreamPipe get() {
+        // The staged copy first. SmbCoverCache pulls a page's covers in parallel while the rows
+        // are being built, so by the time Conaco's serial disk thread reaches this one the file
+        // is usually already local and no SMB I/O happens on that thread at all.
+        //
+        // Falling through is not a failure: a cover the prefetch has not reached yet, or could not
+        // fetch, is read from the share exactly as it was before this cache existed.
+        final java.io.File staged = SmbCoverCache.staged(mGid);
+        if (staged != null) {
+            return new InputStreamPipe() {
+                private java.io.FileInputStream fis;
+
+                @Override public void obtain() {}
+                @Override public void release() {}
+
+                @Override
+                public InputStream open() throws IOException {
+                    if (fis != null) {
+                        throw new IllegalStateException("Please close it first");
+                    }
+                    fis = new java.io.FileInputStream(staged);
+                    return fis;
+                }
+
+                @Override
+                public void close() {
+                    com.hippo.lib.yorozuya.IOUtils.closeQuietly(fis);
+                    fis = null;
+                }
+            };
+        }
         return SmbStorage.openSmbCoverInputStreamPipe(SmbStorage.lookupKey(mGid, mTitle));
     }
 
