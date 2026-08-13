@@ -14,6 +14,7 @@ import android.content.res.Resources;
 import android.graphics.Color;
 import android.graphics.drawable.ColorDrawable;
 import android.os.Bundle;
+import android.view.Gravity;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -28,6 +29,7 @@ import androidx.recyclerview.widget.StaggeredGridLayoutManager;
 
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
 import com.hippo.android.resource.AttrResources;
+import com.hippo.drawerlayout.DrawerLayout;
 import com.hippo.easyrecyclerview.EasyRecyclerView;
 import com.hippo.easyrecyclerview.MarginItemDecoration;
 import com.hippo.ehviewer.EhApplication;
@@ -88,7 +90,7 @@ import java.util.concurrent.TimeoutException;
  */
 public class LocalInventoryScene extends ToolbarScene
         implements EasyRecyclerView.OnItemClickListener, EasyRecyclerView.OnItemLongClickListener,
-        FabLayout.OnClickFabListener {
+        FabLayout.OnClickFabListener, EasyRecyclerView.CustomChoiceListener {
 
     // Galleries read per page. Bounds the SMB metadata reads done before a page can render.
     private static final int PAGE_SIZE = 50;
@@ -101,6 +103,11 @@ public class LocalInventoryScene extends ToolbarScene
     private static final int FAB_SORT = 0;
     private static final int FAB_GO_TO = 1;
     private static final int FAB_REFRESH = 2;
+    // Selection mode only. The FabLayout carries both sets and shows one at a time, the way the
+    // favourites screen does; the alternative is two FabLayouts fighting over the same corner.
+    private static final int FAB_RESYNC_SELECTED = 3;
+    private static final int FAB_DELETE_SELECTED = 4;
+    private static final int FAB_SELECT_ALL = 5;
 
     @Nullable
     private EasyRecyclerView mRecyclerView;
@@ -321,6 +328,8 @@ public class LocalInventoryScene extends ToolbarScene
         mRecyclerView.setClipToPadding(false);
         mRecyclerView.setOnItemClickListener(this);
         mRecyclerView.setOnItemLongClickListener(this);
+        mRecyclerView.setChoiceMode(EasyRecyclerView.CHOICE_MODE_MULTIPLE_CUSTOM);
+        mRecyclerView.setCustomCheckedListener(this);
 
         int interval = resources.getDimensionPixelOffset(R.dimen.gallery_list_interval);
         int paddingH = resources.getDimensionPixelOffset(R.dimen.gallery_list_margin_h);
@@ -385,6 +394,17 @@ public class LocalInventoryScene extends ToolbarScene
                     mHelper.refresh();
                 }
                 break;
+            case FAB_RESYNC_SELECTED:
+                showResyncDialog(selectedGalleries());
+                break;
+            case FAB_DELETE_SELECTED:
+                confirmDelete(selectedGalleries());
+                break;
+            case FAB_SELECT_ALL:
+                if (mRecyclerView != null) {
+                    mRecyclerView.checkAll();
+                }
+                break;
         }
         view.setExpanded(false);
     }
@@ -393,6 +413,10 @@ public class LocalInventoryScene extends ToolbarScene
     public void onBackPressed() {
         if (mFabLayout != null && mFabLayout.isExpanded()) {
             mFabLayout.setExpanded(false);
+            return;
+        }
+        if (mRecyclerView != null && mRecyclerView.isInCustomChoice()) {
+            mRecyclerView.outOfCustomChoiceMode();
             return;
         }
         super.onBackPressed();
@@ -468,6 +492,10 @@ public class LocalInventoryScene extends ToolbarScene
         if (mHelper == null) {
             return false;
         }
+        if (mRecyclerView != null && mRecyclerView.isInCustomChoice()) {
+            mRecyclerView.toggleItemChecked(position);
+            return true;
+        }
         GalleryInfo gi = mHelper.getDataAtEx(position);
         if (gi == null) {
             return false;
@@ -477,41 +505,125 @@ public class LocalInventoryScene extends ToolbarScene
     }
 
     /**
-     * Long press opens the per-gallery action menu. Built the same way the online gallery list
-     * builds its own (an {@link AlertDialog} over a {@link SelectItemWithIconAdapter}), so the two
-     * lists behave alike. Only one action for now; re-sync joins it later.
+     * Long press starts selecting, the same as the download list and favourites.
+     *
+     * <p>It used to open a menu for the one gallery. Selection replaces it rather than joining it:
+     * every action the menu offered works on a set just as well, and one gesture that means
+     * different things on different screens is worse than one extra tap.
      */
     @Override
     public boolean onItemLongClick(EasyRecyclerView parent, View view, int position, long id) {
-        Context context = getEHContext();
-        if (context == null || mHelper == null) {
+        if (mRecyclerView == null || mHelper == null) {
             return false;
         }
-        GalleryInfo gi = mHelper.getDataAtEx(position);
-        if (gi == null) {
-            return true;
+        if (!mRecyclerView.isInCustomChoice()) {
+            mRecyclerView.intoCustomChoiceMode();
         }
-
-        CharSequence[] items = new CharSequence[]{
-                context.getString(R.string.local_inventory_resync),
-                context.getString(R.string.local_inventory_delete),
-        };
-        int[] icons = new int[]{
-                R.drawable.v_refresh_x24,
-                R.drawable.v_delete_x24,
-        };
-
-        new AlertDialog.Builder(context)
-                .setTitle(EhUtils.getSuitableTitle(gi))
-                .setAdapter(new SelectItemWithIconAdapter(context, items, icons), (dialog, which) -> {
-                    if (which == 0) {
-                        showResyncDialog(gi);
-                    } else if (which == 1) {
-                        confirmDelete(gi);
-                    }
-                })
-                .show();
+        mRecyclerView.toggleItemChecked(position);
         return true;
+    }
+
+    // ---------- selection ----------
+
+    @Override
+    public void onIntoCustomChoice(EasyRecyclerView view) {
+        showSelectionFabs();
+        if (mFabLayout != null) {
+            // Tapping elsewhere must not take the actions away while a selection is still
+            // standing. Auto-cancel is right for browsing, where the menu is transient.
+            mFabLayout.setAutoCancel(false);
+            // Posted, as on the favourites screen: the visibility swap above needs a layout pass
+            // before the expansion has the right buttons to animate.
+            SimpleHandler.getInstance().post(() -> {
+                if (mFabLayout != null) {
+                    mFabLayout.setExpanded(true);
+                }
+            });
+        }
+        // A list that reloads under a selection loses it, and the pull-to-refresh gesture is easy
+        // to trigger while reaching for a card.
+        if (mHelper != null) {
+            mHelper.setRefreshLayoutEnable(false);
+        }
+        // An edge swipe towards a card at the margin would otherwise pull the navigation drawer
+        // out from under the selection.
+        setDrawerLockMode(DrawerLayout.LOCK_MODE_LOCKED_CLOSED, Gravity.LEFT);
+        setDrawerLockMode(DrawerLayout.LOCK_MODE_LOCKED_CLOSED, Gravity.RIGHT);
+    }
+
+    @Override
+    public void onOutOfCustomChoice(EasyRecyclerView view) {
+        showNormalFabs();
+        if (mFabLayout != null) {
+            mFabLayout.setAutoCancel(true);
+            mFabLayout.setExpanded(false);
+        }
+        if (mHelper != null) {
+            mHelper.setRefreshLayoutEnable(true);
+        }
+        setDrawerLockMode(DrawerLayout.LOCK_MODE_UNLOCKED, Gravity.LEFT);
+        setDrawerLockMode(DrawerLayout.LOCK_MODE_UNLOCKED, Gravity.RIGHT);
+    }
+
+    @Override
+    public void onItemCheckedStateChanged(EasyRecyclerView view, int position, long id, boolean checked) {
+        if (view.getCheckedItemCount() == 0) {
+            view.outOfCustomChoiceMode();
+        }
+    }
+
+    private void setFabs(boolean selecting) {
+        if (mFabLayout == null) {
+            return;
+        }
+        mFabLayout.setSecondaryFabVisibilityAt(FAB_SORT, !selecting);
+        mFabLayout.setSecondaryFabVisibilityAt(FAB_GO_TO, !selecting);
+        mFabLayout.setSecondaryFabVisibilityAt(FAB_REFRESH, !selecting);
+        mFabLayout.setSecondaryFabVisibilityAt(FAB_RESYNC_SELECTED, selecting);
+        mFabLayout.setSecondaryFabVisibilityAt(FAB_DELETE_SELECTED, selecting);
+        mFabLayout.setSecondaryFabVisibilityAt(FAB_SELECT_ALL, selecting);
+    }
+
+    private final Runnable mShowNormalFabsRunnable = () -> setFabs(false);
+
+    /**
+     * Delayed, copying the favourites screen: leaving selection mode animates the buttons out, and
+     * swapping the set underneath that animation makes them flicker.
+     */
+    private void showNormalFabs() {
+        SimpleHandler.getInstance().removeCallbacks(mShowNormalFabsRunnable);
+        SimpleHandler.getInstance().postDelayed(mShowNormalFabsRunnable, 300);
+    }
+
+    private void showSelectionFabs() {
+        SimpleHandler.getInstance().removeCallbacks(mShowNormalFabsRunnable);
+        setFabs(true);
+    }
+
+    /** The galleries ticked right now, in list order. */
+    @NonNull
+    private List<GalleryInfo> selectedGalleries() {
+        List<GalleryInfo> out = new ArrayList<>();
+        if (mRecyclerView == null || mHelper == null) {
+            return out;
+        }
+        android.util.SparseBooleanArray checked = mRecyclerView.getCheckedItemPositions();
+        for (int i = 0, n = checked.size(); i < n; i++) {
+            if (!checked.valueAt(i)) {
+                continue;
+            }
+            GalleryInfo gi = mHelper.getDataAtEx(checked.keyAt(i));
+            if (gi != null) {
+                out.add(gi);
+            }
+        }
+        return out;
+    }
+
+    private void leaveSelection() {
+        if (mRecyclerView != null && mRecyclerView.isInCustomChoice()) {
+            mRecyclerView.outOfCustomChoiceMode();
+        }
     }
 
     // ---------- re-sync with e-hentai (#16) ----------
@@ -532,46 +644,64 @@ public class LocalInventoryScene extends ToolbarScene
      * are out of date does not want to re-download anything, and someone with a gallery full of
      * holes does not care about tags — so they are offered apart rather than bundled.
      */
-    private void showResyncDialog(@NonNull GalleryInfo gi) {
+    private void showResyncDialog(@NonNull List<GalleryInfo> galleries) {
         Context context = getEHContext();
-        if (context == null) {
+        if (context == null || galleries.isEmpty()) {
             return;
         }
         new AlertDialog.Builder(context)
                 .setTitle(R.string.local_inventory_resync_title)
                 .setItems(R.array.local_inventory_resync_mode, (dialog, which) -> {
                     if (which == RESYNC_METADATA || which == RESYNC_BOTH) {
-                        resyncMetadata(gi);
+                        resyncMetadata(galleries);
                     }
                     if (which == RESYNC_PAGES || which == RESYNC_BOTH) {
-                        repairMissingPages(gi);
+                        repairMissingPages(galleries);
                     }
+                    leaveSelection();
                 })
                 .setNegativeButton(android.R.string.cancel, null)
                 .show();
     }
 
-    /** One fetch and one write. Short enough to report by toast when it lands. */
-    private void resyncMetadata(@NonNull GalleryInfo gi) {
+    /**
+     * One fetch and one write per gallery, one after another.
+     *
+     * <p>Serial rather than parallel because the other end is e-hentai and a fan-out of detail
+     * requests is how an account meets a rate limit. Each row is swapped in as it lands, so a long
+     * run visibly progresses instead of sitting still and then jumping.
+     */
+    private void resyncMetadata(@NonNull List<GalleryInfo> galleries) {
         Context context = getEHContext();
-        if (context == null) {
+        if (context == null || galleries.isEmpty()) {
             return;
         }
         final Context appContext = context.getApplicationContext();
+        final List<GalleryInfo> batch = new ArrayList<>(galleries);
         Toast.makeText(appContext, R.string.local_inventory_resync_running, Toast.LENGTH_SHORT).show();
         Runnable task = () -> {
-            final GalleryInfo fresh = SmbMetadata.resyncMetadata(appContext, gi);
+            int updated = 0;
+            for (GalleryInfo gi : batch) {
+                final GalleryInfo fresh = SmbMetadata.resyncMetadata(appContext, gi);
+                if (fresh != null) {
+                    updated++;
+                    SimpleHandler.getInstance().post(() -> replaceRow(fresh));
+                }
+            }
+            final int done = updated;
             SimpleHandler.getInstance().post(() -> {
-                if (fresh == null) {
+                if (batch.size() == 1) {
                     // Distinguished from success on purpose: the old path wrote the unchanged
                     // record back when the fetch failed, so the two looked identical.
-                    Toast.makeText(appContext, R.string.local_inventory_resync_failed,
+                    Toast.makeText(appContext,
+                            done == 1 ? R.string.local_inventory_resync_done
+                                      : R.string.local_inventory_resync_failed,
                             Toast.LENGTH_SHORT).show();
-                    return;
+                } else {
+                    Toast.makeText(appContext, getString(
+                            R.string.local_inventory_resync_many_done, done, batch.size()),
+                            Toast.LENGTH_LONG).show();
                 }
-                Toast.makeText(appContext, R.string.local_inventory_resync_done,
-                        Toast.LENGTH_SHORT).show();
-                replaceRow(fresh);
             });
         };
         if (mExecutor != null) {
@@ -588,12 +718,14 @@ public class LocalInventoryScene extends ToolbarScene
      * the share, so every page already there is skipped. A gallery that turns out to be complete
      * finishes immediately.
      */
-    private void repairMissingPages(@NonNull GalleryInfo gi) {
+    private void repairMissingPages(@NonNull List<GalleryInfo> galleries) {
         Context context = getEHContext();
-        if (context == null) {
+        if (context == null || galleries.isEmpty()) {
             return;
         }
-        SmbDirectDownloader.getInstance().start(context, gi);
+        for (GalleryInfo gi : galleries) {
+            SmbDirectDownloader.getInstance().start(context, gi);
+        }
         Toast.makeText(context.getApplicationContext(), R.string.local_inventory_resync_queued,
                 Toast.LENGTH_SHORT).show();
     }
@@ -613,55 +745,86 @@ public class LocalInventoryScene extends ToolbarScene
     }
 
     /** Deleting the on-share folder cannot be undone, so it always goes through a confirmation. */
-    private void confirmDelete(@NonNull GalleryInfo gi) {
+    private void confirmDelete(@NonNull List<GalleryInfo> galleries) {
         Context context = getEHContext();
-        if (context == null) {
+        if (context == null || galleries.isEmpty()) {
             return;
         }
+        // One gallery is named; a set is counted. Listing twenty titles in a dialog is not a
+        // clearer warning than the number, and the number is the part that should give pause.
+        boolean one = galleries.size() == 1;
+        String title = one
+                ? getString(R.string.local_inventory_delete_confirm_title)
+                : getString(R.string.local_inventory_delete_confirm_title_many, galleries.size());
+        String message = one
+                ? getString(R.string.local_inventory_delete_confirm_message,
+                        EhUtils.getSuitableTitle(galleries.get(0)))
+                : getString(R.string.local_inventory_delete_confirm_many, galleries.size());
         new AlertDialog.Builder(context)
-                .setTitle(R.string.local_inventory_delete_confirm_title)
-                .setMessage(getString(R.string.local_inventory_delete_confirm_message,
-                        EhUtils.getSuitableTitle(gi)))
+                .setTitle(title)
+                .setMessage(message)
                 .setNegativeButton(android.R.string.cancel, null)
-                .setPositiveButton(R.string.local_inventory_delete, (d, w) -> deleteGallery(gi))
+                .setPositiveButton(R.string.local_inventory_delete, (d, w) -> deleteGalleries(galleries))
                 .show();
     }
 
-    private void deleteGallery(@NonNull GalleryInfo gi) {
+    /**
+     * Erases each gallery's folder, one after another, and drops the rows that really went.
+     *
+     * <p>Serial, and each result is honoured separately: a folder that could not be deleted keeps
+     * its row, because dropping it would claim a deletion that did not happen and the gallery
+     * would simply be back on the next refresh.
+     */
+    private void deleteGalleries(@NonNull List<GalleryInfo> galleries) {
         Context context = getEHContext();
-        if (context == null) {
+        if (context == null || galleries.isEmpty()) {
             return;
         }
         final Context appContext = context.getApplicationContext();
-        final long gid = gi.gid;
+        final List<GalleryInfo> batch = new ArrayList<>(galleries);
+        leaveSelection();
 
-        // A download in flight owns this folder: it holds a SpiderQueen that keeps writing pages
+        // A download in flight owns the folder: it holds a SpiderQueen that keeps writing pages
         // into it, so deleting underneath would just let it reappear half-populated. Cancelling
         // releases the queen and wipes the folder itself, which is the same end state.
-        boolean beingDownloaded = false;
-        for (SmbDirectDownloader.TaskSnapshot t : SmbDirectDownloader.getInstance().snapshotTasks()) {
-            if (t.gid == gid) {
-                beingDownloaded = true;
-                break;
+        final List<GalleryInfo> toErase = new ArrayList<>();
+        for (GalleryInfo gi : batch) {
+            if (isBeingDownloaded(gi.gid)) {
+                SmbDirectDownloader.getInstance().cancel(gi.gid);
+                onGalleryDeleted(appContext, gi);
+            } else {
+                toErase.add(gi);
             }
         }
-        if (beingDownloaded) {
-            SmbDirectDownloader.getInstance().cancel(gid);
-            onGalleryDeleted(appContext, gi);
+        if (toErase.isEmpty()) {
             return;
         }
 
         Runnable task = () -> {
-            final boolean ok = SmbStorage.deleteGalleryFolder(gi);
-            SimpleHandler.getInstance().post(() -> {
-                if (ok) {
-                    onGalleryDeleted(appContext, gi);
-                } else {
-                    // Dropping the row anyway would claim a deletion that did not happen, and the
-                    // gallery would be back on the next refresh.
-                    Toast.makeText(appContext, R.string.local_inventory_delete_failed,
-                            Toast.LENGTH_SHORT).show();
+            final List<GalleryInfo> gone = new ArrayList<>();
+            for (GalleryInfo gi : toErase) {
+                if (SmbStorage.deleteGalleryFolder(gi)) {
+                    gone.add(gi);
                 }
+            }
+            SimpleHandler.getInstance().post(() -> {
+                for (GalleryInfo gi : gone) {
+                    onGalleryDeleted(appContext, gi);
+                }
+                if (gone.size() == toErase.size()) {
+                    if (toErase.size() > 1) {
+                        Toast.makeText(appContext, getString(
+                                R.string.local_inventory_delete_many_done, gone.size(), toErase.size()),
+                                Toast.LENGTH_SHORT).show();
+                    }
+                    return;
+                }
+                Toast.makeText(appContext,
+                        toErase.size() == 1
+                                ? getString(R.string.local_inventory_delete_failed)
+                                : getString(R.string.local_inventory_delete_many_done,
+                                        gone.size(), toErase.size()),
+                        Toast.LENGTH_LONG).show();
             });
         };
         if (mExecutor != null) {
@@ -669,6 +832,15 @@ public class LocalInventoryScene extends ToolbarScene
         } else {
             new Thread(task, "LocalInventoryDelete").start();
         }
+    }
+
+    private static boolean isBeingDownloaded(long gid) {
+        for (SmbDirectDownloader.TaskSnapshot t : SmbDirectDownloader.getInstance().snapshotTasks()) {
+            if (t.gid == gid) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /** Main thread. Drops every trace of a gallery that is no longer on the share. */
@@ -823,7 +995,15 @@ public class LocalInventoryScene extends ToolbarScene
         // Tap the thumbnail to jump straight into the reader (offline-friendly path).
         // Tapping anywhere else on the card opens the gallery detail page (handled by the
         // RecyclerView's OnItemClickListener).
-        holder.thumb.setOnClickListener(v -> openReader(gi));
+        holder.thumb.setOnClickListener(v -> {
+            // The thumb has its own tap target, so it would sail past the list's choice handling
+            // and drop the user into the reader mid-selection.
+            if (mRecyclerView != null && mRecyclerView.isInCustomChoice()) {
+                mRecyclerView.toggleItemChecked(holder.getBindingAdapterPosition());
+                return;
+            }
+            openReader(gi);
+        });
         holder.title.setText(EhUtils.getSuitableTitle(gi));
         holder.uploader.setText(gi.uploader);
         holder.rating.setRating(gi.rating);
