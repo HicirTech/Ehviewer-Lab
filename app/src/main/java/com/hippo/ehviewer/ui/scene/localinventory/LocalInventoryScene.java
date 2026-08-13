@@ -493,9 +493,11 @@ public class LocalInventoryScene extends ToolbarScene
         }
 
         CharSequence[] items = new CharSequence[]{
+                context.getString(R.string.local_inventory_resync),
                 context.getString(R.string.local_inventory_delete),
         };
         int[] icons = new int[]{
+                R.drawable.v_refresh_x24,
                 R.drawable.v_delete_x24,
         };
 
@@ -503,11 +505,111 @@ public class LocalInventoryScene extends ToolbarScene
                 .setTitle(EhUtils.getSuitableTitle(gi))
                 .setAdapter(new SelectItemWithIconAdapter(context, items, icons), (dialog, which) -> {
                     if (which == 0) {
+                        showResyncDialog(gi);
+                    } else if (which == 1) {
                         confirmDelete(gi);
                     }
                 })
                 .show();
         return true;
+    }
+
+    // ---------- re-sync with e-hentai (#16) ----------
+
+    private static final int RESYNC_METADATA = 0;
+    private static final int RESYNC_PAGES = 1;
+    private static final int RESYNC_BOTH = 2;
+
+    /**
+     * Asks what to bring back down: the record, the pages, or both.
+     *
+     * <p>The caveat about the title rides on the two items it applies to rather than sitting in a
+     * message above them: an AlertDialog shows a message or a list, never both, and setting one
+     * silently drops the other.
+     *
+     * <p>Two separate things wear the same word. The record is a single fetch that rewrites
+     * {@code metadata.json}; the pages are a download that may run for minutes. Someone whose tags
+     * are out of date does not want to re-download anything, and someone with a gallery full of
+     * holes does not care about tags — so they are offered apart rather than bundled.
+     */
+    private void showResyncDialog(@NonNull GalleryInfo gi) {
+        Context context = getEHContext();
+        if (context == null) {
+            return;
+        }
+        new AlertDialog.Builder(context)
+                .setTitle(R.string.local_inventory_resync_title)
+                .setItems(R.array.local_inventory_resync_mode, (dialog, which) -> {
+                    if (which == RESYNC_METADATA || which == RESYNC_BOTH) {
+                        resyncMetadata(gi);
+                    }
+                    if (which == RESYNC_PAGES || which == RESYNC_BOTH) {
+                        repairMissingPages(gi);
+                    }
+                })
+                .setNegativeButton(android.R.string.cancel, null)
+                .show();
+    }
+
+    /** One fetch and one write. Short enough to report by toast when it lands. */
+    private void resyncMetadata(@NonNull GalleryInfo gi) {
+        Context context = getEHContext();
+        if (context == null) {
+            return;
+        }
+        final Context appContext = context.getApplicationContext();
+        Toast.makeText(appContext, R.string.local_inventory_resync_running, Toast.LENGTH_SHORT).show();
+        Runnable task = () -> {
+            final GalleryInfo fresh = SmbMetadata.resyncMetadata(appContext, gi);
+            SimpleHandler.getInstance().post(() -> {
+                if (fresh == null) {
+                    // Distinguished from success on purpose: the old path wrote the unchanged
+                    // record back when the fetch failed, so the two looked identical.
+                    Toast.makeText(appContext, R.string.local_inventory_resync_failed,
+                            Toast.LENGTH_SHORT).show();
+                    return;
+                }
+                Toast.makeText(appContext, R.string.local_inventory_resync_done,
+                        Toast.LENGTH_SHORT).show();
+                replaceRow(fresh);
+            });
+        };
+        if (mExecutor != null) {
+            mExecutor.execute(task);
+        } else {
+            new Thread(task, "LocalInventoryResync").start();
+        }
+    }
+
+    /**
+     * Puts the gallery back in the download queue, which fetches only what is missing.
+     *
+     * <p>No separate repair path and no completeness check: in download mode {@code contain()} asks
+     * the share, so every page already there is skipped. A gallery that turns out to be complete
+     * finishes immediately.
+     */
+    private void repairMissingPages(@NonNull GalleryInfo gi) {
+        Context context = getEHContext();
+        if (context == null) {
+            return;
+        }
+        SmbDirectDownloader.getInstance().start(context, gi);
+        Toast.makeText(context.getApplicationContext(), R.string.local_inventory_resync_queued,
+                Toast.LENGTH_SHORT).show();
+    }
+
+    /** Main thread. Swaps a re-synced record into the row it came from, by gid. */
+    private void replaceRow(@NonNull GalleryInfo fresh) {
+        if (mHelper == null) {
+            return;
+        }
+        for (int i = 0, n = mHelper.size(); i < n; i++) {
+            GalleryInfo at = mHelper.getDataAt(i);
+            if (at != null && at.gid == fresh.gid) {
+                mHelper.replaceAt(i, fresh);
+                break;
+            }
+        }
     }
 
     /** Deleting the on-share folder cannot be undone, so it always goes through a confirmation. */
@@ -943,6 +1045,13 @@ public class LocalInventoryScene extends ToolbarScene
         protected void notifyDataSetChanged() {
             if (mAdapter != null) {
                 mAdapter.notifyDataSetChanged();
+            }
+        }
+
+        @Override
+        protected void notifyItemRangeChanged(int positionStart, int itemCount) {
+            if (mAdapter != null) {
+                mAdapter.notifyItemRangeChanged(positionStart, itemCount);
             }
         }
 

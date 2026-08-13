@@ -29,6 +29,12 @@
         <item>@string/local_inventory_sort_category</item>
     </string-array>
 
+    <string-array name="local_inventory_resync_mode">
+        <item>@string/local_inventory_resync_metadata</item>
+        <item>@string/local_inventory_resync_pages</item>
+        <item>@string/local_inventory_resync_both</item>
+    </string-array>
+
     <string-array name="top_list_type">
         <item>@string/gallery_toplists</item>
         <item>@string/uploader_toplists</item>

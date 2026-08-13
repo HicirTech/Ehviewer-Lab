@@ -226,4 +226,80 @@ public class SmbMetadataTest {
 
         assertSame(existing, SmbMetadata.buildOfflineDetail(existing));
     }
+
+    // --- keepPathFields ------------------------------------------------------------------------
+    //
+    // A re-sync overwrites the on-share record with what e-hentai says (#16). One field may not be
+    // overwritten, because it is also where the gallery lives on disk.
+
+    /**
+     * The rule this exists for. The folder is named {@code <gid>-<title>} and
+     * {@code resolveGalleryDir} builds the path back out of the record, so a record carrying a new
+     * title points at a directory that does not exist — and getGalleryDir would then create it,
+     * leaving an empty gallery in the inventory and the real one unreachable.
+     */
+    @Test
+    public void keepPathFields_refusesToLetANewTitleThrough() {
+        GalleryInfo local = new GalleryInfo();
+        local.gid = 4111126L;
+        local.title = "[Eltonel] Prehistoric Academia";
+        GalleryDetail fresh = new GalleryDetail();
+        fresh.gid = 4111126L;
+        fresh.title = "[Eltonel] Prehistoric Academia [Revised]";
+
+        assertEquals("[Eltonel] Prehistoric Academia",
+                SmbMetadata.keepPathFields(fresh, local).title);
+    }
+
+    /** The folder name built from the result must still be the one the gallery is stored under. */
+    @Test
+    public void keepPathFields_leavesTheFolderNameUnchanged() {
+        GalleryInfo local = new GalleryInfo();
+        local.gid = 4111126L;
+        local.title = "A Title";
+        String folderBefore = SmbPaths.buildGalleryFolderName(local);
+        GalleryDetail fresh = new GalleryDetail();
+        fresh.gid = 4111126L;
+        fresh.title = "A Completely Different Title";
+
+        assertEquals(folderBefore,
+                SmbPaths.buildGalleryFolderName(SmbMetadata.keepPathFields(fresh, local)));
+    }
+
+    /** Everything that is not a path is exactly what a re-sync is for, and must come through. */
+    @Test
+    public void keepPathFields_letsEveryOtherFieldThrough() {
+        GalleryInfo local = new GalleryInfo();
+        local.gid = 1L;
+        local.title = "Kept";
+        local.titleJpn = "old jpn";
+        local.uploader = "old uploader";
+        local.rating = 1.0f;
+        local.pages = 10;
+        local.category = 2;
+        local.simpleLanguage = "JA";
+        local.tgList = new ArrayList<>(Collections.singletonList("language:japanese"));
+
+        GalleryDetail fresh = new GalleryDetail();
+        fresh.gid = 1L;
+        fresh.title = "Changed";
+        fresh.titleJpn = "new jpn";
+        fresh.uploader = "new uploader";
+        fresh.rating = 4.5f;
+        fresh.pages = 12;
+        fresh.category = 8;
+        fresh.simpleLanguage = "ZH";
+        fresh.tgList = new ArrayList<>(Arrays.asList("language:chinese", "artist:someone"));
+
+        GalleryInfo merged = SmbMetadata.keepPathFields(fresh, local);
+
+        assertEquals("Kept", merged.title);
+        assertEquals("new jpn", merged.titleJpn);
+        assertEquals("new uploader", merged.uploader);
+        assertEquals(4.5f, merged.rating, 0.0001f);
+        assertEquals(12, merged.pages);
+        assertEquals(8, merged.category);
+        assertEquals("ZH", merged.simpleLanguage);
+        assertEquals(Arrays.asList("language:chinese", "artist:someone"), merged.tgList);
+    }
 }

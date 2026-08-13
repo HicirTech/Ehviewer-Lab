@@ -475,6 +475,31 @@ public class ContentLayout extends FrameLayout {
             notifyItemRangeInserted(index, 1);
         }
 
+        /**
+         * Swaps one item for a newer version of itself, in place.
+         *
+         * <p>Unlike add and remove, nothing about the paging changes: same count, same dividers,
+         * same scroll position. That is the point — it exists so a row whose content was refreshed
+         * can be redrawn without reloading its page and throwing the reader back to the top.
+         */
+        public void replaceAt(int index, E data) {
+            if (index < 0 || index >= mData.size()) {
+                return;
+            }
+            mData.set(index, data);
+            notifyItemRangeChanged(index, 1);
+        }
+
+        /**
+         * A default rather than another abstract method: every existing subclass implements the
+         * three notifications it was born with, and making this a fourth would break all of them
+         * to serve one caller. Redrawing everything is correct, merely wasteful, so a subclass that
+         * cares overrides it.
+         */
+        protected void notifyItemRangeChanged(int positionStart, int itemCount) {
+            notifyDataSetChanged();
+        }
+
         public void removeAt(int index) {
             E data = mData.remove(index);
             onRemoveData(data);

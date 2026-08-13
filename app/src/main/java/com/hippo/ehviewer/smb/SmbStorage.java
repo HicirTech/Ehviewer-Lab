@@ -221,7 +221,17 @@ public final class SmbStorage {
      * every blocked enqueue littered the share.
      */
     @NonNull
-    private static SmbFile resolveGalleryDir(@NonNull GalleryInfo info) throws IOException {
+    /**
+     * The gallery's folder, without creating it.
+     *
+     * <p>Unlike {@link #getGalleryDir}, which exists for writers and so calls {@code mkdirs}, this
+     * answers for callers that need to know whether a gallery is on the share at all — asking with
+     * {@code getGalleryDir} would make the answer yes, and leave an empty folder behind that Local
+     * Inventory then lists as a gallery with no pages.
+     *
+     * <p>Package-private for {@link SmbMetadata}, which re-syncs an existing gallery's record.
+     */
+    static SmbFile resolveGalleryDir(@NonNull GalleryInfo info) throws IOException {
         CIFSContext cifs = buildContext();
         SmbFile galleryRoot = new SmbFile(galleryRootUrl(), cifs);
         return new SmbFile(galleryRoot, SmbPaths.buildGalleryFolderName(info) + "/");
