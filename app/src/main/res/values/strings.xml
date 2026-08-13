@@ -89,9 +89,7 @@
     <string name="downloads">Downloads</string>
     <string name="local_inventory">Local Inventory</string>
     <string name="local_inventory_empty">No galleries on the SMB share yet</string>
-    <string name="local_inventory_loading">Loading from SMB share…</string>
     <string name="local_inventory_disabled">Enable "Save Galleries To SMB" in Settings and configure the share</string>
-    <string name="local_inventory_error">Failed to load from SMB: %s</string>
     <string name="local_inventory_timeout">SMB share did not respond within 7 seconds</string>
     <string name="local_inventory_sort_title">Sort by</string>
     <string name="local_inventory_sort_download_date">Download date (newest first)</string>
@@ -103,7 +101,6 @@
     <string name="local_inventory_delete_confirm_title_many">Delete %1$d galleries?</string>
     <string name="local_inventory_delete_confirm_message">“%s” will be erased from the SMB share. This cannot be undone.</string>
     <string name="local_inventory_delete_failed">Could not delete it from the SMB share</string>
-    <string name="local_inventory_resync">Re-sync with e-hentai</string>
     <string name="local_inventory_resync_title">Re-sync this gallery</string>
     <string name="local_inventory_resync_metadata">Gallery info</string>
     <string name="local_inventory_resync_pages">Missing pages only</string>
@@ -541,18 +538,10 @@
     <string name="smb_take_over_failed">Could not take over the download</string>
     <string name="smb_save_failed">Could not start the SMB save — the share may be unreachable</string>
     <string name="smb_save_not_configured">SMB is not configured</string>
-    <string name="smb_task_state_active">Downloading</string>
-    <string name="smb_task_state_queued">Queued</string>
-    <string name="smb_task_state_paused">Paused</string>
-    <string name="smb_task_pause">Pause</string>
-    <string name="smb_task_resume">Resume</string>
-    <string name="smb_task_cancel">Cancel</string>
-    <string name="smb_task_cancel_confirm">Cancel this SMB task? Any partially downloaded pages already on the share will be deleted.</string>
     <string name="gallery_download_target_title">Where to save?</string>
     <string name="gallery_download_target_local">To phone</string>
     <string name="gallery_download_target_smb">To SMB share</string>
     <string name="download_move_to_smb">Move to SMB share</string>
-    <string name="download_moved_to_smb">Moved %1$d / %2$d to SMB</string>
     <string name="download_moving_to_smb">Copying to SMB share…</string>
     <string name="download_speed_text">%s</string>
     <string name="download_speed_text_2">%1$s, %2$s left</string>
@@ -761,7 +750,6 @@
     <string name="settings_smb_category_advanced">Advanced</string>
     <string name="settings_smb_disable_signing">Disable SMB Signing</string>
     <string name="settings_smb_disable_signing_summary">Skip per-packet signing for faster transfers on slow CPUs (e.g. some MediaTek SoCs). Leave off (auto) unless transfers feel slow; applies on the next connection.</string>
-    <string name="settings_smb_invalid_config">SMB is enabled but share configuration is incomplete</string>
     <string name="settings_smb_field_unset">Tap to set</string>
     <string name="settings_smb_field_unset_password">Tap to set password</string>
     <string name="settings_download_download_location">Download location</string>

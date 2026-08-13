@@ -287,15 +287,6 @@ public final class SmbStorage {
         }
     }
 
-    public static boolean isGallerySynced(@NonNull GalleryInfo info) {
-        try {
-            SmbFile metadata = new SmbFile(resolveGalleryDir(info), METADATA_FILE);
-            return metadata.exists();
-        } catch (Throwable e) {
-            return false;
-        }
-    }
-
     /**
      * Recursively deletes the on-share gallery folder. Used when a SMB download task is
      * cancelled — leaving partial pages behind would clutter the share and confuse a later

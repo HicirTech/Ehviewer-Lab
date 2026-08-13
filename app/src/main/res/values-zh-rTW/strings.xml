@@ -985,9 +985,7 @@
     <!-- SMB save feature -->
     <string name="local_inventory">SMB 庫</string>
     <string name="local_inventory_empty">SMB 共享中尚無畫廊</string>
-    <string name="local_inventory_loading">正在從 SMB 共享讀取…</string>
     <string name="local_inventory_disabled">請在設定中啟用「儲存至 SMB」並設定共享</string>
-    <string name="local_inventory_error">從 SMB 讀取失敗：%s</string>
     <string name="local_inventory_timeout">SMB 共享 7 秒內未回應</string>
     <string name="local_inventory_sort_title">排序方式</string>
     <string name="local_inventory_sort_download_date">下載時間（由新到舊）</string>
@@ -999,7 +997,6 @@
     <string name="local_inventory_delete_confirm_title_many">刪除這 %1$d 本畫廊?</string>
     <string name="local_inventory_delete_confirm_message">「%s」將從 SMB 共享上抹掉,無法復原。</string>
     <string name="local_inventory_delete_failed">沒能從 SMB 共享刪除</string>
-    <string name="local_inventory_resync">與 e-hentai 重新同步</string>
     <string name="local_inventory_resync_title">重新同步這本畫廊</string>
     <string name="local_inventory_resync_metadata">只同步畫廊資訊</string>
     <string name="local_inventory_resync_pages">只補缺少的頁</string>
@@ -1037,20 +1034,12 @@
     <string name="smb_take_over_failed">無法接管這個下載</string>
     <string name="smb_save_failed">無法開始儲存到 SMB —— 共享可能連不上</string>
     <string name="smb_save_not_configured">尚未設定 SMB</string>
-    <string name="smb_task_state_active">下載中</string>
-    <string name="smb_task_state_queued">排隊中</string>
-    <string name="smb_task_state_paused">已暫停</string>
-    <string name="smb_task_pause">暫停</string>
-    <string name="smb_task_resume">繼續</string>
-    <string name="smb_task_cancel">取消</string>
-    <string name="smb_task_cancel_confirm">取消此 SMB 任務？已下載到共享上的部分圖片亦會一併刪除。</string>
 
     <string name="gallery_download_target_title">下載到哪裡？</string>
     <string name="gallery_download_target_local">下載到手機</string>
     <string name="gallery_download_target_smb">下載到 SMB 共享</string>
 
     <string name="download_move_to_smb">移動到 SMB 共享</string>
-    <string name="download_moved_to_smb">已移動 %1$d / %2$d 個畫廊到 SMB</string>
     <string name="download_moving_to_smb">正在複製到 SMB 共享…</string>
 
     <string name="settings_smb">SMB 設定</string>
@@ -1081,7 +1070,6 @@
     <string name="settings_smb_category_advanced">進階</string>
     <string name="settings_smb_disable_signing">停用 SMB 簽署</string>
     <string name="settings_smb_disable_signing_summary">略過逐封包簽署，在慢 CPU（例如部分聯發科晶片）上加快傳輸。除非傳輸明顯變慢，否則保持關閉（自動）；下次連線時生效。</string>
-    <string name="settings_smb_invalid_config">SMB 已啟用，但共享設定不完整</string>
     <string name="settings_smb_field_unset">點擊設定</string>
     <string name="settings_smb_field_unset_password">點擊設定密碼</string>
 
