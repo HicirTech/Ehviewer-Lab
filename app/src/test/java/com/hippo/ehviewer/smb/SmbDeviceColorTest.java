@@ -23,6 +23,16 @@ public class SmbDeviceColorTest {
     private static final String ANDROID_ID = "a1b2c3d4e5f60718";
 
     /**
+     * Stated here rather than read back from {@code SmbDeviceColor}, which used to expose a
+     * {@code paletteSize()} that existed for these two assertions and nothing else. Comparing the
+     * production palette against itself made the reachability test a tautology: it could not fail
+     * however the palette changed. A literal turns it into a real claim — sixteen colours, and
+     * every one of them reachable — and a change to the palette becomes something a person has to
+     * look at rather than something the test quietly absorbs.
+     */
+    private static final int PALETTE_SIZE = 16;
+
+    /**
      * The property everything else rests on. Two devices work out the same colour for a third only
      * because they both run this on the same string, so anything that made the answer depend on
      * time, order or state would silently give every device a different picture of the share.
@@ -47,7 +57,7 @@ public class SmbDeviceColorTest {
         }
 
         assertTrue("no id may invent a colour outside the palette",
-                palette.size() <= SmbDeviceColor.paletteSize());
+                palette.size() <= PALETTE_SIZE);
     }
 
     /** Telling two devices apart is the entire job, so different ids must usually differ. */
@@ -94,7 +104,7 @@ public class SmbDeviceColorTest {
         }
 
         assertEquals("some colours can never be handed out",
-                SmbDeviceColor.paletteSize(), seen.size());
+                PALETTE_SIZE, seen.size());
     }
 
     /** Renaming a device is a display change; it must not renumber anything. */

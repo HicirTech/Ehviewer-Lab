@@ -70,9 +70,4 @@ public final class SmbDeviceColor {
         h ^= h >>> 16;
         return (h & 0x7fffffff) % PALETTE.length;
     }
-
-    /** How many distinct colours there are, for tests and for anything that wants to say so. */
-    static int paletteSize() {
-        return PALETTE.length;
-    }
 }
