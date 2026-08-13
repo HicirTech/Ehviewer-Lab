@@ -3,7 +3,6 @@ package com.hippo.ehviewer.smb;
 import android.util.Log;
 
 import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
 
 import com.hippo.ehviewer.smb.SmbDownloadState.ClientState;
 import com.hippo.ehviewer.smb.SmbDownloadState.Published;

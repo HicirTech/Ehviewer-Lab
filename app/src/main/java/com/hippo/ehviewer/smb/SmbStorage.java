@@ -9,18 +9,15 @@ import android.webkit.MimeTypeMap;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
-import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONObject;
 import com.hippo.ehviewer.EhApplication;
 import com.hippo.ehviewer.R;
 import com.hippo.ehviewer.Settings;
 import com.hippo.ehviewer.client.data.GalleryInfo;
-import com.hippo.ehviewer.dao.DownloadInfo;
 import com.hippo.ehviewer.spider.SpiderDen;
 import com.hippo.streampipe.InputStreamPipe;
 import com.hippo.streampipe.OutputStreamPipe;
 import com.hippo.lib.yorozuya.IOUtils;
-import com.hippo.unifile.UniFile;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -31,10 +28,8 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
 
 import jcifs.CIFSContext;
 import jcifs.config.PropertyConfiguration;

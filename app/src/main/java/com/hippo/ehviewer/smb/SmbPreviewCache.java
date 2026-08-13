@@ -1,6 +1,5 @@
 package com.hippo.ehviewer.smb;
 
-import android.content.Context;
 import android.util.Log;
 
 import androidx.annotation.NonNull;

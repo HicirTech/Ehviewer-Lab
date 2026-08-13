@@ -49,7 +49,6 @@ import com.hippo.ehviewer.smb.SmbStorage;
 import com.hippo.ehviewer.smb.SmbTaskInfo;
 import com.hippo.ehviewer.ui.GalleryActivity;
 import com.hippo.ehviewer.ui.scene.ToolbarScene;
-import com.hippo.ehviewer.ui.dialog.SelectItemWithIconAdapter;
 import com.hippo.ehviewer.ui.scene.gallery.detail.GalleryDetailScene;
 import com.hippo.ehviewer.widget.SmbStatusBadge;
 import com.hippo.ehviewer.widget.GalleryInfoContentHelper;
