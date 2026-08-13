@@ -218,12 +218,14 @@ public final class SmbMetadata {
      * asked for. This is the opposite: the user asked, so a fetch that came back with nothing has
      * to be reported rather than written over the top as if it were an update.
      *
-     * <p><b>The title is never changed.</b> It is the one field that is also a path: the folder is
-     * named {@code <gid>-<title>} and {@code SmbStorage.resolveGalleryDir} builds the path back out
-     * of the record. Writing a new title without renaming the folder would send every later lookup
-     * at a directory that does not exist — and {@code getGalleryDir} would create it, leaving an
-     * empty gallery in the inventory and the real one unreachable. Renaming the folder instead is
-     * its own problem, with its own races, and has its own issue.
+     * <p>A new title moves the folder with it (#86). The title is the one field that is also a
+     * path — the folder is named {@code <gid>-<title>} and the path is built back out of the record
+     * — so the two are changed together or not at all. The folder goes first: a record naming a
+     * folder that does not exist is the state where {@code getGalleryDir} creates an empty one and
+     * the gallery vanishes behind it.
+     *
+     * <p>When the folder cannot be renamed the sync still happens, keeping the old title. Tags and
+     * a rating that are out of date should not stay out of date because a directory was busy.
      *
      * <p>Performs network and SMB I/O; call from a worker thread.
      *
@@ -249,7 +251,11 @@ public final class SmbMetadata {
             if (fresh == null) {
                 return null;
             }
-            writeMetadata(galleryDir, keepPathFields(fresh, info));
+            if (!renamedToMatch(info, fresh)) {
+                keepPathFields(fresh, info);
+            }
+            // Resolved again: a successful rename moved the folder out from under the handle above.
+            writeMetadata(SmbStorage.resolveGalleryDir(fresh), fresh);
             return fresh;
         } catch (Throwable e) {
             Log.w(TAG, "Failed to resync gid=" + info.gid, e);
@@ -258,13 +264,46 @@ public final class SmbMetadata {
     }
 
     /**
-     * Puts back the fields a re-sync is not allowed to change, and returns the record to write.
+     * Moves the folder to match a new title, and says whether the record may now carry it.
      *
-     * <p>Exactly one field: the title. It is the only one that is also a path — the folder is named
+     * <p>False for the ordinary case of a title that has not changed at all, which costs nothing:
+     * the caller then keeps the title it had, which is the same title.
+     *
+     * <p>A gallery somebody is downloading is left alone. Its folder is being written into, and
+     * renaming it out from under the writer would leave the pages arriving after the rename in a
+     * folder of the old name — one gallery in two places. The claim in {@code state/} is the same
+     * evidence every other decision about who is working on what uses.
+     */
+    private static boolean renamedToMatch(@NonNull GalleryInfo local, @NonNull GalleryInfo fresh) {
+        if (fresh.title == null || fresh.title.equals(local.title)) {
+            return false;
+        }
+        if (SmbDirectDownloader.getInstance().isClaimedElsewhere(local.gid)
+                || isDownloadingHere(local.gid)) {
+            Log.i(TAG, "Not renaming gid=" + local.gid + ": it is being downloaded");
+            return false;
+        }
+        return SmbStorage.renameGalleryFolder(local, fresh.title);
+    }
+
+    private static boolean isDownloadingHere(long gid) {
+        for (SmbDirectDownloader.TaskSnapshot t : SmbDirectDownloader.getInstance().snapshotTasks()) {
+            if (t.gid == gid) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Puts back the title when the folder could not follow it, and returns the record to write.
+     *
+     * <p>The title is the only field that is also a path — the folder is named
      * {@code <gid>-<title>} by {@link SmbPaths#buildGalleryFolderName} and
-     * {@code SmbStorage.resolveGalleryDir} builds the path back out of the record. Let a new title
-     * through and every later lookup goes to a directory that does not exist, {@code getGalleryDir}
-     * creates it, and the gallery is replaced in the inventory by an empty one.
+     * {@code SmbStorage.resolveGalleryDir} builds the path back out of the record. A record may
+     * carry a new title only once the folder carries it too. Let one through otherwise and every
+     * later lookup goes to a directory that does not exist, {@code getGalleryDir} creates it, and
+     * the gallery is replaced in the inventory by an empty one.
      *
      * <p>Its own method, and tested, because it looks like a line worth deleting.
      */

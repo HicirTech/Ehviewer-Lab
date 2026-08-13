@@ -997,9 +997,9 @@
     <string name="local_inventory_delete_failed">没能从 SMB 共享删除</string>
     <string name="local_inventory_resync">与 e-hentai 重新同步</string>
     <string name="local_inventory_resync_title">重新同步这本画廊</string>
-    <string name="local_inventory_resync_metadata">只同步画廊信息(标题不变)</string>
+    <string name="local_inventory_resync_metadata">只同步画廊信息</string>
     <string name="local_inventory_resync_pages">只补缺失的页</string>
-    <string name="local_inventory_resync_both">信息(标题不变)和缺失的页</string>
+    <string name="local_inventory_resync_both">信息和缺失的页</string>
     <string name="local_inventory_resync_running">正在同步\u2026</string>
     <string name="local_inventory_resync_done">画廊信息已更新</string>
     <string name="local_inventory_resync_failed">连不上 e-hentai,什么都没有改动。</string>

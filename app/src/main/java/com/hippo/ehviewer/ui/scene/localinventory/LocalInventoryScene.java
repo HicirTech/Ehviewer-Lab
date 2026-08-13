@@ -730,17 +730,29 @@ public class LocalInventoryScene extends ToolbarScene
                 Toast.LENGTH_SHORT).show();
     }
 
-    /** Main thread. Swaps a re-synced record into the row it came from, by gid. */
+    /**
+     * Main thread. Swaps a re-synced record into the row it came from, by gid.
+     *
+     * <p>A re-sync that changed the title also moved the folder (#86), and the paging cache holds
+     * folder names. Left alone, the next fetch of that page would look for a directory that is no
+     * longer there and quietly drop the row.
+     */
     private void replaceRow(@NonNull GalleryInfo fresh) {
         if (mHelper == null) {
             return;
         }
         for (int i = 0, n = mHelper.size(); i < n; i++) {
             GalleryInfo at = mHelper.getDataAt(i);
-            if (at != null && at.gid == fresh.gid) {
-                mHelper.replaceAt(i, fresh);
-                break;
+            if (at == null || at.gid != fresh.gid) {
+                continue;
             }
+            String before = SmbPaths.buildGalleryFolderName(at);
+            String after = SmbPaths.buildGalleryFolderName(fresh);
+            if (!before.equals(after)) {
+                mHelper.renameRef(before, after);
+            }
+            mHelper.replaceAt(i, fresh);
+            break;
         }
     }
 
@@ -1169,6 +1181,41 @@ public class LocalInventoryScene extends ToolbarScene
          * <p>Replaces the {@link Ordering} rather than mutating it: {@link #mOrdering} is read from
          * the load executor, and a page fetch may be walking the very list this is called on.
          */
+        /**
+         * Points the cached ordering at a folder that has been renamed (#86).
+         *
+         * <p>Same reasoning as {@link #forgetRef}: the ordering is read from the load executor, so
+         * it is replaced rather than mutated.
+         */
+        void renameRef(@NonNull String from, @NonNull String to) {
+            Ordering current = mOrdering;
+            if (current == null) {
+                return;
+            }
+            List<SmbStorage.GalleryRef> refs = new ArrayList<>(current.refs.size());
+            boolean found = false;
+            for (SmbStorage.GalleryRef ref : current.refs) {
+                if (!found && ref.folderName.equals(from)) {
+                    found = true;
+                    refs.add(new SmbStorage.GalleryRef(to, ref.folderMtime));
+                } else {
+                    refs.add(ref);
+                }
+            }
+            if (!found) {
+                return;
+            }
+            Map<String, GalleryInfo> infos = null;
+            if (current.infos != null) {
+                infos = new HashMap<>(current.infos);
+                GalleryInfo moved = infos.remove(from);
+                if (moved != null) {
+                    infos.put(to, moved);
+                }
+            }
+            mOrdering = new Ordering(refs, infos);
+        }
+
         void forgetRef(@NonNull String folderName) {
             Ordering current = mOrdering;
             if (current == null) {

@@ -898,6 +898,88 @@ public final class SmbStorage {
         return null;
     }
 
+    /**
+     * How long to keep trying to rename a gallery folder before giving up.
+     *
+     * <p>The failure being retried is another device holding a file inside the folder open, which
+     * the server answers with {@code 0xc0000022} and which clears the moment the handle does. The
+     * spike measured a writer through in 13 attempts over 1918 ms against a reader that held on for
+     * 1.5 s, so this leaves room for a considerably slower one. Giving up is not serious: the
+     * gallery keeps the name it has.
+     */
+    private static final long RENAME_DEADLINE_MS = 8_000L;
+    private static final long RENAME_BACKOFF_START_MS = 100L;
+    private static final long RENAME_BACKOFF_MAX_MS = 800L;
+
+    /**
+     * Renames a gallery's folder so it matches a new title (#86).
+     *
+     * <p>The folder is named {@code <gid>-<title>} and the path is built back out of the record, so
+     * the two have to move together. Doing this first and writing the record second is not a
+     * detail: the intermediate state it avoids -- a record naming a folder that does not exist --
+     * is one where {@code getGalleryDir} creates an empty one and the gallery disappears from
+     * Local Inventory behind it.
+     *
+     * <p>Refuses rather than merges when something already occupies the new name. Two galleries
+     * with the same gid cannot both be right, and picking one would throw the other away.
+     *
+     * <p>Performs SMB I/O; call from a worker thread.
+     *
+     * @return whether the folder now carries the new name, including when it already did
+     */
+    public static boolean renameGalleryFolder(@NonNull GalleryInfo info, @Nullable String newTitle) {
+        String from = SmbPaths.buildGalleryFolderName(info);
+        String to = SmbPaths.buildGalleryFolderName(info.gid, newTitle);
+        if (from.equals(to)) {
+            return true;
+        }
+        try {
+            CIFSContext cifs = buildContext();
+            SmbFile galleryRoot = new SmbFile(galleryRootUrl(), cifs);
+            SmbFile source = new SmbFile(galleryRoot, from + "/");
+            if (!source.exists()) {
+                Log.w(TAG, "Cannot rename gid=" + info.gid + ": " + from + " is not on the share");
+                return false;
+            }
+            SmbFile target = new SmbFile(galleryRoot, to + "/");
+            if (target.exists()) {
+                Log.w(TAG, "Cannot rename gid=" + info.gid + ": " + to + " already exists");
+                return false;
+            }
+
+            long deadline = System.currentTimeMillis() + RENAME_DEADLINE_MS;
+            long backoff = RENAME_BACKOFF_START_MS;
+            Throwable last = null;
+            while (true) {
+                try {
+                    // Single-argument on purpose: the two-argument form replaces the target, and
+                    // there is nothing here worth replacing that we would not rather refuse.
+                    source.renameTo(target);
+                    invalidateListing(info.gid);
+                    Log.i(TAG, "Renamed gid=" + info.gid + " to " + to);
+                    return true;
+                } catch (Throwable e) {
+                    last = e;
+                    if (System.currentTimeMillis() + backoff >= deadline) {
+                        break;
+                    }
+                    try {
+                        Thread.sleep(backoff);
+                    } catch (InterruptedException ie) {
+                        Thread.currentThread().interrupt();
+                        break;
+                    }
+                    backoff = Math.min(backoff * 2, RENAME_BACKOFF_MAX_MS);
+                }
+            }
+            Log.w(TAG, "Gave up renaming gid=" + info.gid + " after " + RENAME_DEADLINE_MS + "ms", last);
+            return false;
+        } catch (Throwable e) {
+            Log.w(TAG, "Failed to rename gid=" + info.gid, e);
+            return false;
+        }
+    }
+
     public static void finalizeDownloadedGallery(@NonNull Context context, @NonNull GalleryInfo info) {
         try {
             SmbFile galleryDir = getGalleryDir(info);
