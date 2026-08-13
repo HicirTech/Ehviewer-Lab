@@ -2286,63 +2286,27 @@ public class DownloadsScene extends ToolbarScene
      * removed for each successfully synced item. Failures are kept locally so the user doesn't
      * silently lose data.
      */
+    /**
+     * Hands the selected downloads to the SMB downloader as moves.
+     *
+     * <p>This used to be a copy loop of its own, walking each gallery's files onto the share and
+     * then deleting the phone copy. As an enqueue it inherits everything the download path already
+     * has -- a claim in {@code state/} so no other device mistakes a half-copied folder for a
+     * finished gallery (#88), a row in this very list with progress, pause and resume, and the
+     * ability to carry on after an interruption. The pages themselves still come from the phone:
+     * the download asks {@code SpiderDen.contain} for each one, and a page already in phone storage
+     * is put on the share rather than fetched again.
+     *
+     * <p>What it no longer does is report the outcome here. A move is now as long-running as a
+     * download, and the download list is where a download's progress is.
+     */
     private void moveSelectionToSmb(@NonNull Context context,
                                     @NonNull List<DownloadInfo> downloads) {
         final Context appContext = context.getApplicationContext();
+        for (DownloadInfo info : downloads) {
+            com.hippo.ehviewer.smb.SmbDirectDownloader.getInstance().startMove(appContext, info);
+        }
         Toast.makeText(appContext, R.string.download_moving_to_smb, Toast.LENGTH_SHORT).show();
-        final com.hippo.ehviewer.smb.SmbDirectDownloader.MoveBatchHandle batch =
-                com.hippo.ehviewer.smb.SmbDirectDownloader.getInstance()
-                        .beginMoveBatch(appContext, downloads.size());
-        IoThreadPoolExecutor.Companion.getInstance().execute(() -> {
-            int ok = 0;
-            LongList succeeded = new LongList();
-            List<UniFile> filesToDelete = new ArrayList<>();
-            try {
-                for (DownloadInfo info : downloads) {
-                    batch.onItemStart(info.title);
-                    try {
-                        SmbStorage.syncDownloadedGallery(appContext, info);
-                        succeeded.add(info.gid);
-                        UniFile dir = getGalleryDownloadDir(info);
-                        if (dir != null) {
-                            filesToDelete.add(dir);
-                        }
-                        ok++;
-                    } catch (Throwable e) {
-                        Log.w(TAG, "Move to SMB failed gid=" + info.gid, e);
-                    } finally {
-                        batch.onItemDone();
-                    }
-                }
-            } finally {
-                batch.finish();
-            }
-            final int finalOk = ok;
-            final int total = downloads.size();
-            final UniFile[] fileArr = filesToDelete.toArray(new UniFile[0]);
-            new android.os.Handler(android.os.Looper.getMainLooper()).post(() -> {
-                try {
-                    if (!succeeded.isEmpty()) {
-                        DownloadManager dm = EhApplication.getDownloadManager(appContext);
-                        for (int i = 0, n = succeeded.size(); i < n; i++) {
-                            EhDB.removeDownloadDirname(succeeded.get(i));
-                        }
-                        dm.deleteRangeDownload(succeeded);
-                        if (fileArr.length > 0) {
-                            deleteFileAsync(fileArr);
-                        }
-                    }
-                } catch (Throwable e) {
-                    Log.e(TAG, "Move to SMB cleanup failed", e);
-                }
-                try {
-                    Toast.makeText(appContext,
-                            appContext.getString(R.string.download_moved_to_smb, finalOk, total),
-                            Toast.LENGTH_SHORT).show();
-                } catch (Throwable ignored) {
-                }
-            });
-        });
     }
 
 //    /**

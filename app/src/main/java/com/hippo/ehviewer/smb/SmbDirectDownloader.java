@@ -7,6 +7,10 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
 import com.hippo.ehviewer.EhApplication;
+import com.hippo.lib.yorozuya.collect.LongList;
+import com.hippo.unifile.UniFile;
+import com.hippo.ehviewer.spider.SpiderDen;
+import com.hippo.ehviewer.EhDB;
 import com.hippo.ehviewer.Settings;
 import com.hippo.ehviewer.R;
 import com.hippo.ehviewer.client.data.GalleryInfo;
@@ -69,8 +73,6 @@ public final class SmbDirectDownloader {
     private final Map<Long, String> takenOverFrom = new HashMap<>();
 
     /** Move-to-SMB batches in flight. Shares the same foreground notification surface. */
-    private final Map<Integer, MoveBatch> moveBatches = new HashMap<>();
-    private int nextMoveBatchId = 1;
     private final CopyOnWriteArrayList<TaskObserver> observers = new CopyOnWriteArrayList<>();
     @Nullable
     private SmbDownloadService service;
@@ -88,6 +90,35 @@ public final class SmbDirectDownloader {
     }
 
     private SmbDirectDownloader() {}
+
+    /**
+     * Galleries whose copy in phone storage should go once they are complete on the share.
+     *
+     * <p>All that separates a move from a download. The pages come across by themselves: the
+     * download asks {@code SpiderDen.contain} for each page, and a page the phone already holds is
+     * put on the share instead of fetched. What is left is the deleting, and only a move should do
+     * that -- an ordinary download that happened to find some pages locally has not been asked to
+     * take anything away.
+     *
+     * <p>In this process only. Killed mid-move, the gallery comes out copied rather than moved,
+     * which is the harmless direction to fail in.
+     */
+    private final java.util.Set<Long> movingFromPhone =
+            java.util.Collections.synchronizedSet(new java.util.HashSet<>());
+
+    /**
+     * Moves a gallery from phone storage to the share, as an ordinary SMB download.
+     *
+     * <p>It used to be its own copy loop, which meant a second way of writing a gallery to the
+     * share with its own notion of when a folder is finished -- and #88 was the bill for that: the
+     * folder appeared before the first byte and nothing claimed it, so every other device read it
+     * as a finished gallery while it was still empty. As a download it takes the same claim in
+     * {@code state/} that everything else does, and the question does not arise.
+     */
+    public void startMove(@NonNull Context context, @NonNull GalleryInfo info) {
+        movingFromPhone.add(info.gid);
+        start(context, info);
+    }
 
     /** Enqueue a gallery for SMB save. No-ops if it is already active or queued. */
     public void start(@NonNull Context context, @NonNull GalleryInfo info) {
@@ -708,6 +739,40 @@ public final class SmbDirectDownloader {
     }
 
     /**
+     * Removes the phone's copy of a gallery that has just finished moving to the share.
+     *
+     * <p>Last, and only after the pages are on the share, so a move that fails part way leaves the
+     * phone copy where it was rather than nothing anywhere.
+     *
+     * <p>The download record goes on the main thread because that is where the download list and
+     * its listeners live; the files go on this one, because deleting a folder of images through
+     * the storage-access framework is slow enough to be felt.
+     */
+    private void dropPhoneCopy(@NonNull Context appContext, @NonNull GalleryInfo info) {
+        final UniFile dir = SpiderDen.getExistingGalleryDownloadDir(info);
+        SimpleHandler.getInstance().post(() -> {
+            try {
+                EhDB.removeDownloadDirname(info.gid);
+                LongList one = new LongList();
+                one.add(info.gid);
+                EhApplication.getDownloadManager(appContext).deleteRangeDownload(one);
+            } catch (Throwable e) {
+                Log.w(TAG, "Could not drop the phone download record gid=" + info.gid, e);
+            }
+            if (dir == null) {
+                return;
+            }
+            IoThreadPoolExecutor.Companion.getInstance().execute(() -> {
+                try {
+                    dir.delete();
+                } catch (Throwable e) {
+                    Log.w(TAG, "Could not delete the phone copy gid=" + info.gid, e);
+                }
+            });
+        });
+    }
+
+    /**
      * Adopts a download whose owner has stopped beating.
      *
      * <p>Nothing is written to the other device's file — nobody ever writes another's. The claim
@@ -1082,11 +1147,15 @@ public final class SmbDirectDownloader {
         publishState();
         // Finalize metadata + cover on the IO pool.
         final Context ctx = appContext != null ? appContext : EhApplication.getInstance();
+        final boolean wasMove = movingFromPhone.remove(info.gid);
         IoThreadPoolExecutor.Companion.getInstance().execute(() -> {
             try {
                 SmbStorage.finalizeDownloadedGallery(ctx, info);
             } catch (Throwable e) {
                 Log.e(TAG, "SMB finalize failed for gid=" + info.gid, e);
+            }
+            if (wasMove) {
+                dropPhoneCopy(ctx, info);
             }
         });
         // releaseSpiderQueen must run on the main thread.
@@ -1120,24 +1189,11 @@ public final class SmbDirectDownloader {
                 return;
             }
             int queued = queue.size();
-            // Move batches take priority in the notification when no download job is active,
-            // and are also surfaced as a sibling line when one is. They use the same foreground
-            // notification so the user always sees a single "SMB is doing something" indicator.
+            // Moves used to have their own branch here, because they were their own kind of work.
+            // They are downloads now, so they arrive as active jobs and queued entries like
+            // everything else.
             if (active.isEmpty()) {
-                if (!moveBatches.isEmpty()) {
-                    MoveBatch mv = moveBatches.values().iterator().next();
-                    String titleSubject = mv.currentItemTitle != null
-                            ? mv.currentItemTitle
-                            : ctx.getString(R.string.smb_notif_move_progress, mv.finished, mv.total);
-                    title = ctx.getString(R.string.smb_notif_move_title, titleSubject);
-                    text = moveBatches.size() > 1
-                            ? ctx.getString(R.string.smb_notif_move_progress_more,
-                                    mv.finished, mv.total, moveBatches.size() - 1)
-                            : ctx.getString(R.string.smb_notif_move_progress, mv.finished, mv.total);
-                    max = mv.total;
-                    prog = mv.finished;
-                    indeterminate = mv.total <= 0;
-                } else if (queued > 0) {
+                if (queued > 0) {
                     title = ctx.getString(R.string.smb_notif_queue_title);
                     text = ctx.getString(R.string.smb_notif_queue_waiting, queued);
                     max = 0;
@@ -1155,9 +1211,6 @@ public final class SmbDirectDownloader {
                 StringBuilder extras = new StringBuilder();
                 if (queued > 0) {
                     extras.append(ctx.getString(R.string.smb_notif_extra_waiting, queued));
-                }
-                if (!moveBatches.isEmpty()) {
-                    extras.append(ctx.getString(R.string.smb_notif_extra_move, moveBatches.size()));
                 }
                 if (total > 0) {
                     text = ctx.getString(R.string.smb_notif_progress_count, finished, total, extras.toString());
@@ -1179,7 +1232,7 @@ public final class SmbDirectDownloader {
         boolean stop;
         Context ctx;
         synchronized (lock) {
-            stop = service != null && active.isEmpty() && queue.isEmpty() && moveBatches.isEmpty();
+            stop = service != null && active.isEmpty() && queue.isEmpty();
             ctx = appContext;
         }
         if (stop && ctx != null) {
@@ -1197,93 +1250,6 @@ public final class SmbDirectDownloader {
             this.listener = listener;
             this.info = info;
         }
-    }
-
-    /**
-     * Tracks a move-to-SMB batch so its progress can be shown on the same foreground
-     * notification as SMB downloads. Created by {@link #beginMoveBatch} and updated as the
-     * caller copies each gallery.
-     */
-    public final class MoveBatchHandle {
-        private final int id;
-
-        MoveBatchHandle(int id) { this.id = id; }
-
-        /** Mark a new item as starting (1-based progress is computed automatically). */
-        public void onItemStart(@Nullable String itemTitle) {
-            ensureService();
-            synchronized (lock) {
-                MoveBatch b = moveBatches.get(id);
-                if (b != null) {
-                    b.currentItemTitle = itemTitle;
-                }
-            }
-            updateNotification();
-        }
-
-        /** Mark the most recently-started item as finished. */
-        public void onItemDone() {
-            synchronized (lock) {
-                MoveBatch b = moveBatches.get(id);
-                if (b != null) {
-                    b.finished = Math.min(b.total, b.finished + 1);
-                }
-            }
-            updateNotification();
-        }
-
-        /** Tear down the batch, removing it from the notification surface. */
-        public void finish() {
-            synchronized (lock) {
-                moveBatches.remove(id);
-            }
-            updateNotification();
-            maybeStopService();
-        }
-
-        private void ensureService() {
-            boolean shouldStart;
-            synchronized (lock) {
-                shouldStart = service == null;
-            }
-            if (shouldStart && appContext != null) {
-                try { SmbDownloadService.start(appContext); } catch (Throwable ignored) {}
-            }
-        }
-    }
-
-    private static final class MoveBatch {
-        final int total;
-        int finished;
-        @Nullable String currentItemTitle;
-
-        MoveBatch(int total) { this.total = Math.max(0, total); }
-    }
-
-    /**
-     * Register a move-to-SMB batch with the foreground notification surface. Caller drives the
-     * notification by calling {@code onItemStart} / {@code onItemDone} for each gallery and
-     * {@code finish()} when done. Starts the {@link SmbDownloadService} if it isn't already up.
-     */
-    @NonNull
-    public MoveBatchHandle beginMoveBatch(@NonNull Context context, int total) {
-        if (appContext == null) {
-            appContext = context.getApplicationContext();
-        }
-        int id;
-        boolean shouldStartService;
-        synchronized (lock) {
-            id = nextMoveBatchId++;
-            moveBatches.put(id, new MoveBatch(total));
-            shouldStartService = service == null;
-        }
-        if (shouldStartService) {
-            try { SmbDownloadService.start(appContext); } catch (Throwable e) {
-                Log.w(TAG, "Failed to start SmbDownloadService for move", e);
-            }
-        }
-        updateNotification();
-        return new MoveBatchHandle(id);
     }
 
     private final class ListenerImpl implements SpiderQueen.OnSpiderListener {

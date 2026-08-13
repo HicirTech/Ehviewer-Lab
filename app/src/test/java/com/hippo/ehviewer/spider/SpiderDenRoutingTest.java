@@ -50,7 +50,8 @@ import org.robolectric.annotation.Resetter;
  */
 @RunWith(RobolectricTestRunner.class)
 @Config(application = android.app.Application.class,
-        shadows = SpiderDenRoutingTest.ShadowSmbSpiderStorage.class,
+        shadows = {SpiderDenRoutingTest.ShadowSmbSpiderStorage.class,
+                SpiderDenRoutingTest.ShadowMimeAwareBitmapFactory.class},
         instrumentedPackages = "com.hippo.ehviewer.smb")
 public class SpiderDenRoutingTest {
 
@@ -71,11 +72,21 @@ public class SpiderDenRoutingTest {
 
         /** Whether the share already holds the page being asked for. */
         static boolean hasImage = false;
+        /** Whether the share will accept a write at all, for simulating a copy that fails. */
+        static boolean writable = true;
 
         @Resetter
         public static void reset() {
             calls.clear();
             hasImage = false;
+            writable = true;
+            lastWrite = null;
+            lastWriteExtension = null;
+        }
+
+        /** What reached the share, as text, or null if nothing did. */
+        static String written() {
+            return lastWrite == null ? null : new String(lastWrite.toByteArray(), StandardCharsets.UTF_8);
         }
 
         @Implementation
@@ -108,10 +119,20 @@ public class SpiderDenRoutingTest {
             return true;
         }
 
+        /** What the last write to the share carried, or null if there was none. */
+        static ByteArrayOutputStream lastWrite;
+        /** The extension the share was asked to store the page under. */
+        static String lastWriteExtension;
+
         @Implementation
         protected OutputStreamPipe openImageOutputStreamPipe(int index, String extension) {
             calls.add("openImageOutputStreamPipe");
-            return null;
+            if (!writable) {
+                return null;
+            }
+            lastWriteExtension = extension;
+            lastWrite = new ByteArrayOutputStream();
+            return new ByteArrayOutPipe(lastWrite);
         }
 
         @Implementation
@@ -119,6 +140,47 @@ public class SpiderDenRoutingTest {
             calls.add("openImageInputStreamPipe");
             // A page is only readable on the share once it has been uploaded.
             return hasImage ? new ByteArrayPipe("on-share".getBytes(StandardCharsets.UTF_8)) : null;
+        }
+    }
+
+    /** Minimal writable pipe, so a copy onto the share can be inspected rather than merely counted. */
+    private static final class ByteArrayOutPipe implements OutputStreamPipe {
+        private final ByteArrayOutputStream sink;
+
+        ByteArrayOutPipe(ByteArrayOutputStream sink) {
+            this.sink = sink;
+        }
+
+        @Override
+        public void obtain() {}
+
+        @Override
+        public void release() {}
+
+        @Override
+        public OutputStream open() {
+            return sink;
+        }
+
+        @Override
+        public void close() {}
+    }
+
+    /**
+     * The extension a page is stored under is read from the bytes, and Robolectric's BitmapFactory
+     * does not report a MIME type for anything. Without this the copy gives up before it starts,
+     * for a reason that has nothing to do with the routing being pinned here.
+     */
+    @Implements(android.graphics.BitmapFactory.class)
+    public static class ShadowMimeAwareBitmapFactory {
+        @Implementation
+        protected static android.graphics.Bitmap decodeStream(
+                InputStream is, android.graphics.Rect outPadding,
+                android.graphics.BitmapFactory.Options opts) {
+            if (opts != null) {
+                opts.outMimeType = "image/jpeg";
+            }
+            return null;
         }
     }
 
@@ -156,6 +218,16 @@ public class SpiderDenRoutingTest {
         info.gid = GID;
         info.token = "f47cc446f3";
         info.title = "routing fixture";
+
+        // Robolectric's MimeTypeMap starts empty, and the copy names a page on the share by the
+        // extension it derives from the bytes. Without this the copy gives up for a reason that
+        // has nothing to do with the routing being pinned here.
+        org.robolectric.Shadows.shadowOf(android.webkit.MimeTypeMap.getSingleton())
+                .addExtensionMimeTypeMapping("jpg", "image/jpeg");
+
+        // Finding the phone's copy asks the download database for the folder name before it falls
+        // back to listing. Robolectric gives it a real SQLite file under the temp dir.
+        com.hippo.ehviewer.EhDB.initialize(RuntimeEnvironment.getApplication());
 
         // A backend exists only while the gallery is marked; this is the real gate.
         SmbStorage.markGidAsSmbTarget(GID);
@@ -250,19 +322,30 @@ public class SpiderDenRoutingTest {
         assertNull(den(SpiderQueen.MODE_DOWNLOAD).openInputStreamPipe(INDEX));
     }
 
-    // --- I3: contain() must not claim un-uploaded pages -------------------------------------
+    // --- I3: contain() is true only if the page is on the share ------------------------------
+    //
+    // The downloader decides what to fetch from contain(), so a page it counts as present is a
+    // page it will never fetch. This used to be stated as "a cached page does not count", which
+    // was the right rule while the cache could not reach the share: counting it would have left
+    // the share copy missing that page.
+    //
+    // A cached page can be put on the share now, so the rule is stated as what it was always
+    // protecting: true means the page is there, whether it already was or this call put it there.
+    // A copy that fails must still answer false, or the download skips a page it never wrote.
 
     /**
-     * The downloader decides what to fetch from contain(). If a cached-but-not-uploaded page
-     * counted as present it would be skipped, leaving the share copy incomplete. Deliberately the
-     * opposite direction from I2 — easy to "unify" by accident.
+     * The direction that keeps the share complete. If the share will not take the write, the page
+     * is not on it, and saying otherwise loses the page for good -- the downloader moves on and
+     * nothing comes back to it.
      */
     @Test
-    public void invariant3_containIsFalseWhenOnlyTheCacheHasThePage() {
+    public void invariant3_containIsFalseWhenTheCachedPageCannotBeCopiedAcross() {
         seedCache();
         ShadowSmbSpiderStorage.hasImage = false;
+        ShadowSmbSpiderStorage.writable = false;
 
-        assertFalse(den(SpiderQueen.MODE_DOWNLOAD).contain(INDEX));
+        assertFalse("a page that could not be written to the share was counted as present",
+                den(SpiderQueen.MODE_DOWNLOAD).contain(INDEX));
     }
 
     @Test
@@ -326,5 +409,117 @@ public class SpiderDenRoutingTest {
 
         assertNotNull(den.openSpiderInfoOutputStream(".ehviewer"));
         assertTrue(ShadowSmbSpiderStorage.calls.contains("openSpiderInfoOutputStream"));
+    }
+
+    // --- I5: a page this device already has must never be fetched again ----------------------
+    //
+    // contain() is what the download loop asks before fetching a page. For a share-backed gallery
+    // it used to mean only "is it on the share": the cache bridge beside it went through
+    // getDownloadDir(), which returns null the moment a remote backend is active, so it could
+    // never fire. Two consequences, both fixed by the same clause: reading a new gallery with
+    // auto-download on fetched its first pages twice (they land in the cache while the den is
+    // still in read mode), and moving a download to the share needed a copy loop of its own.
+
+    /** The copy itself: a cached page, byte for byte, onto the share. */
+    @Test
+    public void invariant5_aCachedPageCanBePutOnTheShare() {
+        seedCache();
+
+        assertTrue(SpiderDen.copyFromCacheToRemote(info, INDEX));
+        assertEquals("the cached page did not reach the share",
+                "in-cache", ShadowSmbSpiderStorage.written());
+    }
+
+    /** The cache bridge that existed on paper. A page already fetched must go across, not again. */
+    @Test
+    public void invariant5_downloadModePutsACachedPageOnTheShare() {
+        seedCache();
+        ShadowSmbSpiderStorage.hasImage = false;
+
+        boolean present = den(SpiderQueen.MODE_DOWNLOAD).contain(INDEX);
+
+        assertTrue("a page sitting in the cache must count as present", present);
+        assertEquals("the cached page did not reach the share",
+                "in-cache", ShadowSmbSpiderStorage.written());
+    }
+
+    /** The phone's own copy is the other such hand, and is what makes a move a download. */
+    @Test
+    public void invariant5_downloadModePutsAPhoneCopyOnTheShare() {
+        seedPhoneCopy("from-phone");
+        ShadowSmbSpiderStorage.hasImage = false;
+
+        boolean present = den(SpiderQueen.MODE_DOWNLOAD).contain(INDEX);
+
+        assertTrue("a page sitting in phone storage must count as present", present);
+        assertEquals("the phone's copy did not reach the share",
+                "from-phone", ShadowSmbSpiderStorage.written());
+        assertEquals("stored under the extension it already had",
+                ".jpg", ShadowSmbSpiderStorage.lastWriteExtension);
+    }
+
+    /**
+     * Order matters as much as the sources do. The share is asked first, so a page already there is
+     * not copied over itself once per pass of the download loop.
+     */
+    @Test
+    public void invariant5_theShareIsAskedBeforeAnythingIsCopied() {
+        seedCache();
+        ShadowSmbSpiderStorage.hasImage = true;
+
+        assertTrue(den(SpiderQueen.MODE_DOWNLOAD).contain(INDEX));
+
+        assertFalse("a page already on the share was written to it again",
+                ShadowSmbSpiderStorage.calls.contains("openImageOutputStreamPipe"));
+    }
+
+    /**
+     * I1 again, from the other side. Reading asks; only downloading moves things. A den in read
+     * mode holding a cached page must not push it to the share, or browsing would upload.
+     */
+    @Test
+    public void invariant5_readModeStillCopiesNothing() {
+        seedCache();
+        ShadowSmbSpiderStorage.hasImage = false;
+
+        assertTrue("the cached page should still satisfy a read", den(SpiderQueen.MODE_READ).contain(INDEX));
+
+        assertFalse("read mode wrote to the share",
+                ShadowSmbSpiderStorage.calls.contains("openImageOutputStreamPipe"));
+    }
+
+    /** Nowhere is nowhere: the download must be told to go and fetch it. */
+    @Test
+    public void invariant5_nothingIsCopiedWhenThePageIsNowhere() {
+        ShadowSmbSpiderStorage.hasImage = false;
+
+        assertFalse(den(SpiderQueen.MODE_DOWNLOAD).contain(INDEX));
+
+        assertNull("something was written for a page nobody has",
+                ShadowSmbSpiderStorage.written());
+    }
+
+    /**
+     * Puts one page of this gallery in phone storage, the way a completed phone download leaves it.
+     *
+     * <p>The folder name goes in the download database too, which is where a real phone download
+     * records it. Without that entry the lookup falls back to listing the download directory, and
+     * that path refuses to run on the main thread -- which is the only thread a Robolectric test
+     * has. Seeding the row is not a shortcut around the production code; it is the state the
+     * production code is normally in.
+     */
+    private void seedPhoneCopy(String content) {
+        java.io.File root = new java.io.File(
+                RuntimeEnvironment.getApplication().getCacheDir(), "phone-downloads");
+        java.io.File dir = new java.io.File(root, GID + "-routing fixture");
+        com.hippo.ehviewer.EhDB.putDownloadDirname(GID, GID + "-routing fixture");
+        assertTrue(dir.mkdirs() || dir.isDirectory());
+        try (java.io.FileWriter w = new java.io.FileWriter(
+                new java.io.File(dir, SpiderDen.generateImageFilename(INDEX, ".jpg")))) {
+            w.write(content);
+        } catch (java.io.IOException e) {
+            throw new AssertionError(e);
+        }
+        Settings.putDownloadLocation(com.hippo.unifile.UniFile.fromFile(root));
     }
 }

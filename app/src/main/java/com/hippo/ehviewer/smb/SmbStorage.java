@@ -898,32 +898,6 @@ public final class SmbStorage {
         return null;
     }
 
-    public static void syncDownloadedGallery(@NonNull Context context, @NonNull DownloadInfo info) throws IOException {
-        if (!isConfigured()) {
-            throw new IOException("SMB is not configured");
-        }
-
-        UniFile localDir = SpiderDen.getGalleryDownloadDir(info);
-        if (localDir == null || !localDir.isDirectory()) {
-            throw new IOException("Local download folder not found");
-        }
-
-        CIFSContext cifs = buildContext();
-        SmbFile galleryRoot = new SmbFile(galleryRootUrl(), cifs);
-        if (!galleryRoot.exists()) {
-            galleryRoot.mkdirs();
-        }
-
-        SmbFile galleryDir = new SmbFile(galleryRoot, SmbPaths.buildGalleryFolderName(info) + "/");
-        if (!galleryDir.exists()) {
-            galleryDir.mkdirs();
-        }
-
-        copyUniDir(localDir, galleryDir, info.gid);
-        SmbMetadata.writeMetadataWithDetail(context, galleryDir, info);
-        downloadAndWriteCover(context, galleryDir, info);
-    }
-
     public static void finalizeDownloadedGallery(@NonNull Context context, @NonNull GalleryInfo info) {
         try {
             SmbFile galleryDir = getGalleryDir(info);
@@ -966,40 +940,6 @@ public final class SmbStorage {
             return 0;
         } finally {
             IOUtils.closeQuietly(is);
-        }
-    }
-
-    private static void copyUniDir(@NonNull UniFile srcDir, @NonNull SmbFile targetDir,
-                                   long gid) throws IOException {
-        UniFile[] children = srcDir.listFiles();
-        if (children == null) {
-            return;
-        }
-        for (UniFile child : children) {
-            String name = child.getName();
-            if (name == null) {
-                continue;
-            }
-            if (child.isDirectory()) {
-                SmbFile subDir = new SmbFile(targetDir, name + "/");
-                if (!subDir.exists()) {
-                    subDir.mkdirs();
-                }
-                copyUniDir(child, subDir, gid);
-            } else {
-                // Open the source first, hold it in a local so it's closed even if opening
-                // the SMB output stream throws (Java evaluates args left-to-right, so a
-                // throw from getOutputStream() would otherwise leak the already-open input).
-                InputStream in = child.openInputStream();
-                OutputStream out;
-                try {
-                    out = openAtomicOutputStream(targetDir, name, gid);
-                } catch (IOException e) {
-                    IOUtils.closeQuietly(in);
-                    throw e;
-                }
-                copyStream(in, out);
-            }
         }
     }
 
