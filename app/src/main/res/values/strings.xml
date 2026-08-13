@@ -105,9 +105,9 @@
     <string name="local_inventory_delete_failed">Could not delete it from the SMB share</string>
     <string name="local_inventory_resync">Re-sync with e-hentai</string>
     <string name="local_inventory_resync_title">Re-sync this gallery</string>
-    <string name="local_inventory_resync_metadata">Gallery info, except the title</string>
+    <string name="local_inventory_resync_metadata">Gallery info</string>
     <string name="local_inventory_resync_pages">Missing pages only</string>
-    <string name="local_inventory_resync_both">Info (except the title) and missing pages</string>
+    <string name="local_inventory_resync_both">Info and missing pages</string>
     <string name="local_inventory_resync_running">Re-syncing\u2026</string>
     <string name="local_inventory_resync_done">Gallery info updated</string>
     <string name="local_inventory_resync_failed">Could not reach e-hentai. Nothing was changed.</string>

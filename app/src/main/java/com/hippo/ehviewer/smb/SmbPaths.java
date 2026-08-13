@@ -101,8 +101,20 @@ public final class SmbPaths {
      */
     @NonNull
     public static String buildGalleryFolderName(@NonNull GalleryInfo info) {
-        String title = (info.title == null || info.title.isEmpty()) ? "gallery" : info.title;
-        return FileUtils.sanitizeFilename(info.gid + "-" + title);
+        return buildGalleryFolderName(info.gid, info.title);
+    }
+
+    /**
+     * The same name, from a gid and a title that need not be the ones a record currently holds.
+     *
+     * <p>Exists for renaming (#86): working out where a gallery would live under a new title means
+     * building the name from that title while the record still carries the old one. Deriving it by
+     * hand at the call site is how the two come to disagree about sanitising or the fallback.
+     */
+    @NonNull
+    public static String buildGalleryFolderName(long gid, @Nullable String title) {
+        String safe = (title == null || title.isEmpty()) ? "gallery" : title;
+        return FileUtils.sanitizeFilename(gid + "-" + safe);
     }
 
     /**

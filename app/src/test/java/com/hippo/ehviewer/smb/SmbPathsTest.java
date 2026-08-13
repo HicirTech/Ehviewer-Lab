@@ -238,4 +238,42 @@ public class SmbPathsTest {
     public void parseGid_handlesGidsBeyondIntRange() {
         assertEquals(3_000_000_000L, SmbPaths.parseGid("3000000000-title"));
     }
+
+    // --- buildGalleryFolderName(gid, title) ---------------------------------------------------
+    //
+    // Renaming needs the name a gallery would have under a title its record does not carry yet
+    // (#86). Deriving that by hand at the call site is how two spellings of the same rule appear.
+
+    /** The overload and the original must agree, or a rename computes a destination nothing reads. */
+    @Test
+    public void folderName_theOverloadAgreesWithTheRecordVersion() {
+        GalleryInfo info = new GalleryInfo();
+        info.gid = 4035531L;
+        info.title = "[Artist] A Title (Convention) [English]";
+
+        assertEquals(SmbPaths.buildGalleryFolderName(info),
+                SmbPaths.buildGalleryFolderName(info.gid, info.title));
+    }
+
+    /** A renamed folder must still be recognised as a gallery, and still yield its gid. */
+    @Test
+    public void folderName_aRenamedFolderIsStillOursAndStillCarriesTheGid() {
+        String renamed = SmbPaths.buildGalleryFolderName(4035531L, "A Completely New Title");
+
+        assertTrue(SmbPaths.isGalleryFolderName(renamed));
+        assertEquals(4035531L, SmbPaths.parseGid(renamed));
+    }
+
+    /** The empty-title fallback is part of the rule, so both spellings have to share it. */
+    @Test
+    public void folderName_theOverloadFallsBackTheSameWayOnAnEmptyTitle() {
+        GalleryInfo info = new GalleryInfo();
+        info.gid = 7L;
+        info.title = "";
+
+        assertEquals(SmbPaths.buildGalleryFolderName(info),
+                SmbPaths.buildGalleryFolderName(7L, ""));
+        assertEquals(SmbPaths.buildGalleryFolderName(7L, null),
+                SmbPaths.buildGalleryFolderName(7L, ""));
+    }
 }
