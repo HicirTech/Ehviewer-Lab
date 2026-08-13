@@ -49,7 +49,7 @@ import com.hippo.ehviewer.ui.GalleryActivity;
 import com.hippo.ehviewer.ui.scene.ToolbarScene;
 import com.hippo.ehviewer.ui.dialog.SelectItemWithIconAdapter;
 import com.hippo.ehviewer.ui.scene.gallery.detail.GalleryDetailScene;
-import com.hippo.ehviewer.widget.DownloadProgressBadge;
+import com.hippo.ehviewer.widget.SmbStatusBadge;
 import com.hippo.ehviewer.widget.GalleryInfoContentHelper;
 import com.hippo.ehviewer.widget.SimpleRatingView;
 import com.hippo.lib.yorozuya.SimpleHandler;
@@ -649,7 +649,7 @@ public class LocalInventoryScene extends ToolbarScene
         final TextView posted;
         final TextView simpleLanguage;
         final TextView pages;
-        final DownloadProgressBadge smbBadge;
+        final SmbStatusBadge smbBadge;
 
         InventoryHolder(View itemView) {
             super(itemView);
@@ -661,7 +661,7 @@ public class LocalInventoryScene extends ToolbarScene
             posted = (TextView) itemView.findViewById(R.id.posted);
             simpleLanguage = (TextView) itemView.findViewById(R.id.simple_language);
             pages = (TextView) itemView.findViewById(R.id.pages);
-            smbBadge = itemView.findViewById(R.id.smb_downloading_badge);
+            smbBadge = itemView.findViewById(R.id.smb_badge);
         }
     }
 
@@ -752,8 +752,7 @@ public class LocalInventoryScene extends ToolbarScene
             holder.smbBadge.setVisibility(View.GONE);
             return;
         }
-        holder.smbBadge.setColor(SmbDeviceColor.of(mark.clientId));
-        holder.smbBadge.setProgress(mark.progress);
+        holder.smbBadge.setProgress(SmbDeviceColor.of(mark.clientId), mark.progress);
         holder.smbBadge.setVisibility(View.VISIBLE);
     }
 

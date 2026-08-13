@@ -55,6 +55,7 @@ import java.lang.annotation.RetentionPolicy;
 import java.util.concurrent.ExecutorService;
 
 import com.hippo.ehviewer.spider.SpiderQueen;
+import com.hippo.ehviewer.widget.SmbStatusBadge;
 
 abstract class GalleryAdapterNew extends RecyclerView.Adapter<GalleryAdapterNew.GalleryHolder> {
 
@@ -263,6 +264,7 @@ abstract class GalleryAdapterNew extends RecyclerView.Adapter<GalleryAdapterNew.
                 }
                 holder.favourite.setVisibility((mShowFavourite && gi.favoriteSlot >= -1 && gi.favoriteSlot <= 10) ? View.VISIBLE : View.GONE);
                 holder.downloaded.setVisibility(mDownloadManager.containDownloadInfo(gi.gid) ? View.VISIBLE : View.GONE);
+                SmbStatusBadge.bindSaved(holder.smbBadge, gi.gid);
                 break;
             }
             case TYPE_GRID: {
@@ -304,6 +306,9 @@ abstract class GalleryAdapterNew extends RecyclerView.Adapter<GalleryAdapterNew.
         public final TextView simpleLanguage;
         public final ImageView favourite;
         public final ImageView downloaded;
+        /** Null on the grid card, which has no room for it. */
+        @Nullable
+        public final SmbStatusBadge smbBadge;
 
         public GalleryHolder(View itemView, final OnThumbItemClickListener onThumbItemClickListener, int mType) {
             super(itemView);
@@ -317,6 +322,7 @@ abstract class GalleryAdapterNew extends RecyclerView.Adapter<GalleryAdapterNew.
             simpleLanguage = itemView.findViewById(R.id.simple_language);
             favourite = itemView.findViewById(R.id.favourited);
             downloaded = itemView.findViewById(R.id.downloaded);
+            smbBadge = itemView.findViewById(R.id.smb_badge);
             if (mType == 0) {
                 thumb.setOnClickListener(v -> {
                     if (onThumbItemClickListener != null) {

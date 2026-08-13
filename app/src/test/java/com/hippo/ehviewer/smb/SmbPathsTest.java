@@ -180,4 +180,62 @@ public class SmbPathsTest {
         assertFalse(SmbPaths.isGalleryFolderName(null));
         assertFalse(SmbPaths.isGalleryFolderName(""));
     }
+
+    // --- parseGid ----------------------------------------------------------------------------
+    //
+    // The folder name is the only place a gid can be read without opening anything, which is what
+    // makes "which galleries are on the share?" one directory enumeration instead of one
+    // metadata.json read per gallery (#83). A wrong answer here marks the wrong card.
+
+    /**
+     * The round trip is the point: a name this app wrote must give back the gid it was written
+     * from. Break the pairing and nothing fails — galleries just quietly stop being recognised.
+     */
+    @Test
+    public void parseGid_recoversWhatBuildGalleryFolderNameEncoded() {
+        GalleryInfo info = new GalleryInfo();
+        info.gid = 4035531L;
+        info.title = "[Artist] A Title (Convention) [English]";
+
+        assertEquals(4035531L, SmbPaths.parseGid(SmbPaths.buildGalleryFolderName(info)));
+    }
+
+    /** A title full of its own dashes is ordinary; only the first one delimits the gid. */
+    @Test
+    public void parseGid_stopsAtTheFirstDash() {
+        assertEquals(123L, SmbPaths.parseGid("123-a-b-c"));
+    }
+
+    /** Whatever the name test rejects, this rejects — or the two would disagree about a folder. */
+    @Test
+    public void parseGid_refusesEverythingIsGalleryFolderNameRefuses() {
+        String[] notGalleries = {
+                null, "", "@eaDir", "#recycle", "state", "download",
+                "12ab-title", "-title", "abc-title", "123-", "123",
+        };
+        for (String name : notGalleries) {
+            assertFalse("isGalleryFolderName accepts " + name, SmbPaths.isGalleryFolderName(name));
+            assertEquals("parseGid accepts " + name,
+                    SmbPaths.NOT_A_GALLERY, SmbPaths.parseGid(name));
+        }
+    }
+
+    /**
+     * A run of digits too long for a long must be refused rather than wrapped. Silently wrapping
+     * would hand back a real-looking gid belonging to some other gallery, and mark that one as
+     * saved — a wrong mark on a stranger's card is worse than no mark at all.
+     */
+    @Test
+    public void parseGid_refusesANumberTooLargeToBeAGid() {
+        String huge = "99999999999999999999999-title";
+
+        assertTrue("the name itself looks like ours", SmbPaths.isGalleryFolderName(huge));
+        assertEquals(SmbPaths.NOT_A_GALLERY, SmbPaths.parseGid(huge));
+    }
+
+    /** Real gids are large; nothing here may assume they fit in an int. */
+    @Test
+    public void parseGid_handlesGidsBeyondIntRange() {
+        assertEquals(3_000_000_000L, SmbPaths.parseGid("3000000000-title"));
+    }
 }

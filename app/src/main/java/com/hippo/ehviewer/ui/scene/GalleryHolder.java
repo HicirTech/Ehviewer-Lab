@@ -18,6 +18,8 @@ package com.hippo.ehviewer.ui.scene;
 
 import android.view.View;
 import android.widget.ImageView;
+
+import androidx.annotation.Nullable;
 import android.widget.TextView;
 import androidx.recyclerview.widget.RecyclerView;
 import com.hippo.ehviewer.R;
@@ -36,6 +38,9 @@ public class GalleryHolder extends RecyclerView.ViewHolder {
     public final TextView simpleLanguage;
     public final ImageView favourited;
     public final ImageView downloaded;
+    /** Null on the grid card, which has no room for it. */
+    @Nullable
+    public final com.hippo.ehviewer.widget.SmbStatusBadge smbBadge;
 
     public GalleryHolder(View itemView) {
         super(itemView);
@@ -49,6 +54,7 @@ public class GalleryHolder extends RecyclerView.ViewHolder {
         simpleLanguage = itemView.findViewById(R.id.simple_language);
         favourited = itemView.findViewById(R.id.favourited);
         downloaded = itemView.findViewById(R.id.downloaded);
+        smbBadge = itemView.findViewById(R.id.smb_badge);
     }
 
 }

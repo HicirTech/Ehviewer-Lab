@@ -58,6 +58,7 @@ import com.hippo.drawable.DrawerArrowDrawable
 import com.hippo.easyrecyclerview.EasyRecyclerView
 import com.hippo.easyrecyclerview.EasyRecyclerView.CustomChoiceListener
 import com.hippo.easyrecyclerview.FastScroller.OnDragHandlerListener
+import com.hippo.ehviewer.smb.SmbSavedGalleries
 import com.hippo.ehviewer.EhApplication
 import com.hippo.ehviewer.EhDB
 import com.hippo.ehviewer.R
@@ -114,6 +115,9 @@ class FavoritesScene : BaseScene(), EasyRecyclerView.OnItemClickListener,
 
     @ViewLifeCircle
     private var mAdapter: FavoritesAdapter? = null
+
+    /** Redraws the cards once the list of galleries already on the share arrives (#83). */
+    private val mSavedObserver = SmbSavedGalleries.Observer { mAdapter?.notifyDataSetChanged() }
 
     @ViewLifeCircle
     private var mHelper: FavoritesHelper? = null
@@ -192,6 +196,8 @@ class FavoritesScene : BaseScene(), EasyRecyclerView.OnItemClickListener,
         val context = getEHContext()
         AssertUtils.assertNotNull(context)
         executorService = EhApplication.getExecutorService(context!!)
+        SmbSavedGalleries.getInstance().addObserver(mSavedObserver)
+        SmbSavedGalleries.getInstance().refresh()
         mClient = EhApplication.getEhClient(context)
         mFavCatArray = Settings.getFavCat()
         mFavCountArray = Settings.getFavCount()
@@ -236,9 +242,17 @@ class FavoritesScene : BaseScene(), EasyRecyclerView.OnItemClickListener,
         outState.putIntArray(KEY_FAV_COUNT_ARRAY, mFavCountArray)
     }
 
+    override fun onResume() {
+        super.onResume()
+        // Settings is a separate activity, so coming back from switching SMB off does not rebuild
+        // this view. Without this the marks would sit there until it happened to be recreated.
+        SmbSavedGalleries.getInstance().refresh()
+    }
+
     override fun onDestroy() {
         super.onDestroy()
 
+        SmbSavedGalleries.getInstance().removeObserver(mSavedObserver)
         mClient = null
         mFavCatArray = null
         mFavCountArray = null
