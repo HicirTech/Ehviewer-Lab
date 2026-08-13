@@ -1045,6 +1045,7 @@
     <string name="local_inventory_sort_category">類別</string>
     <string name="local_inventory_delete">從 SMB 共享刪除</string>
     <string name="local_inventory_delete_confirm_title">刪除這本畫廊?</string>
+    <string name="local_inventory_delete_confirm_title_many">刪除這 %1$d 本畫廊?</string>
     <string name="local_inventory_delete_confirm_message">「%s」將從 SMB 共享上抹掉,無法復原。</string>
     <string name="local_inventory_delete_failed">沒能從 SMB 共享刪除</string>
     <string name="local_inventory_resync">與 e-hentai 重新同步</string>
@@ -1056,6 +1057,9 @@
     <string name="local_inventory_resync_done">畫廊資訊已更新</string>
     <string name="local_inventory_resync_failed">連不上 e-hentai,什麼都沒有改動。</string>
     <string name="local_inventory_resync_queued">已加入佇列,將補齊缺少的頁。</string>
+    <string name="local_inventory_delete_confirm_many">%1$d 本畫廊將從 SMB 共享上抹掉,無法復原。</string>
+    <string name="local_inventory_delete_many_done">已刪除 %1$d / %2$d</string>
+    <string name="local_inventory_resync_many_done">已更新 %1$d / %2$d</string>
     <string name="smb_page_repair_failed">這一頁已重新載入,但沒能寫回 SMB 共享</string>
 
     <string name="smb_download_channel_name">SMB 儲存</string>

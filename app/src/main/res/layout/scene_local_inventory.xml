@@ -41,6 +41,33 @@
             app:backgroundTint="?attr/widgetColorThemeAccent"
             app:srcCompat="@drawable/v_refresh_dark_x24" />
 
+        <!-- Secondary 3: re-sync the selected galleries. Selection mode only. -->
+        <com.google.android.material.floatingactionbutton.FloatingActionButton
+            style="@style/Widget.Design.FloatingActionButton.Mini"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:visibility="gone"
+            app:backgroundTint="?attr/widgetColorThemeAccent"
+            app:srcCompat="@drawable/v_refresh_dark_x24" />
+
+        <!-- Secondary 4: delete the selected galleries. Selection mode only. -->
+        <com.google.android.material.floatingactionbutton.FloatingActionButton
+            style="@style/Widget.Design.FloatingActionButton.Mini"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:visibility="gone"
+            app:backgroundTint="?attr/widgetColorThemeAccent"
+            app:srcCompat="@drawable/v_delete_dark_x24" />
+
+        <!-- Secondary 5: select all / none. Selection mode only. -->
+        <com.google.android.material.floatingactionbutton.FloatingActionButton
+            style="@style/Widget.Design.FloatingActionButton.Mini"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:visibility="gone"
+            app:backgroundTint="?attr/widgetColorThemeAccent"
+            app:srcCompat="@drawable/v_check_all_dark_x24" />
+
         <!-- Primary. The style is not optional: without it this falls back to the theme's
              Widget.MaterialComponents.FloatingActionButton, and this one button ends up with a
              different elevation and corner from every other primary FAB in the app (#74). -->
