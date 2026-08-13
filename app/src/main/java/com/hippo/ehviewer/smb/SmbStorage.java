@@ -66,6 +66,41 @@ public final class SmbStorage {
     static final int SMB_IO_BUFFER = 256 * 1024;
 
     /**
+     * Reads the whole inventory's metadata concurrently. How many at once is a setting — see
+     * {@link SmbConcurrency} for what the cost actually is and how the default was measured.
+     *
+     * <p>Shared rather than created per call: opening the inventory is something a user does often,
+     * and spinning up threads each time to have them idle a moment later is the waste a pool exists
+     * to avoid. Daemon threads, so they never hold the process up.
+     */
+    private static final java.util.concurrent.ThreadPoolExecutor INVENTORY_EXECUTOR =
+            new java.util.concurrent.ThreadPoolExecutor(
+                    SmbConcurrency.DEFAULT_METADATA, SmbConcurrency.DEFAULT_METADATA,
+                    10L, java.util.concurrent.TimeUnit.SECONDS,
+                    new java.util.concurrent.LinkedBlockingQueue<>(),
+                    r -> {
+                        Thread t = new Thread(r, "smb-inventory-read");
+                        t.setDaemon(true);
+                        return t;
+                    });
+
+    static {
+        INVENTORY_EXECUTOR.allowCoreThreadTimeOut(true);
+    }
+
+    /**
+     * The pool the inventory reads on, resized to whatever the setting says now.
+     *
+     * <p>Package-private so the settings screen's benchmark measures the same pool the app uses,
+     * rather than a copy of it that might behave differently.
+     */
+    @NonNull
+    static java.util.concurrent.ThreadPoolExecutor inventoryExecutor() {
+        SmbConcurrency.resize(INVENTORY_EXECUTOR, SmbConcurrency.metadata());
+        return INVENTORY_EXECUTOR;
+    }
+
+    /**
      * Per-gid intent mark for routing reads/writes to SMB. Replaces the old global
      * {@code Settings.getSmbSaveEnabled()} routing flag — that was leaking phone downloads
      * onto the SMB share whenever the master toggle was on. Now only galleries explicitly
@@ -1082,6 +1117,7 @@ public final class SmbStorage {
             if (children == null) {
                 return new ArrayList<>();
             }
+            List<SmbFile> folders = new ArrayList<>();
             for (SmbFile child : children) {
                 if (!child.isDirectory()) {
                     continue;
@@ -1092,27 +1128,33 @@ public final class SmbStorage {
                 if (!SmbPaths.isGalleryFolderName(trimTrailingSlash(child.getName()))) {
                     continue;
                 }
-                SmbFile metadata = new SmbFile(child, METADATA_FILE);
-                if (!metadata.exists()) {
-                    continue;
-                }
-                String json;
-                try (InputStream is = metadata.getInputStream()) {
-                    json = readAll(is);
-                }
-                reads++;
-                JSONObject object = JSONObject.parseObject(json);
-                if (object == null) {
-                    continue;
-                }
-                GalleryInfo info = GalleryInfo.galleryInfoFromJson(object);
-                long mtime;
+                folders.add(child);
+            }
+
+            java.util.concurrent.ThreadPoolExecutor pool = inventoryExecutor();
+            List<java.util.concurrent.Future<SmbSortMode.Entry>> pending =
+                    new ArrayList<>(folders.size());
+            for (SmbFile child : folders) {
+                pending.add(pool.submit(() -> readEntry(child)));
+            }
+            // Collected in submission order, so the list this builds is the same one the serial
+            // version built. It is sorted immediately afterwards anyway, but two orderings that
+            // agree before sorting is one less thing for a comparator tie to expose.
+            for (java.util.concurrent.Future<SmbSortMode.Entry> f : pending) {
+                SmbSortMode.Entry entry;
                 try {
-                    mtime = metadata.lastModified();
-                } catch (Throwable ignored) {
-                    mtime = 0L;
+                    entry = f.get();
+                } catch (Throwable e) {
+                    // One unreadable gallery must not lose the other eleven. The serial version
+                    // skipped it and carried on; letting the exception out of the loop here would
+                    // abandon the whole inventory instead.
+                    Log.w(TAG, "Skipping a gallery whose metadata could not be read", e);
+                    continue;
                 }
-                entries.add(new SmbSortMode.Entry(info, mtime));
+                if (entry != null) {
+                    reads++;
+                    entries.add(entry);
+                }
             }
         } catch (Throwable e) {
             Log.e(TAG, "Failed to load SMB inventory", e);
@@ -1132,6 +1174,41 @@ public final class SmbStorage {
                 + " sort=" + (SystemClock.elapsedRealtime() - tSort) + "ms"
                 + " thr=" + Thread.currentThread().getName());
         return toGalleryList(entries);
+    }
+
+    /**
+     * One gallery folder's metadata, or null when the folder carries none.
+     *
+     * <p>Runs on {@link #INVENTORY_EXECUTOR}, one folder per task, so it must not touch anything
+     * this class holds. It does not: the folder handle comes in, the context behind it is jcifs'
+     * own pooled one, and nothing here is shared with the other tasks.
+     *
+     * <p>The {@code exists()} first is deliberate — see the note in {@link #readGalleryInfo} on why
+     * skipping it saves nothing measurable. Here it earns its keep twice over, because it also
+     * populates the attributes {@link SmbFile#lastModified()} then reads without a second query.
+     */
+    @Nullable
+    private static SmbSortMode.Entry readEntry(@NonNull SmbFile folder) throws IOException {
+        SmbFile metadata = new SmbFile(folder, METADATA_FILE);
+        if (!metadata.exists()) {
+            return null;
+        }
+        String json;
+        try (InputStream is = metadata.getInputStream()) {
+            json = readAll(is);
+        }
+        JSONObject object = JSONObject.parseObject(json);
+        if (object == null) {
+            return null;
+        }
+        GalleryInfo info = GalleryInfo.galleryInfoFromJson(object);
+        long mtime;
+        try {
+            mtime = metadata.lastModified();
+        } catch (Throwable ignored) {
+            mtime = 0L;
+        }
+        return new SmbSortMode.Entry(info, mtime);
     }
 
     @NonNull
@@ -1254,6 +1331,10 @@ public final class SmbStorage {
             SmbFile galleryRoot = new SmbFile(galleryRootUrl(), cifs);
             SmbFile folder = new SmbFile(galleryRoot, ref.folderName + "/");
             SmbFile metadata = new SmbFile(folder, METADATA_FILE);
+            // The exists() check stays. Opening straight away and reading "not found" off the
+            // exception looks like one round trip saved per row, and it was tried: median per-row
+            // time went from 34 ms to 33 ms, which is nothing. Whatever this costs, it is not the
+            // existence query, so the version with fewer moving parts is the one worth keeping.
             if (!metadata.exists()) {
                 Log.i("SmbPerf", "inventory.info " + ref.folderName + " missing "
                         + (SystemClock.elapsedRealtime() - t0) + "ms thr="

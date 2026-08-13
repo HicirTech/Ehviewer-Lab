@@ -1070,4 +1070,16 @@
     <string name="settings_smb_field_unset_password">点击设置密码</string>
 
     <string name="settings_about_upstream">上游 / 原项目</string>
+    <string name="settings_smb_metadata_concurrency">元数据并发数</string>
+    <string name="settings_smb_metadata_concurrency_summary">当前 %s 个并发。逐个读取画廊记录正是大库存排序缓慢的原因;过多则只会互相争抢。</string>
+    <string name="settings_smb_image_concurrency">图片并发数</string>
+    <string name="settings_smb_image_concurrency_summary">当前 %s 个并发。页面图片较大,超过某个数量后链路已满,再增加只是彼此等待。</string>
+    <string name="settings_smb_benchmark">测试当前共享</string>
+    <string name="settings_smb_benchmark_summary">用上面两个设置,测量一次目录枚举、一批画廊记录和几张页面图片的耗时。全程只读,不会向共享写入任何内容。</string>
+    <string name="settings_smb_benchmark_running">测量中…</string>
+    <string name="settings_smb_benchmark_title">共享性能</string>
+    <string name="settings_smb_benchmark_empty">共享上还没有画廊,无从测量。先保存一本再试。</string>
+    <string name="settings_smb_benchmark_unconfigured">请先填写主机和共享名。</string>
+    <string name="settings_smb_benchmark_result">枚举 %1$d 本画廊:%2$d 毫秒\n\n画廊记录,%3$d 并发:\n%4$d 本用时 %5$d 毫秒(每本 %6$s 毫秒)\n\n页面图片,%7$d 并发:\n%8$d 张用时 %9$d 毫秒(%10$s MB/秒)</string>
+    <string name="settings_smb_benchmark_hint">改动上面的设置后再测一次即可对比。每次结果都有些许波动,微小差异应视为没有差异。</string>
 </resources>

@@ -1074,4 +1074,16 @@
     <string name="settings_smb_field_unset_password">點擊設定密碼</string>
 
     <string name="settings_about_upstream">上游 / 原專案</string>
+    <string name="settings_smb_metadata_concurrency">元數據並發數</string>
+    <string name="settings_smb_metadata_concurrency_summary">目前 %s 個並發。逐個讀取畫廊記錄正是大庫存排序緩慢的原因;過多則只會互相爭搶。</string>
+    <string name="settings_smb_image_concurrency">圖片並發數</string>
+    <string name="settings_smb_image_concurrency_summary">目前 %s 個並發。頁面圖片較大,超過某個數量後鏈路已滿,再增加只是彼此等待。</string>
+    <string name="settings_smb_benchmark">測試目前共享</string>
+    <string name="settings_smb_benchmark_summary">用上面兩個設定,測量一次目錄枚舉、一批畫廊記錄和幾張頁面圖片的耗時。全程唯讀,不會向共享寫入任何內容。</string>
+    <string name="settings_smb_benchmark_running">測量中…</string>
+    <string name="settings_smb_benchmark_title">共享效能</string>
+    <string name="settings_smb_benchmark_empty">共享上還沒有畫廊,無從測量。先儲存一本再試。</string>
+    <string name="settings_smb_benchmark_unconfigured">請先填寫主機和共享名。</string>
+    <string name="settings_smb_benchmark_result">枚舉 %1$d 本畫廊:%2$d 毫秒\n\n畫廊記錄,%3$d 並發:\n%4$d 本用時 %5$d 毫秒(每本 %6$s 毫秒)\n\n頁面圖片,%7$d 並發:\n%8$d 張用時 %9$d 毫秒(%10$s MB/秒)</string>
+    <string name="settings_smb_benchmark_hint">改動上面的設定後再測一次即可對比。每次結果都有些許波動,微小差異應視為沒有差異。</string>
 </resources>

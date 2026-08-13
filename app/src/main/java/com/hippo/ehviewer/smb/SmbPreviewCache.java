@@ -40,7 +40,7 @@ import jcifs.smb.SmbFile;
  * becomes effectively concurrent.
  *
  * <p>Bandwidth assumption: the local SMB share is treated as having effectively unlimited
- * bandwidth, so we fan out a fixed worker pool ({@link #PREFETCH_PARALLELISM}) per gallery
+ * bandwidth, so we fan out a worker pool (sized by {@link SmbConcurrency#image()}) per gallery
  * rather than per page. The cache directory is shared with the legacy on-demand temp
  * staging path so disk space is bounded by the same eviction (manual clear / cache wipe).
  */
@@ -48,10 +48,8 @@ public final class SmbPreviewCache {
 
     private static final String TAG = "SmbPreviewCache";
     private static final String CACHE_SUBDIR = "smb_preview";
-    private static final int PREFETCH_PARALLELISM = 6;
-
-    private static final ExecutorService PREFETCH_EXECUTOR = new ThreadPoolExecutor(
-            PREFETCH_PARALLELISM, PREFETCH_PARALLELISM,
+    private static final ThreadPoolExecutor PREFETCH_EXECUTOR = new ThreadPoolExecutor(
+            SmbConcurrency.DEFAULT_IMAGE, SmbConcurrency.DEFAULT_IMAGE,
             10L, TimeUnit.SECONDS,
             new LinkedBlockingQueue<>(),
             r -> {
@@ -61,7 +59,19 @@ public final class SmbPreviewCache {
             });
 
     static {
-        ((ThreadPoolExecutor) PREFETCH_EXECUTOR).allowCoreThreadTimeOut(true);
+        PREFETCH_EXECUTOR.allowCoreThreadTimeOut(true);
+    }
+
+    /**
+     * The prefetch pool, resized to whatever the image-concurrency setting says now.
+     *
+     * <p>Read through here rather than used directly so a change to the setting takes effect on the
+     * next gallery instead of on the next launch. Package-private for the settings screen's
+     * benchmark, which must measure the pool the app actually uses.
+     */
+    static ThreadPoolExecutor prefetchExecutor() {
+        SmbConcurrency.resize(PREFETCH_EXECUTOR, SmbConcurrency.image());
+        return PREFETCH_EXECUTOR;
     }
 
     /** Galleries we have already kicked off a prefetch for in this process. */
@@ -132,7 +142,7 @@ public final class SmbPreviewCache {
         }
         final GalleryInfo lookup = SmbStorage.lookupKey(gid, title);
         // One short-lived dispatch task; count-many per-page tasks are queued from inside it.
-        track(gid, PREFETCH_EXECUTOR.submit(() -> dispatchPages(lookup, gid, count)));
+        track(gid, prefetchExecutor().submit(() -> dispatchPages(lookup, gid, count)));
     }
 
     private static void dispatchPages(@NonNull GalleryInfo lookup, long gid, int count) {
@@ -144,7 +154,7 @@ public final class SmbPreviewCache {
                 break;
             }
             final int index = i;
-            track(gid, PREFETCH_EXECUTOR.submit(() -> {
+            track(gid, prefetchExecutor().submit(() -> {
                 // A queued task may run after the gallery was cancelled; bail cheaply.
                 if (!PREFETCHED_GIDS.contains(gid)) {
                     return;

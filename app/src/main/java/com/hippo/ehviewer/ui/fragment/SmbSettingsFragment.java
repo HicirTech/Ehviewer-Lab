@@ -6,6 +6,7 @@ import android.text.InputType;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
+import androidx.appcompat.app.AlertDialog;
 import androidx.annotation.Nullable;
 import androidx.preference.EditTextPreference;
 import androidx.preference.Preference;
@@ -14,7 +15,9 @@ import androidx.preference.TwoStatePreference;
 
 import com.hippo.ehviewer.R;
 import com.hippo.ehviewer.Settings;
+import com.hippo.ehviewer.smb.SmbBenchmark;
 import com.hippo.ehviewer.smb.SmbStorage;
+import com.hippo.lib.yorozuya.SimpleHandler;
 import com.hippo.util.IoThreadPoolExecutor;
 
 import java.util.HashMap;
@@ -42,6 +45,9 @@ public class SmbSettingsFragment extends PreferenceFragmentCompat implements Pre
     private EditTextPreference mPassword;
     @Nullable
     private Preference mTestConnection;
+    private Preference mBenchmark;
+    private Preference mMetadataConcurrency;
+    private Preference mImageConcurrency;
 
     /**
      * Snapshot of each EditText preference's XML-defined {@code android:summary} taken before
@@ -64,6 +70,9 @@ public class SmbSettingsFragment extends PreferenceFragmentCompat implements Pre
         mUsername = findPreference(Settings.KEY_SMB_USERNAME);
         mPassword = findPreference(Settings.KEY_SMB_PASSWORD);
         mTestConnection = findPreference("smb_test_connection");
+        mBenchmark = findPreference("smb_benchmark");
+        mMetadataConcurrency = findPreference(Settings.KEY_SMB_METADATA_CONCURRENCY);
+        mImageConcurrency = findPreference(Settings.KEY_SMB_IMAGE_CONCURRENCY);
 
         if (mPassword != null) {
             mPassword.setOnBindEditTextListener(editText -> editText.setInputType(
@@ -118,6 +127,12 @@ public class SmbSettingsFragment extends PreferenceFragmentCompat implements Pre
         if (mTestConnection != null) {
             mTestConnection.setOnPreferenceClickListener(preference -> {
                 testConnection();
+                return true;
+            });
+        }
+        if (mBenchmark != null) {
+            mBenchmark.setOnPreferenceClickListener(preference -> {
+                runBenchmark();
                 return true;
             });
         }
@@ -183,6 +198,9 @@ public class SmbSettingsFragment extends PreferenceFragmentCompat implements Pre
         if (mUsername != null) mUsername.setEnabled(enabled);
         if (mPassword != null) mPassword.setEnabled(enabled);
         if (mTestConnection != null) mTestConnection.setEnabled(enabled);
+        if (mBenchmark != null) mBenchmark.setEnabled(enabled);
+        if (mMetadataConcurrency != null) mMetadataConcurrency.setEnabled(enabled);
+        if (mImageConcurrency != null) mImageConcurrency.setEnabled(enabled);
     }
 
     private void updateTextSummary(@Nullable EditTextPreference preference, @Nullable String value) {
@@ -224,6 +242,69 @@ public class SmbSettingsFragment extends PreferenceFragmentCompat implements Pre
             current = fallback;
         }
         mHintSummaries.put(pref, current);
+    }
+
+    /**
+     * Measures the share at the settings currently in force and shows what came back.
+     *
+     * <p>A dialog and not a toast, unlike the connection test beside it. The result is several
+     * numbers whose point is being compared with the next run's, and a toast that has already
+     * faded is no use for that — nor is it any use to somebody who left the screen while a slow
+     * share was still answering.
+     *
+     * <p>The summary line doubles as the progress indicator: there is nothing else on this screen
+     * that could show one, and a share that takes ten seconds to answer would otherwise look like
+     * a button that does nothing.
+     */
+    private void runBenchmark() {
+        Context context = getContext();
+        if (context == null) {
+            return;
+        }
+        final Context appContext = context.getApplicationContext();
+        final CharSequence idleSummary = mBenchmark == null ? null : mBenchmark.getSummary();
+        if (mBenchmark != null) {
+            mBenchmark.setEnabled(false);
+            mBenchmark.setSummary(R.string.settings_smb_benchmark_running);
+        }
+        IoThreadPoolExecutor.Companion.getInstance().execute(() -> {
+            final SmbBenchmark.Result result = SmbBenchmark.run();
+            SimpleHandler.getInstance().post(() -> {
+                if (mBenchmark != null) {
+                    mBenchmark.setEnabled(true);
+                    mBenchmark.setSummary(idleSummary);
+                }
+                // The fragment may be gone by now; the numbers are not worth crashing over.
+                if (!isAdded() || getContext() == null) {
+                    return;
+                }
+                new AlertDialog.Builder(requireContext())
+                        .setTitle(R.string.settings_smb_benchmark_title)
+                        .setMessage(describe(appContext, result))
+                        .setPositiveButton(android.R.string.ok, null)
+                        .show();
+            });
+        });
+    }
+
+    @NonNull
+    private static CharSequence describe(@NonNull Context context,
+                                         @NonNull SmbBenchmark.Result r) {
+        if (!r.ok) {
+            return "empty".equals(r.problem)
+                    ? context.getString(R.string.settings_smb_benchmark_empty)
+                    : context.getString(R.string.settings_smb_benchmark_unconfigured);
+        }
+        // One decimal place. The run-to-run spread is larger than a tenth of a millisecond, so
+        // more digits would only suggest a precision the measurement does not have.
+        String perGallery = String.format(java.util.Locale.US, "%.1f", r.millisPerGallery());
+        String throughput = String.format(java.util.Locale.US, "%.1f", r.imageMegabytesPerSecond());
+        return context.getString(R.string.settings_smb_benchmark_result,
+                r.galleriesOnShare, r.listMillis,
+                r.metadataConcurrency, r.metadataRead, r.metadataMillis, perGallery,
+                r.imageConcurrency, r.imagesRead, r.imageMillis, throughput)
+                + "\n\n"
+                + context.getString(R.string.settings_smb_benchmark_hint);
     }
 
     private void testConnection() {
