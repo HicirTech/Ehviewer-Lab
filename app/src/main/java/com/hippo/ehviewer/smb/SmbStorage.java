@@ -563,13 +563,31 @@ public final class SmbStorage {
      */
     @Nullable
     private static SmbFile findSmbCoverFile(@NonNull GalleryInfo info) throws IOException {
+        long t0 = SystemClock.elapsedRealtime();
+        // Asks the share about each candidate name, and does NOT go through galleryFilenames()
+        // the way findSmbImageFile and its neighbours do. That was tried, on the reasoning that
+        // one listing must beat five existence checks, and measured: twelve covers went from
+        // 456 ms of probing to 951 ms. A gallery folder holds every page as well as the cover, so
+        // listing it returns far more than the five targeted questions do, and on this path the
+        // listing cache is cold — the inventory has no reason to have populated it.
+        //
+        // The probes are cheap. What is expensive is that there are five of them per cover and
+        // that every cover on a real share is .webp, the last entry in the extension list.
         SmbFile galleryDir = resolveGalleryDir(info);
+        int probes = 0;
         for (String extension : com.hippo.ehviewer.gallery.GalleryProvider2.SUPPORT_IMAGE_EXTENSIONS) {
             SmbFile file = new SmbFile(galleryDir, "cover" + extension);
+            probes++;
             if (file.exists()) {
+                Log.i("SmbPerf", "cover.find gid=" + info.gid + " probes=" + probes
+                        + " hit=" + extension + " " + (SystemClock.elapsedRealtime() - t0)
+                        + "ms thr=" + Thread.currentThread().getName());
                 return file;
             }
         }
+        Log.i("SmbPerf", "cover.find gid=" + info.gid + " MISSING "
+                + (SystemClock.elapsedRealtime() - t0) + "ms thr="
+                + Thread.currentThread().getName());
         return null;
     }
 
@@ -607,6 +625,7 @@ public final class SmbStorage {
                     tempFile = java.io.File.createTempFile("smb_cover_", null, dir);
                     InputStream remote = null;
                     OutputStream local = null;
+                    long tCopy = SystemClock.elapsedRealtime();
                     try {
                         // Buffered so the 16KB copy loop drains a 256KB prefetch instead of
                         // issuing one small SMB READ per chunk.
@@ -617,6 +636,12 @@ public final class SmbStorage {
                         IOUtils.closeQuietly(remote);
                         IOUtils.closeQuietly(local);
                     }
+                    // The thread name is half the point: covers are loaded through Conaco, whose
+                    // disk executor is serial, so seeing every one of these on the same thread is
+                    // what tells you they are queueing behind each other rather than overlapping.
+                    Log.i("SmbPerf", "cover.read gid=" + info.gid + " bytes=" + tempFile.length()
+                            + " " + (SystemClock.elapsedRealtime() - tCopy) + "ms thr="
+                            + Thread.currentThread().getName());
                     fis = new java.io.FileInputStream(tempFile);
                     return fis;
                 }
