@@ -14,6 +14,7 @@ import android.content.res.Resources;
 import android.graphics.Color;
 import android.graphics.drawable.ColorDrawable;
 import android.os.Bundle;
+import android.view.Gravity;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -28,6 +29,7 @@ import androidx.recyclerview.widget.StaggeredGridLayoutManager;
 
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
 import com.hippo.android.resource.AttrResources;
+import com.hippo.drawerlayout.DrawerLayout;
 import com.hippo.easyrecyclerview.EasyRecyclerView;
 import com.hippo.easyrecyclerview.MarginItemDecoration;
 import com.hippo.ehviewer.EhApplication;
@@ -526,19 +528,41 @@ public class LocalInventoryScene extends ToolbarScene
     @Override
     public void onIntoCustomChoice(EasyRecyclerView view) {
         showSelectionFabs();
+        if (mFabLayout != null) {
+            // Tapping elsewhere must not take the actions away while a selection is still
+            // standing. Auto-cancel is right for browsing, where the menu is transient.
+            mFabLayout.setAutoCancel(false);
+            // Posted, as on the favourites screen: the visibility swap above needs a layout pass
+            // before the expansion has the right buttons to animate.
+            SimpleHandler.getInstance().post(() -> {
+                if (mFabLayout != null) {
+                    mFabLayout.setExpanded(true);
+                }
+            });
+        }
         // A list that reloads under a selection loses it, and the pull-to-refresh gesture is easy
         // to trigger while reaching for a card.
         if (mHelper != null) {
             mHelper.setRefreshLayoutEnable(false);
         }
+        // An edge swipe towards a card at the margin would otherwise pull the navigation drawer
+        // out from under the selection.
+        setDrawerLockMode(DrawerLayout.LOCK_MODE_LOCKED_CLOSED, Gravity.LEFT);
+        setDrawerLockMode(DrawerLayout.LOCK_MODE_LOCKED_CLOSED, Gravity.RIGHT);
     }
 
     @Override
     public void onOutOfCustomChoice(EasyRecyclerView view) {
         showNormalFabs();
+        if (mFabLayout != null) {
+            mFabLayout.setAutoCancel(true);
+            mFabLayout.setExpanded(false);
+        }
         if (mHelper != null) {
             mHelper.setRefreshLayoutEnable(true);
         }
+        setDrawerLockMode(DrawerLayout.LOCK_MODE_UNLOCKED, Gravity.LEFT);
+        setDrawerLockMode(DrawerLayout.LOCK_MODE_UNLOCKED, Gravity.RIGHT);
     }
 
     @Override
