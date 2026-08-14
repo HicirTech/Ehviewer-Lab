@@ -425,7 +425,7 @@ public class SpiderDenRoutingTest {
     public void invariant5_aCachedPageCanBePutOnTheShare() {
         seedCache();
 
-        assertTrue(SpiderDen.copyFromCacheToRemote(info, INDEX));
+        assertTrue(RemotePageBridge.copyFromCacheToRemote(info, INDEX));
         assertEquals("the cached page did not reach the share",
                 "in-cache", ShadowSmbSpiderStorage.written());
     }

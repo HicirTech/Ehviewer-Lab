@@ -46,6 +46,7 @@ import com.hippo.ehviewer.client.EhUtils;
 import com.hippo.ehviewer.dao.DownloadInfo;
 import com.hippo.ehviewer.download.DownloadManager;
 import com.hippo.ehviewer.download.DownloadService;
+import com.hippo.ehviewer.smb.SmbTaskInfo;
 import com.hippo.ehviewer.gallery.A7ZipArchive;
 import com.hippo.ehviewer.gallery.Pipe;
 import com.hippo.ehviewer.spider.SpiderInfo;
@@ -192,7 +193,7 @@ public class DownloadAdapter extends RecyclerView.Adapter<DownloadAdapter.Downlo
 
             holder.title.setText(title);
             holder.uploader.setText(info.uploader);
-            bindSmbOwner(holder, info);
+            SmbTaskRowBinder.bindOwner(holder, info, mScene.getEHContext());
 
             // Handle rating display for imported archives
             if (info.archiveUri != null && info.archiveUri.startsWith("content://")) {
@@ -281,7 +282,7 @@ public class DownloadAdapter extends RecyclerView.Adapter<DownloadAdapter.Downlo
                 // it. The device holding it stopped answering, which is a different thing to tell
                 // someone: the download is intact and waiting, and the row's button offers to
                 // adopt it rather than to retry it.
-                if (com.hippo.ehviewer.smb.SmbTaskInfo.canTakeOver(info)) {
+                if (SmbTaskInfo.canTakeOver(info)) {
                     bindState(holder, info,
                             resources.getString(R.string.smb_task_owner_offline));
                     break;
@@ -316,81 +317,9 @@ public class DownloadAdapter extends RecyclerView.Adapter<DownloadAdapter.Downlo
             holder.stop.setVisibility(View.GONE);
         }
 
-        hideFieldsAnSmbTaskHasNone(holder, info);
-        hideControlsWeCannotHonour(holder, info);
+        SmbTaskRowBinder.hideAbsentFields(holder, info);
+        SmbTaskRowBinder.hideControlsWeCannotHonour(holder, info);
         holder.state.setText(state);
-    }
-
-    /**
-     * Blanks the parts of the card an SMB task has nothing to put in (#59).
-     *
-     * <p>Most of what a row draws is read from the gallery's own {@code metadata.json} on the
-     * share, so these are usually filled like any other download's. What is missing is missing for
-     * a reason: a gallery only just enqueued has a skeleton and no more, and a black <i>UNKNOWN</i>
-     * chip from category zero reads as a fact about the gallery rather than an absence of one.
-     *
-     */
-    private static void hideFieldsAnSmbTaskHasNone(DownloadHolder holder, DownloadInfo info) {
-        if (!com.hippo.ehviewer.smb.SmbTaskInfo.isSmb(info)) {
-            return;
-        }
-        if (info.uploader == null || info.uploader.isEmpty()) {
-            holder.uploader.setVisibility(View.GONE);
-        }
-        if (info.rating <= 0f) {
-            holder.rating.setVisibility(View.GONE);
-        }
-        if (info.category == com.hippo.ehviewer.client.EhUtils.UNKNOWN) {
-            holder.category.setVisibility(View.GONE);
-        }
-    }
-
-    /**
-     * Takes away the start/stop buttons on a download belonging to another device that is still
-     * running it (#59).
-     *
-     * <p>Neither would do anything: the download is being driven by a process on a different
-     * device, and this one cannot reach into it. A button that silently does nothing is worse than
-     * no button — it reads as the app having ignored the tap. An abandoned one keeps its start
-     * button, because there it means "take this over".
-     */
-    /**
-     * Says which device is saving an SMB task, and when it last checked in (#59).
-     *
-     * <p>The "when" is the part that decides things. Another device's row cannot say whether its
-     * download is moving — this one is not watching it, only reading what it last wrote — so how
-     * long ago it wrote is the whole signal: seconds means it is working, and minutes means
-     * something happened to it and the download is there to be taken over.
-     *
-     * <p>Nothing is said about this device's own tasks. The answer would be "this one, just now"
-     * on every row, which is noise.
-     */
-    private void bindSmbOwner(DownloadHolder holder, DownloadInfo info) {
-        if (!com.hippo.ehviewer.smb.SmbTaskInfo.isSmb(info)
-                || ((com.hippo.ehviewer.smb.SmbTaskInfo) info).mine) {
-            holder.smbOwner.setVisibility(View.GONE);
-            return;
-        }
-        com.hippo.ehviewer.smb.SmbTaskInfo smb = (com.hippo.ehviewer.smb.SmbTaskInfo) info;
-        Context context = mScene.getEHContext();
-        String text = smb.deviceName;
-        if (context != null && smb.lastSeenMillis > 0L) {
-            CharSequence ago = android.text.format.DateUtils.getRelativeTimeSpanString(
-                    smb.lastSeenMillis, System.currentTimeMillis(),
-                    android.text.format.DateUtils.SECOND_IN_MILLIS);
-            text = context.getString(R.string.smb_task_owner_last_seen, smb.deviceName, ago);
-        }
-        holder.smbOwner.setText(text);
-        holder.smbOwner.setVisibility(View.VISIBLE);
-    }
-
-    private static void hideControlsWeCannotHonour(DownloadHolder holder, DownloadInfo info) {
-        if (com.hippo.ehviewer.smb.SmbTaskInfo.isSmb(info)
-                && !com.hippo.ehviewer.smb.SmbTaskInfo.isActionable(info)
-                && !com.hippo.ehviewer.smb.SmbTaskInfo.canTakeOver(info)) {
-            holder.start.setVisibility(View.GONE);
-            holder.stop.setVisibility(View.GONE);
-        }
     }
 
     @SuppressLint("SetTextI18n")
@@ -420,13 +349,7 @@ public class DownloadAdapter extends RecyclerView.Adapter<DownloadAdapter.Downlo
             holder.progressBar.setMax(info.total);
             holder.progressBar.setProgress(info.finished);
         }
-        // Nobody measures the rate of a download happening on another device -- it is not ours to
-        // watch, and publishing a figure per second would mean writing to the share that often
-        // (#59). Showing "0 B/S" would read as stalled, so it is simply left out; the page count
-        // beside it already says whether anything is moving.
-        if (com.hippo.ehviewer.smb.SmbTaskInfo.isSmb(info)) {
-            holder.speed.setVisibility(View.GONE);
-            hideControlsWeCannotHonour(holder, info);
+        if (SmbTaskRowBinder.bindProgress(holder, info)) {
             return;
         }
         long speed = info.speed;
@@ -829,17 +752,7 @@ public class DownloadAdapter extends RecyclerView.Adapter<DownloadAdapter.Downlo
 
             } else if (start == v) {
                 final DownloadInfo info = list.get(mCallback.positionInList(index));
-                // An SMB save is not the phone's download service's business (#59): it belongs to
-                // whichever device claimed it, and starting it here would fetch the same gallery
-                // twice, to two different places.
-                if (com.hippo.ehviewer.smb.SmbTaskInfo.isSmb(info)) {
-                    if (com.hippo.ehviewer.smb.SmbTaskInfo.isActionable(info)) {
-                        com.hippo.ehviewer.smb.SmbDirectDownloader.getInstance().resume(info.gid);
-                    } else if (com.hippo.ehviewer.smb.SmbTaskInfo.canTakeOver(info)) {
-                        // Another device's, but it stopped saying so. Starting one of these means
-                        // adopting it, which is enough of a change of ownership to ask about first.
-                        mScene.confirmTakeOverSmbTask((com.hippo.ehviewer.smb.SmbTaskInfo) info);
-                    }
+                if (SmbTaskRowBinder.handleStartClick(info, mScene)) {
                     return;
                 }
                 Intent intent = new Intent(context, DownloadService.class);
@@ -848,10 +761,7 @@ public class DownloadAdapter extends RecyclerView.Adapter<DownloadAdapter.Downlo
                 context.startService(intent);
             } else if (stop == v) {
                 final DownloadInfo info = list.get(mCallback.positionInList(index));
-                if (com.hippo.ehviewer.smb.SmbTaskInfo.isSmb(info)) {
-                    if (com.hippo.ehviewer.smb.SmbTaskInfo.isActionable(info)) {
-                        com.hippo.ehviewer.smb.SmbDirectDownloader.getInstance().pause(info.gid);
-                    }
+                if (SmbTaskRowBinder.handleStopClick(info)) {
                     return;
                 }
                 DownloadManager downloadManager = mCallback.getDownloadManager();
