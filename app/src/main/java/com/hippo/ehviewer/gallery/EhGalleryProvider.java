@@ -18,6 +18,7 @@ package com.hippo.ehviewer.gallery;
 
 import android.content.Context;
 import com.hippo.ehviewer.storage.GalleryTargets;
+import com.hippo.ehviewer.storage.NetworkStorage;
 import java.util.Set;
 import java.util.HashSet;
 import java.util.Collections;
@@ -219,7 +220,8 @@ public class EhGalleryProvider extends GalleryProvider2 implements SpiderQueen.O
                 return;
             }
             SimpleHandler.getInstance().post(() -> Toast.makeText(
-                    appContext, R.string.smb_page_repair_failed, Toast.LENGTH_SHORT).show());
+                    appContext, appContext.getString(R.string.smb_page_repair_failed,
+                            NetworkStorage.active().displayName()), Toast.LENGTH_SHORT).show());
         });
     }
 

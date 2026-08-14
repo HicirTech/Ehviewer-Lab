@@ -15,6 +15,7 @@ import androidx.annotation.Nullable;
 import androidx.core.app.NotificationCompat;
 
 import com.hippo.ehviewer.R;
+import com.hippo.ehviewer.storage.NetworkStorage;
 
 /**
  * Foreground service that keeps the process alive while {@link SmbDirectDownloader} has work to
@@ -56,7 +57,8 @@ public final class SmbDownloadService extends Service {
     public void onCreate() {
         super.onCreate();
         ensureChannel();
-        startInForeground(buildNotification(getString(R.string.smb_download_notif_title),
+        startInForeground(buildNotification(getString(R.string.smb_download_notif_title,
+                        NetworkStorage.active().displayName()),
                 getString(R.string.smb_download_notif_preparing), 0, 0, true));
         SmbDirectDownloader.getInstance().attachService(this);
     }
@@ -69,7 +71,8 @@ public final class SmbDownloadService extends Service {
             return START_NOT_STICKY;
         }
         // Make sure the foreground notification is up even on re-start.
-        startInForeground(buildNotification(getString(R.string.smb_download_notif_title),
+        startInForeground(buildNotification(getString(R.string.smb_download_notif_title,
+                        NetworkStorage.active().displayName()),
                 getString(R.string.smb_download_notif_preparing), 0, 0, true));
         return START_STICKY;
     }
@@ -145,7 +148,7 @@ public final class SmbDownloadService extends Service {
             if (nm != null && nm.getNotificationChannel(CHANNEL_ID) == null) {
                 NotificationChannel channel = new NotificationChannel(
                         CHANNEL_ID,
-                        getString(R.string.smb_download_channel_name),
+                        getString(R.string.smb_download_channel_name, NetworkStorage.active().displayName()),
                         NotificationManager.IMPORTANCE_DEFAULT);
                 channel.setSound(null, null);
                 channel.enableVibration(false);

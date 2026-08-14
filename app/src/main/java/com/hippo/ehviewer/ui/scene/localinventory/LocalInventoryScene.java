@@ -166,7 +166,7 @@ public class LocalInventoryScene extends ToolbarScene
             }
             Toast.makeText(appContext,
                     total == 1
-                            ? getString(R.string.local_inventory_delete_failed)
+                            ? getString(R.string.local_inventory_delete_failed, NetworkStorage.active().displayName())
                             : getString(R.string.local_inventory_delete_many_done, gone, total),
                     Toast.LENGTH_LONG).show();
         }
@@ -291,16 +291,16 @@ public class LocalInventoryScene extends ToolbarScene
 
     @NonNull
     private String getEmptyString() {
-        if (!NetworkStorage.active().isConfigured() || !Settings.getSmbSaveEnabled()) {
+        if (!NetworkStorage.active().isConfigured() || !Settings.getNetworkStorageEnabled()) {
             return getString(R.string.local_inventory_disabled);
         }
-        return getString(R.string.local_inventory_empty);
+        return getString(R.string.local_inventory_empty, NetworkStorage.active().displayName());
     }
 
     @Override
     public void onViewCreated(View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
-        setTitle(R.string.local_inventory);
+        setTitle(getString(R.string.local_inventory, NetworkStorage.active().displayName()));
         setNavigationIcon(R.drawable.v_arrow_left_dark_x24);
     }
 
@@ -633,13 +633,15 @@ public class LocalInventoryScene extends ToolbarScene
                 : getString(R.string.local_inventory_delete_confirm_title_many, galleries.size());
         String message = one
                 ? getString(R.string.local_inventory_delete_confirm_message,
-                        EhUtils.getSuitableTitle(galleries.get(0)))
-                : getString(R.string.local_inventory_delete_confirm_many, galleries.size());
+                        EhUtils.getSuitableTitle(galleries.get(0)), NetworkStorage.active().displayName())
+                : getString(R.string.local_inventory_delete_confirm_many,
+                        galleries.size(), NetworkStorage.active().displayName());
         new AlertDialog.Builder(context)
                 .setTitle(title)
                 .setMessage(message)
                 .setNegativeButton(android.R.string.cancel, null)
-                .setPositiveButton(R.string.local_inventory_delete, (d, w) -> deleteGalleries(galleries))
+                .setPositiveButton(getString(R.string.local_inventory_delete, NetworkStorage.active().displayName()),
+                        (d, w) -> deleteGalleries(galleries))
                 .show();
     }
 

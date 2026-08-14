@@ -23,10 +23,16 @@ import com.hippo.util.IoThreadPoolExecutor;
 import java.util.HashMap;
 import java.util.Map;
 
-public class SmbSettingsFragment extends PreferenceFragmentCompat implements Preference.OnPreferenceChangeListener {
+public class NetworkStorageSettingsFragment extends PreferenceFragmentCompat implements Preference.OnPreferenceChangeListener {
 
     @Nullable
     private TwoStatePreference mMasterSwitch;
+    @Nullable
+    private androidx.preference.DropDownPreference mProtocol;
+    @Nullable
+    private androidx.preference.PreferenceCategory mSmbCategory;
+    @Nullable
+    private TwoStatePreference mSigning;
     @Nullable
     private TwoStatePreference mAutoDownloadSwitch;
     @Nullable
@@ -55,9 +61,12 @@ public class SmbSettingsFragment extends PreferenceFragmentCompat implements Pre
 
     @Override
     public void onCreatePreferences(@Nullable Bundle savedInstanceState, @Nullable String rootKey) {
-        addPreferencesFromResource(R.xml.smb_settings);
+        addPreferencesFromResource(R.xml.network_storage_settings);
 
-        mMasterSwitch = findPreference(Settings.KEY_SMB_SAVE_ENABLED);
+        mMasterSwitch = findPreference(Settings.KEY_NETWORK_STORAGE_ENABLED);
+        mProtocol = findPreference(Settings.KEY_STORAGE_PROTOCOL);
+        mSmbCategory = findPreference("category_protocol_smb");
+        mSigning = findPreference(Settings.KEY_SMB_SIGNING_DISABLED);
         mAutoDownloadSwitch = findPreference(Settings.KEY_SMB_AUTO_DOWNLOAD_ENABLED);
         mHost = findPreference(Settings.KEY_SMB_HOST);
         mPort = findPreference(Settings.KEY_SMB_PORT);
@@ -94,6 +103,10 @@ public class SmbSettingsFragment extends PreferenceFragmentCompat implements Pre
         if (mMasterSwitch != null) {
             mMasterSwitch.setOnPreferenceChangeListener(this);
         }
+        if (mProtocol != null) {
+            mProtocol.setOnPreferenceChangeListener(this);
+        }
+        applyProtocol(Settings.getStorageProtocol());
         if (mAutoDownloadSwitch != null) {
             mAutoDownloadSwitch.setOnPreferenceChangeListener(this);
         }
@@ -155,7 +168,7 @@ public class SmbSettingsFragment extends PreferenceFragmentCompat implements Pre
             });
         }
 
-        applyMasterState(Settings.getSmbSaveEnabled());
+        applyMasterState(Settings.getNetworkStorageEnabled());
     }
 
     @Override
@@ -201,6 +214,10 @@ public class SmbSettingsFragment extends PreferenceFragmentCompat implements Pre
                             .onSmbAvailabilityChanged());
             return true;
         }
+        if (preference == mProtocol) {
+            applyProtocol(value);
+            return true;
+        }
         if (preference == mAutoDownloadSwitch) {
             return true;
         }
@@ -224,7 +241,19 @@ public class SmbSettingsFragment extends PreferenceFragmentCompat implements Pre
         return true;
     }
 
+    /** Each protocol's category shows only while it is the selected protocol. */
+    private void applyProtocol(@NonNull String protocol) {
+        if (mSmbCategory != null) {
+            // A never-configured user (empty protocol) still sees the SMB fields: the selector
+            // displays its default and there is nothing else to show.
+            mSmbCategory.setVisible(protocol.isEmpty()
+                    || NetworkStorage.PROTOCOL_SMB.equals(protocol));
+        }
+    }
+
     private void applyMasterState(boolean enabled) {
+        if (mProtocol != null) mProtocol.setEnabled(enabled);
+        if (mSigning != null) mSigning.setEnabled(enabled);
         if (mAutoDownloadSwitch != null) mAutoDownloadSwitch.setEnabled(enabled);
         if (mHost != null) mHost.setEnabled(enabled);
         if (mPort != null) mPort.setEnabled(enabled);
@@ -444,11 +473,12 @@ public class SmbSettingsFragment extends PreferenceFragmentCompat implements Pre
                 // Non-null means the share is reachable but something about the setup needs
                 // saying — currently only that the gallery directory could not be created.
                 String warning = NetworkStorage.active().testConnection();
-                message = warning == null
-                        ? appContext.getString(R.string.settings_smb_test_success)
-                        : appContext.getString(R.string.settings_smb_test_success) + "\n" + warning;
+                String success = appContext.getString(
+                        R.string.settings_smb_test_success, NetworkStorage.active().displayName());
+                message = warning == null ? success : success + "\n" + warning;
             } catch (Exception e) {
-                message = appContext.getString(R.string.settings_smb_test_failed, e.getMessage());
+                message = appContext.getString(R.string.settings_smb_test_failed,
+                        NetworkStorage.active().displayName(), e.getMessage());
             }
             final CharSequence toastText = message;
             new android.os.Handler(android.os.Looper.getMainLooper()).post(() -> {

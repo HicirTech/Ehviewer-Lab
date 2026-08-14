@@ -1748,7 +1748,7 @@ public class GalleryDetailScene extends BaseScene implements View.OnClickListene
                 // auto-download toggle only governs the implicit reader-triggered enqueue,
                 // not this explicit click. (Previously this also required auto-download
                 // OFF, which silently routed everything to phone when auto was on.)
-                if (Settings.getSmbSaveEnabled() && NetworkStorage.active().isConfigured()) {
+                if (Settings.getNetworkStorageEnabled() && NetworkStorage.active().isConfigured()) {
                     promptDownloadTarget(galleryInfo);
                 } else {
                     CommonOperations.startDownload(activity, galleryInfo, false);
@@ -1766,7 +1766,7 @@ public class GalleryDetailScene extends BaseScene implements View.OnClickListene
     private void promptDownloadTarget(@NonNull GalleryInfo galleryInfo) {
         CharSequence[] items = new CharSequence[]{
                 getString(R.string.gallery_download_target_local),
-                getString(R.string.gallery_download_target_smb)
+                getString(R.string.gallery_download_target_smb, NetworkStorage.active().displayName())
         };
         new AlertDialog.Builder(mContext)
                 .setTitle(R.string.gallery_download_target_title)

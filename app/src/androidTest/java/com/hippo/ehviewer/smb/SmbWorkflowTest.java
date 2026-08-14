@@ -132,15 +132,15 @@ public class SmbWorkflowTest {
         openFromDrawer(R.id.nav_settings);
         assertTrue("Settings screen did not open",
                 Boolean.TRUE.equals(mDevice.wait(
-                        Until.hasObject(withTextOf(R.string.settings_smb)), 8_000)));
+                        Until.hasObject(withTextOf(R.string.settings_storage)), 8_000)));
         onView(withId(androidx.preference.R.id.recycler_view))
                 .perform(actionOnItem(
-                        hasDescendant(withText(R.string.settings_smb)), click()));
-        assertTrue("SMB settings screen did not open",
+                        hasDescendant(withText(R.string.settings_storage)), click()));
+        assertTrue("network storage settings screen did not open",
                 Boolean.TRUE.equals(mDevice.wait(
                         Until.hasObject(withTextOf(R.string.settings_smb_host)), 8_000)));
         onView(withId(androidx.preference.R.id.recycler_view))
-                .perform(scrollTo(hasDescendant(withText(R.string.settings_smb_enable_save))));
+                .perform(scrollTo(hasDescendant(withText(R.string.settings_storage_enable_save))));
     }
 
     // --- navigation -------------------------------------------------------------------------

@@ -84,7 +84,7 @@ public final class SmbDownloadBoard {
 
     /** The gate every SMB surface shares: master switch on and a share configured. */
     static boolean smbAvailable() {
-        return Settings.getSmbSaveEnabled() && NetworkStorage.active().isConfigured();
+        return Settings.getNetworkStorageEnabled() && NetworkStorage.active().isConfigured();
     }
 
     // ---------- Publishing to the share (#59) ----------
