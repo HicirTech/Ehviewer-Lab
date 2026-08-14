@@ -7,52 +7,39 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
 import com.hippo.ehviewer.EhApplication;
-import com.hippo.lib.yorozuya.collect.LongList;
-import com.hippo.unifile.UniFile;
-import com.hippo.ehviewer.spider.SpiderDen;
 import com.hippo.ehviewer.EhDB;
-import com.hippo.ehviewer.Settings;
-import com.hippo.ehviewer.R;
 import com.hippo.ehviewer.client.data.GalleryInfo;
+import com.hippo.ehviewer.spider.SpiderDen;
 import com.hippo.ehviewer.spider.SpiderQueen;
 import com.hippo.lib.image.Image;
 import com.hippo.lib.yorozuya.SimpleHandler;
+import com.hippo.lib.yorozuya.collect.LongList;
+import com.hippo.unifile.UniFile;
 import com.hippo.util.IoThreadPoolExecutor;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.CopyOnWriteArrayList;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.ScheduledFuture;
-import java.util.concurrent.TimeUnit;
 
 /**
- * Standalone background downloader for "Save to SMB" galleries.
+ * Standalone background downloader for "Save to SMB" galleries — the conductor, not the score.
  * <p>
  * Bypasses the normal {@link com.hippo.ehviewer.download.DownloadManager} entirely so SMB-saved
  * galleries never appear in the Downloads list. Internally uses a {@link SpiderQueen} in
  * {@link SpiderQueen#MODE_DOWNLOAD} which, combined with {@code SpiderDen} routing writes through
- * {@link SmbStorage}, downloads every page directly into the SMB share.
+ * the SMB layer, downloads every page directly into the SMB share.
  * <p>
- * State:
+ * The moving parts each live in a class of their own (#98), and this one only wires them:
  * <ul>
- *   <li>{@code queue} — galleries waiting to start, FIFO, deduped against {@code active}.</li>
- *   <li>{@code active} — galleries currently being downloaded by a {@link SpiderQueen}.</li>
+ *   <li>{@link SmbTaskLedger} — the queue state machine: every map, every transition, one lock.
+ *       Transitions return what remains to be done; this class does it.</li>
+ *   <li>{@link SmbDownloadForeground} — the foreground service handle and the words in its
+ *       notification.</li>
+ *   <li>{@link SmbDownloadBoard} — the download's other life, on the share (#59): heartbeat,
+ *       the all-devices list, takeover, restore. It sees this device only through
+ *       {@link SmbDownloadBoard.Device}, implemented here over the ledger.</li>
  * </ul>
- * <p>
- * A {@link SmbDownloadService} foreground service is started while any work exists, giving the
- * process enough lifecycle priority to keep downloading after the user leaves the gallery view
- * or locks the screen. The service is stopped automatically once both maps are empty.
- * <p>
- * This class is the download's life <b>in this process</b> (#98). Its other life — the one on the
- * share, where every device posts its queue and reads everyone else's (#59) — lives whole in
- * {@link SmbDownloadBoard}, which talks back through {@link SmbDownloadBoard.Device} and never
- * reaches into these maps.
+ * What stays in this file is exactly the parts that touch more than one of those at once: the
+ * public API, the pump, the SpiderQueen job lifecycle, and move-to-share's phone-copy cleanup.
  */
 public final class SmbDirectDownloader {
 
@@ -61,55 +48,26 @@ public final class SmbDirectDownloader {
 
     private static final SmbDirectDownloader INSTANCE = new SmbDirectDownloader();
 
-    private final Object lock = new Object();
-    // FIFO + dedup: LinkedHashMap preserves insertion order and key lookup is O(1).
-    private final LinkedHashMap<Long, GalleryInfo> queue = new LinkedHashMap<>();
-    private final Map<Long, ActiveJob> active = new HashMap<>();
-    /** Paused jobs (preserve order so the user can see them in the task list). */
-    private final LinkedHashMap<Long, GalleryInfo> paused = new LinkedHashMap<>();
-    /** Last seen progress per gid so notification updates survive listener churn. */
-    private final Map<Long, int[]> progress = new HashMap<>();
-    /**
-     * When this device took each gallery on. Published so another device can tell whose claim on
-     * the same gallery is the more recent one; see {@code SmbDownloadState.merge}.
-     */
-    private final Map<Long, Long> claimedAt = new HashMap<>();
-    /** For a gallery taken over from a device that went away, who it was taken from. */
-    private final Map<Long, String> takenOverFrom = new HashMap<>();
-
-    /** Move-to-SMB batches in flight. Shares the same foreground notification surface. */
-    private final CopyOnWriteArrayList<TaskObserver> observers = new CopyOnWriteArrayList<>();
-    @Nullable
-    private SmbDownloadService service;
-    /**
-     * Written by {@link #start} / {@link #attachService} from any thread, read by main-thread
-     * {@code pumpOnMainThread} / {@code updateNotification}. {@code volatile} keeps the writes
-     * visible without a full lock; the field is otherwise idempotent (only flipped from null to
-     * a process-lived application context).
-     */
-    @Nullable
-    private volatile Context appContext;
-
     public static SmbDirectDownloader getInstance() {
         return INSTANCE;
     }
 
     private SmbDirectDownloader() {}
 
+    private final SmbTaskLedger ledger = new SmbTaskLedger();
+    private final SmbDownloadForeground foreground = new SmbDownloadForeground();
+    private final CopyOnWriteArrayList<TaskObserver> observers = new CopyOnWriteArrayList<>();
+
     /**
-     * Galleries whose copy in phone storage should go once they are complete on the share.
-     *
-     * <p>All that separates a move from a download. The pages come across by themselves: the
-     * download asks {@code SpiderDen.contain} for each page, and a page the phone already holds is
-     * put on the share instead of fetched. What is left is the deleting, and only a move should do
-     * that -- an ordinary download that happened to find some pages locally has not been asked to
-     * take anything away.
-     *
-     * <p>In this process only. Killed mid-move, the gallery comes out copied rather than moved,
-     * which is the harmless direction to fail in.
+     * Written by {@link #start} / {@link #attachService} from any thread, read by main-thread
+     * pump / notification updates. {@code volatile} keeps the writes visible without a full
+     * lock; the field is otherwise idempotent (only flipped from null to a process-lived
+     * application context).
      */
-    private final java.util.Set<Long> movingFromPhone =
-            java.util.Collections.synchronizedSet(new java.util.HashSet<>());
+    @Nullable
+    private volatile Context appContext;
+
+    // ---------- Public API --------------------------------------------------------------------
 
     /**
      * Moves a gallery from phone storage to the share, as an ordinary SMB download.
@@ -121,37 +79,22 @@ public final class SmbDirectDownloader {
      * {@code state/} that everything else does, and the question does not arise.
      */
     public void startMove(@NonNull Context context, @NonNull GalleryInfo info) {
-        movingFromPhone.add(info.gid);
-        start(context, info);
+        enqueue(context, info, true);
     }
 
     /** Enqueue a gallery for SMB save. No-ops if it is already active or queued. */
     public void start(@NonNull Context context, @NonNull GalleryInfo info) {
+        enqueue(context, info, false);
+    }
+
+    private void enqueue(@NonNull Context context, @NonNull GalleryInfo info, boolean asMove) {
         if (appContext == null) {
             appContext = context.getApplicationContext();
         }
-        boolean shouldStartService;
-        synchronized (lock) {
-            if (active.containsKey(info.gid) || queue.containsKey(info.gid)) {
-                return;
-            }
-            // Pulling a paused job back is treated as "enqueue".
-            paused.remove(info.gid);
-            retired.remove(info.gid);
-            queue.put(info.gid, info);
-            if (!claimedAt.containsKey(info.gid)) {
-                claimedAt.put(info.gid, System.currentTimeMillis());
-            }
-            shouldStartService = service == null;
+        if (!ledger.enqueue(info, asMove)) {
+            return;
         }
-        if (shouldStartService) {
-            // Foreground service keeps the process alive past UI tear-down / screen lock.
-            try {
-                SmbDownloadService.start(appContext);
-            } catch (Throwable e) {
-                Log.w(TAG, "Failed to start SmbDownloadService", e);
-            }
-        }
+        foreground.ensureStarted(appContext);
         SimpleHandler.getInstance().post(this::pumpOnMainThread);
         notifyObservers();
         // Publish as soon as the claim is made. Not a guarantee that it lands before the download
@@ -165,7 +108,114 @@ public final class SmbDirectDownloader {
         publishState();
     }
 
-    // ---------- Task monitor API ----------
+    /**
+     * Cancel a task by gid. Removes it from queue/paused immediately; for an active task,
+     * releases the SpiderQueen on the main thread. The SMB-target mark is also cleared so a
+     * subsequent download via DownloadManager (if the user chooses "to phone") would not be
+     * silently re-routed to SMB.
+     */
+    public void cancel(long gid) {
+        SimpleHandler.getInstance().post(() -> {
+            SmbTaskLedger.CancelOutcome outcome = ledger.cancel(gid);
+            releaseQueen(outcome.jobToRelease, "cancel", gid);
+            // Wipe the on-share folder so partial pages don't accumulate. Run on the IO pool
+            // because SMB delete is a network round trip. Must happen AFTER releasing the
+            // SpiderQueen so we're not racing its writes.
+            if (outcome.infoForDelete != null) {
+                final GalleryInfo info = outcome.infoForDelete;
+                IoThreadPoolExecutor.Companion.getInstance().execute(() -> {
+                    try {
+                        SmbGalleryLifecycle.deleteGalleryFolder(info);
+                    } catch (Throwable e) {
+                        Log.w(TAG, "Failed to delete SMB folder on cancel gid=" + gid, e);
+                    }
+                });
+            }
+            SmbSpiderStorage.unmarkGidAsSmbTarget(gid);
+            afterQueueChange();
+            foreground.stopIfIdle(ledger.isIdle(), appContext);
+        });
+    }
+
+    /**
+     * Pause a task. Active → release the queen but keep the gid held so the user can resume
+     * later (the partially-saved pages on the share will be skipped by SpiderQueen's existence
+     * check, giving "resume" semantics for free). Queued → just move to paused.
+     */
+    public void pause(long gid) {
+        SimpleHandler.getInstance().post(() -> {
+            releaseQueen(ledger.pause(gid), "pause", gid);
+            afterQueueChange();
+        });
+    }
+
+    /** Resume a paused task by re-enqueueing it. No-op if the task isn't paused. */
+    public void resume(long gid) {
+        SimpleHandler.getInstance().post(() -> {
+            GalleryInfo info = ledger.takeOutPaused(gid);
+            if (info == null) {
+                return;
+            }
+            // The hypothetical this guard was written for became the normal case (#59): a paused
+            // task restored from the share never goes through start() or attachService(), so
+            // nothing has latched a context, and the first thing the user does to it is press
+            // play. Falling back to the application rather than refusing -- there is always one,
+            // and refusing made the button look broken.
+            Context ctx = appContext != null ? appContext : EhApplication.getInstance();
+            if (ctx == null) {
+                Log.w(TAG, "resume: no context available, cannot re-enqueue gid=" + gid);
+                return;
+            }
+            start(ctx, info);
+        });
+    }
+
+    /**
+     * Snapshot of every known SMB download task, ordered: active first, then queued, then paused.
+     * Safe to call from any thread.
+     */
+    @NonNull
+    public List<TaskSnapshot> snapshotTasks() {
+        // Whoever is asking wants the whole queue, including whatever outlived the last process.
+        ensureRestored();
+        return ledger.taskSnapshots();
+    }
+
+    /** See {@link SmbDownloadBoard#ensureRestored}; kept here because every entry point has this in hand. */
+    public void ensureRestored() {
+        SmbDownloadBoard.getInstance().ensureRestored();
+    }
+
+    /**
+     * Called when the master switch may have moved, or a screen wants the queue brought up to date.
+     *
+     * <p>Off means off: the downloads stop, the heartbeat stops, the service goes away and the app
+     * is local-only. Back on means going and looking at the share again rather than trusting
+     * whatever this process was last told — another device may have taken work over in between.
+     */
+    public void onSmbAvailabilityChanged() {
+        boolean available = SmbDownloadBoard.smbAvailable();
+        // Only on a change. Screens call this whenever they refresh, and the download list
+        // refreshes on every finished page -- reconciling that often turned a rare repair into a
+        // hot path, and one that races completion: it reads the published file, a job finishes
+        // before it writes, and the task it thought was missing comes back as paused.
+        Boolean was = lastKnownAvailable;
+        if (was != null && was == available) {
+            return;
+        }
+        lastKnownAvailable = available;
+        if (!available) {
+            SimpleHandler.getInstance().post(this::suspendAllOnMainThread);
+            return;
+        }
+        SmbDownloadBoard.getInstance().scheduleReconcile();
+    }
+
+    /** Null until the first check; then whatever the switch last said. */
+    @Nullable
+    private volatile Boolean lastKnownAvailable;
+
+    // ---------- Task monitor API --------------------------------------------------------------
 
     /** Snapshot of one SMB download task as seen by the task monitor UI. */
     public static final class TaskSnapshot {
@@ -202,9 +252,93 @@ public final class SmbDirectDownloader {
         });
     }
 
-    /** The board handles the share side; every structural change here tells it to say so. */
-    private void publishState() {
-        SmbDownloadBoard.getInstance().publish();
+    // ---------- The pump and the jobs ---------------------------------------------------------
+
+    private void pumpOnMainThread() {
+        if (appContext == null) {
+            return;
+        }
+        GalleryInfo next;
+        while ((next = ledger.nextToStart(MAX_CONCURRENT)) != null) {
+            startJob(next);
+        }
+        updateNotification();
+        foreground.stopIfIdle(ledger.isIdle(), appContext);
+    }
+
+    private void startJob(@NonNull GalleryInfo info) {
+        // Make sure the gallery has its metadata.json before pages start landing beside it.
+        // Enqueuing writes one, but the two ways a download can begin without ever being enqueued
+        // here -- restored from the share after a restart, or adopted from a device that went away
+        // -- both skipped it. The result is a folder full of images that Local Inventory will not
+        // list and whose row has no cover or category. Only when absent: a finished gallery's
+        // metadata carries tags this skeleton does not.
+        IoThreadPoolExecutor.Companion.getInstance().execute(() -> {
+            try {
+                if (SmbInventory.readGalleryMetadata(info) == null) {
+                    SmbMetadata.writeMetadataSkeleton(info);
+                }
+            } catch (Throwable e) {
+                Log.w(TAG, "Could not ensure metadata for gid=" + info.gid, e);
+            }
+        });
+        // Mark BEFORE obtaining the queen so the SpiderDen it constructs immediately routes
+        // to SMB. Unmarked in onJobFinish.
+        SmbSpiderStorage.markGidAsSmbTarget(info.gid);
+        try {
+            SpiderQueen queen = SpiderQueen.obtainSpiderQueen(appContext, info, SpiderQueen.MODE_DOWNLOAD);
+            ListenerImpl listener = new ListenerImpl(info);
+            queen.addOnSpiderListener(listener);
+            ledger.jobStarted(info, new SmbTaskLedger.ActiveJob(queen, listener, info));
+            Log.i(TAG, "SMB direct download started gid=" + info.gid);
+            // Push an immediate notification update so the progress bar appears as soon as the
+            // job starts, rather than staying on "Preparing..." until the first onPageSuccess
+            // arrives (which can take many seconds for big galleries on slow SMB shares).
+            updateNotification();
+            notifyObservers();
+            // Queued -> active. Worth its own write: another device seeing "active" knows this one
+            // is really working on it, not merely intending to.
+            publishState();
+        } catch (IllegalStateException e) {
+            // A regular DownloadManager download is already in progress for this gid.
+            // We must NOT leave the gid marked or its concurrent phone download would
+            // start routing through SMB mid-flight.
+            SmbSpiderStorage.unmarkGidAsSmbTarget(info.gid);
+            Log.w(TAG, "SMB direct download skipped for gid=" + info.gid + ": " + e.getMessage());
+        } catch (Throwable e) {
+            SmbSpiderStorage.unmarkGidAsSmbTarget(info.gid);
+            Log.e(TAG, "Failed to start SMB direct download gid=" + info.gid, e);
+        }
+    }
+
+    private void onJobFinish(@NonNull GalleryInfo info) {
+        SmbTaskLedger.FinishOutcome outcome = ledger.finish(info);
+        if (outcome.job == null) {
+            return;
+        }
+        Log.i(TAG, "SMB direct download finished gid=" + info.gid);
+        // Drop the claim promptly: the gallery is on the share now, and leaving it listed would
+        // have other devices think it is still being worked on.
+        publishState();
+        // Finalize metadata + cover on the IO pool.
+        final Context ctx = appContext != null ? appContext : EhApplication.getInstance();
+        IoThreadPoolExecutor.Companion.getInstance().execute(() -> {
+            try {
+                SmbGalleryLifecycle.finalizeDownloadedGallery(ctx, info);
+            } catch (Throwable e) {
+                Log.e(TAG, "SMB finalize failed for gid=" + info.gid, e);
+            }
+            if (outcome.wasMove) {
+                dropPhoneCopy(ctx, info);
+            }
+        });
+        // releaseSpiderQueen must run on the main thread.
+        SimpleHandler.getInstance().post(() -> {
+            releaseQueen(outcome.job, "finish", info.gid);
+            // Keep the gid marked so any subsequent READs from LocalInventoryScene
+            // continue to resolve to SMB even before the process restarts.
+            pumpOnMainThread();
+        });
     }
 
     /**
@@ -215,68 +349,13 @@ public final class SmbDirectDownloader {
      * from -- that is what makes a takeover a resumption rather than a restart.
      */
     private void yieldOnMainThread(long gid) {
-        ActiveJob jobToRelease;
-        synchronized (lock) {
-            queue.remove(gid);
-            paused.remove(gid);
-            jobToRelease = active.remove(gid);
-            progress.remove(gid);
-            claimedAt.remove(gid);
-            takenOverFrom.remove(gid);
-        }
-        if (jobToRelease != null) {
-            try {
-                jobToRelease.queen.removeOnSpiderListener(jobToRelease.listener);
-                SpiderQueen.releaseSpiderQueen(jobToRelease.queen, SpiderQueen.MODE_DOWNLOAD);
-            } catch (Throwable e) {
-                Log.w(TAG, "Failed to release SpiderQueen on yield gid=" + gid, e);
-            }
-        }
+        releaseQueen(ledger.yield(gid), "yield", gid);
         SmbSpiderStorage.unmarkGidAsSmbTarget(gid);
         notifyObservers();
         updateNotification();
         SimpleHandler.getInstance().post(this::pumpOnMainThread);
-        maybeStopService();
+        foreground.stopIfIdle(ledger.isIdle(), appContext);
     }
-
-    /**
-     * Called when the master switch may have moved, or a screen wants the queue brought up to date.
-     *
-     * <p>Off means off: the downloads stop, the heartbeat stops, the service goes away and the app
-     * is local-only. Back on means going and looking at the share again rather than trusting
-     * whatever this process was last told — another device may have taken work over in between.
-     */
-    public void onSmbAvailabilityChanged() {
-        boolean available = SmbDownloadBoard.smbAvailable();
-        // Only on a change. Screens call this whenever they refresh, and the download list
-        // refreshes on every finished page -- reconciling that often turned a rare repair into a
-        // hot path, and one that races completion: it reads the published file, a job finishes
-        // before it writes, and the task it thought was missing comes back as paused.
-        Boolean was = lastKnownAvailable;
-        if (was != null && was == available) {
-            return;
-        }
-        lastKnownAvailable = available;
-        if (!available) {
-            SimpleHandler.getInstance().post(this::suspendAllOnMainThread);
-            return;
-        }
-        SmbDownloadBoard.getInstance().scheduleReconcile();
-    }
-
-    /** Null until the first check; then whatever {@link #smbAvailable()} last said. */
-    @Nullable
-    private volatile Boolean lastKnownAvailable;
-
-    /**
-     * Galleries this process has finished with, so a reconcile cannot bring them back.
-     *
-     * <p>A task absent from memory usually means the process lost it. It can also mean it just
-     * completed, and a reconcile reading a file written before that completion cannot tell the
-     * difference. Per-process and small: the only thing it has to outlive is a stale read.
-     */
-    private final java.util.Set<Long> retired =
-            java.util.Collections.synchronizedSet(new java.util.HashSet<>());
 
     /**
      * Stops everything SMB and holds it, without touching the share.
@@ -290,61 +369,37 @@ public final class SmbDirectDownloader {
      * tasks come back paused when SMB does.
      */
     private void suspendAllOnMainThread() {
-        List<ActiveJob> toRelease = new ArrayList<>();
-        boolean hadAnything;
-        synchronized (lock) {
-            hadAnything = !active.isEmpty() || !queue.isEmpty();
-            for (ActiveJob j : active.values()) {
-                toRelease.add(j);
-                paused.put(j.info.gid, j.info);
-            }
-            active.clear();
-            paused.putAll(queue);
-            queue.clear();
+        List<SmbTaskLedger.ActiveJob> released = ledger.suspendAll();
+        for (SmbTaskLedger.ActiveJob j : released) {
+            releaseQueen(j, "suspend", j.info.gid);
         }
-        for (ActiveJob j : toRelease) {
-            try {
-                j.queen.removeOnSpiderListener(j.listener);
-                SpiderQueen.releaseSpiderQueen(j.queen, SpiderQueen.MODE_DOWNLOAD);
-            } catch (Throwable e) {
-                Log.w(TAG, "Failed to release SpiderQueen on suspend gid=" + j.info.gid, e);
-            }
-        }
-        if (hadAnything) {
-            Log.i(TAG, "SMB is unavailable; holding " + toRelease.size() + " download(s)");
+        if (!released.isEmpty() || ledger.hasWork()) {
+            Log.i(TAG, "SMB is unavailable; holding " + released.size() + " download(s)");
         }
         SmbDownloadBoard.getInstance().syncHeartbeat();
         notifyObservers();
-        maybeStopService();
+        foreground.stopIfIdle(ledger.isIdle(), appContext);
     }
 
-    /** See {@link SmbDownloadBoard#ensureRestored}; kept here because every entry point has this in hand. */
-    public void ensureRestored() {
-        SmbDownloadBoard.getInstance().ensureRestored();
-    }
-
-    /**
-     * This device's queue as the share should see it.
-     *
-     * <p>Package-private so a test can read what would have been published without a share to
-     * publish to.
-     */
-    @NonNull
-    SmbDownloadState.ClientState snapshotClientState() {
-        List<SmbDownloadState.Task> tasks = new ArrayList<>();
-        synchronized (lock) {
-            for (ActiveJob job : active.values()) {
-                tasks.add(taskFor(job.info));
-            }
-            for (GalleryInfo gi : queue.values()) {
-                tasks.add(taskFor(gi));
-            }
-            for (GalleryInfo gi : paused.values()) {
-                tasks.add(taskFor(gi));
-            }
+    /** Every path that lets go of a running queen goes through here; failing is survivable. */
+    private void releaseQueen(@Nullable SmbTaskLedger.ActiveJob job, @NonNull String why, long gid) {
+        if (job == null) {
+            return;
         }
-        return new SmbDownloadState.ClientState(
-                Settings.getSmbClientId(), Settings.getSmbDeviceName(), tasks);
+        try {
+            job.queen.removeOnSpiderListener(job.listener);
+            SpiderQueen.releaseSpiderQueen(job.queen, SpiderQueen.MODE_DOWNLOAD);
+        } catch (Throwable e) {
+            Log.w(TAG, "Failed to release SpiderQueen on " + why + " gid=" + gid, e);
+        }
+    }
+
+    /** The trio every queue mutation owes the world: redraw, notify screens, tell the share. */
+    private void afterQueueChange() {
+        notifyObservers();
+        publishState();
+        updateNotification();
+        SimpleHandler.getInstance().post(this::pumpOnMainThread);
     }
 
     /**
@@ -381,177 +436,13 @@ public final class SmbDirectDownloader {
         });
     }
 
-    /** Caller holds {@code lock}. */
-    private SmbDownloadState.Task taskFor(@NonNull GalleryInfo info) {
-        int[] p = progress.get(info.gid);
-        int finished = p != null ? p[0] : 0;
-        int total = p != null && p[1] > 0 ? p[1] : info.pages;
-        Long claimed = claimedAt.get(info.gid);
-        return new SmbDownloadState.Task(info.gid, info.token, info.title,
-                finished, total, claimed != null ? claimed : 0L, takenOverFrom.get(info.gid));
-    }
-
-    /**
-     * Snapshot of every known SMB download task, ordered: active first, then queued, then paused.
-     * Safe to call from any thread.
-     */
-    @NonNull
-    public List<TaskSnapshot> snapshotTasks() {
-        // Whoever is asking wants the whole queue, including whatever outlived the last process.
-        ensureRestored();
-        List<TaskSnapshot> out = new ArrayList<>();
-        synchronized (lock) {
-            for (ActiveJob job : active.values()) {
-                int[] p = progress.get(job.info.gid);
-                int finished = p != null ? p[0] : 0;
-                int total = p != null ? p[1] : 0;
-                out.add(new TaskSnapshot(job.info.gid, job.info.title, finished, total,
-                        TaskSnapshot.State.ACTIVE));
-            }
-            for (GalleryInfo gi : queue.values()) {
-                out.add(new TaskSnapshot(gi.gid, gi.title, 0, gi.pages,
-                        TaskSnapshot.State.QUEUED));
-            }
-            for (GalleryInfo gi : paused.values()) {
-                int[] p = progress.get(gi.gid);
-                int finished = p != null ? p[0] : 0;
-                int total = p != null ? p[1] : gi.pages;
-                out.add(new TaskSnapshot(gi.gid, gi.title, finished, total,
-                        TaskSnapshot.State.PAUSED));
-            }
-        }
-        return Collections.unmodifiableList(out);
-    }
-
-    /**
-     * Cancel a task by gid. Removes it from queue/paused immediately; for an active task,
-     * releases the SpiderQueen on the main thread. The SMB-target mark is also cleared so a
-     * subsequent download via DownloadManager (if the user chooses "to phone") would not be
-     * silently re-routed to SMB.
-     */
-    public void cancel(long gid) {
-        SimpleHandler.getInstance().post(() -> cancelOnMainThread(gid));
-    }
-
-    private void cancelOnMainThread(long gid) {
-        ActiveJob jobToRelease = null;
-        GalleryInfo infoForDelete = null;
-        synchronized (lock) {
-            GalleryInfo queued = queue.remove(gid);
-            GalleryInfo wasPaused = paused.remove(gid);
-            ActiveJob j = active.remove(gid);
-            progress.remove(gid);
-            claimedAt.remove(gid);
-            takenOverFrom.remove(gid);
-            retired.add(gid);
-            if (j != null) {
-                jobToRelease = j;
-                infoForDelete = j.info;
-            } else if (wasPaused != null) {
-                infoForDelete = wasPaused;
-            } else if (queued != null) {
-                infoForDelete = queued;
-            }
-        }
-        if (jobToRelease != null) {
-            try {
-                jobToRelease.queen.removeOnSpiderListener(jobToRelease.listener);
-                SpiderQueen.releaseSpiderQueen(jobToRelease.queen, SpiderQueen.MODE_DOWNLOAD);
-            } catch (Throwable e) {
-                Log.w(TAG, "Failed to release SpiderQueen on cancel gid=" + gid, e);
-            }
-        }
-        // Wipe the on-share folder so partial pages don't accumulate. Run on the IO pool
-        // because SMB delete is a network round trip. Must happen AFTER releasing the
-        // SpiderQueen so we're not racing its writes.
-        if (infoForDelete != null) {
-            final GalleryInfo finalInfo = infoForDelete;
-            IoThreadPoolExecutor.Companion.getInstance().execute(() -> {
-                try {
-                    SmbGalleryLifecycle.deleteGalleryFolder(finalInfo);
-                } catch (Throwable e) {
-                    Log.w(TAG, "Failed to delete SMB folder on cancel gid=" + gid, e);
-                }
-            });
-        }
-        SmbSpiderStorage.unmarkGidAsSmbTarget(gid);
-        notifyObservers();
-        publishState();
-        updateNotification();
-        // Promote a queued job if a slot opened up.
-        SimpleHandler.getInstance().post(this::pumpOnMainThread);
-        maybeStopService();
-    }
-
-    /**
-     * Pause a task. Active → release the queen but keep the gid in {@code paused} so the user
-     * can resume later (the partially-saved pages on the share will be skipped by SpiderQueen's
-     * existence check, giving "resume" semantics for free). Queued → just move to paused.
-     */
-    public void pause(long gid) {
-        SimpleHandler.getInstance().post(() -> pauseOnMainThread(gid));
-    }
-
-    private void pauseOnMainThread(long gid) {
-        ActiveJob jobToRelease = null;
-        synchronized (lock) {
-            GalleryInfo info;
-            ActiveJob j = active.remove(gid);
-            if (j != null) {
-                jobToRelease = j;
-                info = j.info;
-            } else {
-                info = queue.remove(gid);
-            }
-            if (info != null && !paused.containsKey(gid)) {
-                paused.put(gid, info);
-            }
-        }
-        if (jobToRelease != null) {
-            try {
-                jobToRelease.queen.removeOnSpiderListener(jobToRelease.listener);
-                SpiderQueen.releaseSpiderQueen(jobToRelease.queen, SpiderQueen.MODE_DOWNLOAD);
-            } catch (Throwable e) {
-                Log.w(TAG, "Failed to release SpiderQueen on pause gid=" + gid, e);
-            }
-        }
-        notifyObservers();
-        publishState();
-        updateNotification();
-        SimpleHandler.getInstance().post(this::pumpOnMainThread);
-    }
-
-    /** Resume a paused task by re-enqueueing it. No-op if the task isn't paused. */
-    public void resume(long gid) {
-        SimpleHandler.getInstance().post(() -> {
-            GalleryInfo info;
-            synchronized (lock) {
-                info = paused.remove(gid);
-                if (info == null) {
-                    return;
-                }
-            }
-            // The hypothetical this guard was written for became the normal case (#59): a paused
-            // task restored from the share never goes through start() or attachService(), so
-            // nothing has latched a context, and the first thing the user does to it is press
-            // play. Falling back to the application rather than refusing -- there is always one,
-            // and refusing made the button look broken.
-            Context ctx = appContext != null ? appContext : EhApplication.getInstance();
-            if (ctx == null) {
-                Log.w(TAG, "resume: no context available, cannot re-enqueue gid=" + gid);
-                return;
-            }
-            start(ctx, info);
-        });
-    }
+    // ---------- Service, notification, board --------------------------------------------------
 
     /** Service lifecycle hooks. Called by {@link SmbDownloadService}. */
     void attachService(@NonNull SmbDownloadService svc) {
-        synchronized (lock) {
-            this.service = svc;
-            if (this.appContext == null) {
-                this.appContext = svc.getApplicationContext();
-            }
+        foreground.attach(svc);
+        if (appContext == null) {
+            appContext = svc.getApplicationContext();
         }
         // The service coming up is the one signal that does not depend on a screen being open --
         // including when Android restarts it after killing the process, which it does precisely
@@ -563,214 +454,48 @@ public final class SmbDirectDownloader {
     }
 
     void detachService() {
-        synchronized (lock) {
-            this.service = null;
-        }
-    }
-
-    private void pumpOnMainThread() {
-        if (appContext == null) {
-            return;
-        }
-        while (true) {
-            GalleryInfo next;
-            synchronized (lock) {
-                if (active.size() >= MAX_CONCURRENT || queue.isEmpty()) {
-                    break;
-                }
-                // pop head of queue
-                Map.Entry<Long, GalleryInfo> first = queue.entrySet().iterator().next();
-                queue.remove(first.getKey());
-                next = first.getValue();
-                if (active.containsKey(next.gid)) {
-                    continue;
-                }
-            }
-            startJob(next);
-        }
-        updateNotification();
-        maybeStopService();
-    }
-
-    private void startJob(@NonNull GalleryInfo info) {
-        // Make sure the gallery has its metadata.json before pages start landing beside it.
-        // Enqueuing writes one, but the two ways a download can begin without ever being enqueued
-        // here -- restored from the share after a restart, or adopted from a device that went away
-        // -- both skipped it. The result is a folder full of images that Local Inventory will not
-        // list and whose row has no cover or category. Only when absent: a finished gallery's
-        // metadata carries tags this skeleton does not.
-        IoThreadPoolExecutor.Companion.getInstance().execute(() -> {
-            try {
-                if (SmbInventory.readGalleryMetadata(info) == null) {
-                    SmbMetadata.writeMetadataSkeleton(info);
-                }
-            } catch (Throwable e) {
-                Log.w(TAG, "Could not ensure metadata for gid=" + info.gid, e);
-            }
-        });
-        // Mark BEFORE obtaining the queen so the SpiderDen it constructs immediately routes
-        // to SMB. Unmarked in onJobFinish.
-        SmbSpiderStorage.markGidAsSmbTarget(info.gid);
-        try {
-            SpiderQueen queen = SpiderQueen.obtainSpiderQueen(appContext, info, SpiderQueen.MODE_DOWNLOAD);
-            ListenerImpl listener = new ListenerImpl(info);
-            queen.addOnSpiderListener(listener);
-            synchronized (lock) {
-                active.put(info.gid, new ActiveJob(queen, listener, info));
-                progress.put(info.gid, new int[]{0, 0}); // [finished, total]
-            }
-            Log.i(TAG, "SMB direct download started gid=" + info.gid);
-            // Push an immediate notification update so the progress bar appears as soon as the
-            // job starts, rather than staying on "Preparing..." until the first onPageSuccess
-            // arrives (which can take many seconds for big galleries on slow SMB shares).
-            updateNotification();
-            notifyObservers();
-            // Queued -> active. Worth its own write: another device seeing "active" knows this one
-            // is really working on it, not merely intending to.
-            publishState();
-        } catch (IllegalStateException e) {
-            // A regular DownloadManager download is already in progress for this gid.
-            // We must NOT leave the gid marked or its concurrent phone download would
-            // start routing through SMB mid-flight.
-            SmbSpiderStorage.unmarkGidAsSmbTarget(info.gid);
-            Log.w(TAG, "SMB direct download skipped for gid=" + info.gid + ": " + e.getMessage());
-        } catch (Throwable e) {
-            SmbSpiderStorage.unmarkGidAsSmbTarget(info.gid);
-            Log.e(TAG, "Failed to start SMB direct download gid=" + info.gid, e);
-        }
-    }
-
-    private void onJobFinish(@NonNull GalleryInfo info) {
-        final ActiveJob job;
-        synchronized (lock) {
-            job = active.remove(info.gid);
-            progress.remove(info.gid);
-            claimedAt.remove(info.gid);
-            takenOverFrom.remove(info.gid);
-        }
-        retired.add(info.gid);
-        if (job == null) {
-            return;
-        }
-        Log.i(TAG, "SMB direct download finished gid=" + info.gid);
-        // Drop the claim promptly: the gallery is on the share now, and leaving it listed would
-        // have other devices think it is still being worked on.
-        publishState();
-        // Finalize metadata + cover on the IO pool.
-        final Context ctx = appContext != null ? appContext : EhApplication.getInstance();
-        final boolean wasMove = movingFromPhone.remove(info.gid);
-        IoThreadPoolExecutor.Companion.getInstance().execute(() -> {
-            try {
-                SmbGalleryLifecycle.finalizeDownloadedGallery(ctx, info);
-            } catch (Throwable e) {
-                Log.e(TAG, "SMB finalize failed for gid=" + info.gid, e);
-            }
-            if (wasMove) {
-                dropPhoneCopy(ctx, info);
-            }
-        });
-        // releaseSpiderQueen must run on the main thread.
-        SimpleHandler.getInstance().post(() -> {
-            try {
-                job.queen.removeOnSpiderListener(job.listener);
-                SpiderQueen.releaseSpiderQueen(job.queen, SpiderQueen.MODE_DOWNLOAD);
-            } catch (Throwable e) {
-                Log.w(TAG, "Failed to release SpiderQueen gid=" + info.gid, e);
-            }
-            // Keep the gid marked so any subsequent READs from LocalInventoryScene
-            // continue to resolve to SMB even before the process restarts.
-            pumpOnMainThread();
-        });
+        foreground.detach();
     }
 
     private void updateNotification() {
-        SmbDownloadService svc;
-        String title;
-        String text;
-        int max;
-        int prog;
-        boolean indeterminate;
-        // Resolve a context up front for string lookups. Fall back to the global
-        // EhApplication instance if the per-instance appContext hasn't been latched yet
-        // (e.g. notification fires before the service has called attachService).
-        final Context ctx = appContext != null ? appContext : EhApplication.getInstance();
-        synchronized (lock) {
-            svc = service;
-            if (svc == null) {
-                return;
-            }
-            int queued = queue.size();
-            // Moves used to have their own branch here, because they were their own kind of work.
-            // They are downloads now, so they arrive as active jobs and queued entries like
-            // everything else.
-            if (active.isEmpty()) {
-                if (queued > 0) {
-                    title = ctx.getString(R.string.smb_notif_queue_title);
-                    text = ctx.getString(R.string.smb_notif_queue_waiting, queued);
-                    max = 0;
-                    prog = 0;
-                    indeterminate = true;
-                } else {
-                    return;
-                }
-            } else {
-                ActiveJob job = active.values().iterator().next();
-                int[] p = progress.get(job.info.gid);
-                int finished = p != null ? p[0] : 0;
-                int total = p != null ? p[1] : 0;
-                title = job.info.title != null ? job.info.title : ("gid " + job.info.gid);
-                StringBuilder extras = new StringBuilder();
-                if (queued > 0) {
-                    extras.append(ctx.getString(R.string.smb_notif_extra_waiting, queued));
-                }
-                if (total > 0) {
-                    text = ctx.getString(R.string.smb_notif_progress_count, finished, total, extras.toString());
-                    max = total;
-                    prog = finished;
-                    indeterminate = false;
-                } else {
-                    text = ctx.getString(R.string.smb_notif_progress_starting, extras.toString());
-                    max = 0;
-                    prog = 0;
-                    indeterminate = true;
-                }
-            }
-        }
-        svc.updateNotification(title, text, max, prog, indeterminate);
+        Context ctx = appContext != null ? appContext : EhApplication.getInstance();
+        foreground.update(ctx, ledger.notificationContent());
     }
 
-    private void maybeStopService() {
-        boolean stop;
-        Context ctx;
-        synchronized (lock) {
-            stop = service != null && active.isEmpty() && queue.isEmpty();
-            ctx = appContext;
-        }
-        if (stop && ctx != null) {
-            SmbDownloadService.stop(ctx);
-        }
+    /** The board handles the share side; every structural change here tells it to say so. */
+    private void publishState() {
+        SmbDownloadBoard.getInstance().publish();
     }
 
-    // ---------- The board's window onto this device (#98) ----------
+    /**
+     * This device's queue as the share should see it.
+     *
+     * <p>Package-private so a test can read what would have been published without a share to
+     * publish to.
+     */
+    @NonNull
+    SmbDownloadState.ClientState snapshotClientState() {
+        return ledger.clientState();
+    }
 
-    /** One bridge per process; the board never sees the maps, only these answers. */
+    // ---------- The board's window onto this device (#98) --------------------------------------
+
+    /** One bridge per process; the board never sees the ledger, only these answers. */
     private final SmbDownloadBoard.Device deviceBridge = new SmbDownloadBoard.Device() {
         @Override
         @NonNull
         public SmbDownloadState.ClientState snapshot() {
-            return snapshotClientState();
+            return ledger.clientState();
         }
 
         @Override
         public boolean hasWork() {
-            synchronized (lock) {
-                return !queue.isEmpty() || !active.isEmpty() || !paused.isEmpty();
-            }
+            return ledger.hasWork();
         }
 
         @Override
         public boolean isRetired(long gid) {
-            return retired.contains(gid);
+            return ledger.isRetired(gid);
         }
 
         @Override
@@ -781,34 +506,7 @@ public final class SmbDirectDownloader {
         @Override
         public void restore(@NonNull List<SmbDownloadState.Task> tasks) {
             SimpleHandler.getInstance().post(() -> {
-                for (SmbDownloadState.Task t : tasks) {
-                    GalleryInfo info = new GalleryInfo();
-                    info.gid = t.gid;
-                    info.token = t.token;
-                    info.title = t.title;
-                    info.pages = t.total;
-                    synchronized (lock) {
-                        if (active.containsKey(t.gid) || queue.containsKey(t.gid)
-                                || paused.containsKey(t.gid)) {
-                            continue;   // already back, by whatever route
-                        }
-                        claimedAt.put(t.gid, t.claimedAt);
-                        if (t.takenOverFrom != null) {
-                            takenOverFrom.put(t.gid, t.takenOverFrom);
-                        }
-                        // Carry the progress back too. Without it the next publish says 0 of 181
-                        // for a gallery that is most of the way done, and every other device
-                        // believes it -- the count on the share is the only thing they have to
-                        // go by.
-                        progress.put(t.gid, new int[]{t.finished, t.total});
-                        // Everything comes back held, whatever it was doing when contact was lost
-                        // -- the same as an ordinary download after a restart, which waits to be
-                        // started rather than picking itself up. Restarting a transfer is a
-                        // decision with a cost attached, and the moment the share reappears is
-                        // not the moment to make it on the user's behalf.
-                        paused.put(t.gid, info);
-                    }
-                }
+                ledger.restore(tasks);
                 notifyObservers();
                 publishState();
             });
@@ -816,10 +514,7 @@ public final class SmbDirectDownloader {
 
         @Override
         public void stampAdoption(@NonNull SmbTaskInfo task) {
-            synchronized (lock) {
-                claimedAt.put(task.gid, System.currentTimeMillis());
-                takenOverFrom.put(task.gid, task.ownerClientId);
-            }
+            ledger.stampAdoption(task);
         }
 
         @Override
@@ -829,15 +524,7 @@ public final class SmbDirectDownloader {
 
         @Override
         public int localRowState(long gid) {
-            synchronized (lock) {
-                if (active.containsKey(gid)) {
-                    return com.hippo.ehviewer.dao.DownloadInfo.STATE_DOWNLOAD;
-                }
-                if (queue.containsKey(gid)) {
-                    return com.hippo.ehviewer.dao.DownloadInfo.STATE_WAIT;
-                }
-                return com.hippo.ehviewer.dao.DownloadInfo.STATE_NONE;
-            }
+            return ledger.localRowState(gid);
         }
     };
 
@@ -846,17 +533,7 @@ public final class SmbDirectDownloader {
         return deviceBridge;
     }
 
-    private static final class ActiveJob {
-        final SpiderQueen queen;
-        final SpiderQueen.OnSpiderListener listener;
-        final GalleryInfo info;
-
-        ActiveJob(SpiderQueen queen, SpiderQueen.OnSpiderListener listener, GalleryInfo info) {
-            this.queen = queen;
-            this.listener = listener;
-            this.info = info;
-        }
-    }
+    // ---------- SpiderQueen callbacks ---------------------------------------------------------
 
     private final class ListenerImpl implements SpiderQueen.OnSpiderListener {
         private final GalleryInfo info;
@@ -867,12 +544,7 @@ public final class SmbDirectDownloader {
 
         @Override
         public void onGetPages(int pages) {
-            synchronized (lock) {
-                int[] p = progress.get(info.gid);
-                if (p != null) {
-                    p[1] = pages;
-                }
-            }
+            ledger.updateTotal(info.gid, pages);
             updateNotification();
         }
 
@@ -884,26 +556,14 @@ public final class SmbDirectDownloader {
 
         @Override
         public void onPageSuccess(int index, int finished, int downloaded, int total) {
-            synchronized (lock) {
-                int[] p = progress.get(info.gid);
-                if (p != null) {
-                    p[0] = finished;
-                    p[1] = total;
-                }
-            }
+            ledger.updateProgress(info.gid, finished, total);
             updateNotification();
             notifyObservers();
         }
 
         @Override
         public void onPageFailure(int index, String error, int finished, int downloaded, int total) {
-            synchronized (lock) {
-                int[] p = progress.get(info.gid);
-                if (p != null) {
-                    p[0] = finished;
-                    p[1] = total;
-                }
-            }
+            ledger.updateProgress(info.gid, finished, total);
             updateNotification();
             notifyObservers();
         }

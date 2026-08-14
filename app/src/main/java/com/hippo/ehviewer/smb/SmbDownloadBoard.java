@@ -31,9 +31,15 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * process death or a silence. {@link SmbDownloadState} stays the vocabulary (pure) and
  * {@link SmbDownloadStateStore} the file IO; this is the behaviour composed from them.
  *
- * <p>It talks to the device side only through {@link Device} — six questions, no reaching into
- * queue maps — which is what makes the two lives separately testable, and is the seam #100 would
- * lift into a capability interface (a backend with no second client has no board at all).
+ * <p>It talks to the device side only through {@link Device} — a handful of questions, no
+ * reaching into queue maps — which is what makes the two lives separately testable, and is the
+ * seam #100 would lift into a capability interface (a backend with no second client has no board
+ * at all).
+ *
+ * <p>The class itself is an imperative shell and not much more: <em>when</em> to publish is
+ * {@link SmbHeartbeat}'s, and the reconcile/takeover arithmetic is pure functions on
+ * {@link SmbDownloadState} ({@code planReconcile}, {@code assessTakeOver}). What remains here is
+ * reading, applying decisions, and answering the screens.
  */
 public final class SmbDownloadBoard {
 
@@ -104,46 +110,36 @@ public final class SmbDownloadBoard {
 
     // ---------- Publishing to the share (#59) ----------
 
-    /**
-     * How often this device refreshes its file under {@code state/} while it has work.
-     *
-     * <p>This is both the heartbeat and how progress reaches the other devices — the write carries
-     * the current finished/total and, by happening at all, tells everyone this device is still
-     * here. Progress is deliberately <em>not</em> published per page: a write costs about 64 ms
-     * against the share, and a three-hundred page gallery would spend most of a minute on it for a
-     * number nobody is watching that closely.
-     *
-     * <p>Comfortably inside {@link SmbDownloadStateStore#STALE_AFTER_MS}, so several beats can be
-     * missed — a congested share, a moment of bad WiFi — before anyone concludes this device died
-     * and offers its downloads to someone else.
-     */
-    private static final long HEARTBEAT_INTERVAL_MS = 20_000L;
+    /** The pulse; this class only tells it what a publish writes and when beats are wanted. */
+    private final SmbHeartbeat pulse = new SmbHeartbeat(new SmbHeartbeat.Shell() {
+        @Override
+        public boolean publishSelf() {
+            if (!smbAvailable()) {
+                return false;
+            }
+            try {
+                return SmbDownloadStateStore.writeSelf(device.snapshot());
+            } catch (Throwable e) {
+                // Failing to publish costs visibility to other devices, nothing local. The next
+                // beat carries the same state, so there is nothing to recover here.
+                Log.w(TAG, "Failed to publish download state", e);
+                return false;
+            }
+        }
 
-    /**
-     * Publishing runs on one thread of its own, which is what keeps two writes from overlapping:
-     * each task snapshots the queue when it runs rather than when it was scheduled, so the last
-     * write to reach the share is always the newest state rather than whichever happened to finish
-     * last.
-     */
-    private final ScheduledExecutorService publisher =
-            Executors.newSingleThreadScheduledExecutor(r -> {
-                Thread t = new Thread(r, "smb-state-publisher");
-                t.setDaemon(true);
-                return t;
-            });
-    @Nullable
-    private ScheduledFuture<?> heartbeat;
+        @Override
+        public boolean shouldBeat() {
+            return device.hasWork() && smbAvailable();
+        }
+
+        @Override
+        public void onBackFromSilence() {
+            scheduleReconcile();
+        }
+    });
+
     /** Restoring is a once-per-process affair, whichever entry point asks for it first. */
     private final AtomicBoolean restoreStarted = new AtomicBoolean();
-
-    /**
-     * When this device last got its file onto the share, by its own clock. Zero until it has.
-     *
-     * <p>The same quantity every other device is judging this one by: its file's mtime is the
-     * moment of this write. So the device can work out for itself when it has been declared dead,
-     * without asking anybody.
-     */
-    private volatile long lastPublishedAtMillis;
 
     /**
      * Writes this device's queue to the share, and starts or stops the heartbeat to match whether
@@ -155,72 +151,12 @@ public final class SmbDownloadBoard {
      * does not prevent anyone downloading the same gallery twice.
      */
     public void publish() {
-        syncHeartbeat();
-        try {
-            publisher.execute(this::publishNow);
-        } catch (Throwable e) {
-            // Only if the executor is shutting down, which it never does in practice.
-            Log.w(TAG, "Could not schedule a state publish", e);
-        }
+        pulse.publish();
     }
 
-    /**
-     * A heartbeat: say where we are, and notice if we have been away.
-     *
-     * <p>The write is the whole of the normal path — no read, nothing to reconcile. What it also
-     * does is check its own last success: if this device has not managed to publish for
-     * {@link SmbDownloadStateStore#STALE_AFTER_MS}, then by everyone else's reckoning it is dead
-     * and its downloads are up for adoption, whatever it thinks it is doing.
-     *
-     * <p>That case is not hypothetical and it is not the same as crashing. Signal drops for a
-     * couple of minutes and comes back; the process never died, so it never restores, and left to
-     * itself it would carry on writing pages into a folder somebody else had taken over. So a
-     * device coming back from silence goes and looks at the real state of the queue before
-     * trusting its own.
-     */
-    private void beatNow() {
-        if (!SmbConnection.isConfigured()) {
-            return;
-        }
-        long before = lastPublishedAtMillis;
-        publishNow();
-        boolean wasAway = before > 0L
-                && System.currentTimeMillis() - before >= SmbDownloadStateStore.STALE_AFTER_MS;
-        if (wasAway) {
-            Log.i(TAG, "Out of touch with the share for "
-                    + (System.currentTimeMillis() - before) + "ms; re-reading the queue");
-            reconcileWithShare();
-        }
-    }
-
-    private void publishNow() {
-        if (!smbAvailable()) {
-            return;
-        }
-        try {
-            if (SmbDownloadStateStore.writeSelf(device.snapshot())) {
-                lastPublishedAtMillis = System.currentTimeMillis();
-            }
-        } catch (Throwable e) {
-            // Failing to publish costs visibility to other devices, nothing local. The next beat
-            // carries the same state, so there is nothing to recover here.
-            Log.w(TAG, "Failed to publish download state", e);
-        }
-    }
-
-    /** Starts or stops the heartbeat to match whether the device has work and SMB is on at all. */
+    /** Re-syncs whether the heartbeat should be running; the device calls this on suspend. */
     void syncHeartbeat() {
-        // Nothing to beat about with the feature switched off, and nowhere to beat to.
-        boolean hasWork = device.hasWork() && smbAvailable();
-        synchronized (publisher) {
-            if (hasWork && heartbeat == null) {
-                heartbeat = publisher.scheduleWithFixedDelay(this::beatNow,
-                        HEARTBEAT_INTERVAL_MS, HEARTBEAT_INTERVAL_MS, TimeUnit.MILLISECONDS);
-            } else if (!hasWork && heartbeat != null) {
-                heartbeat.cancel(false);
-                heartbeat = null;
-            }
-        }
+        pulse.sync();
     }
 
     // ---------- Reading the share back (#59) ----------
@@ -244,11 +180,7 @@ public final class SmbDownloadBoard {
 
     /** Queues a reconcile on the publisher thread; safe from any thread. */
     void scheduleReconcile() {
-        try {
-            publisher.execute(this::reconcileWithShare);
-        } catch (Throwable e) {
-            Log.w(TAG, "Could not schedule a reconcile", e);
-        }
+        pulse.execute(this::reconcileWithShare);
     }
 
     /**
@@ -270,60 +202,30 @@ public final class SmbDownloadBoard {
      * where every other queue change happens.
      */
     private void reconcileWithShare() {
-        final String selfId = Settings.getSmbClientId();
-        final List<SmbDownloadState.Task> missing;
+        final SmbDownloadState.ReconcilePlan plan;
         try {
-            List<SmbDownloadState.Published> all = SmbDownloadStateStore.readAll();
-            List<SmbDownloadState.OwnedTask> merged = SmbDownloadState.merge(all);
-
-            SmbDownloadState.ClientState held = device.snapshot();
-            List<Long> stillOurs = gidsOf(SmbDownloadState.withoutTakenOver(held, merged));
-            for (SmbDownloadState.Task t : held.tasks) {
-                if (!stillOurs.contains(t.gid)) {
-                    Log.i(TAG, "gid=" + t.gid + " was taken over elsewhere; standing down");
-                    device.yieldTask(t.gid);
-                }
-            }
-
-            SmbDownloadState.ClientState published = null;
-            for (SmbDownloadState.Published p : all) {
-                if (p.state.clientId.equals(selfId)) {
-                    published = p.state;
-                    break;
-                }
-            }
-            if (published == null) {
-                return;   // nothing of ours has ever been published
-            }
-            List<Long> heldGids = gidsOf(held.tasks);
-            List<SmbDownloadState.Task> back = new ArrayList<>();
-            for (SmbDownloadState.Task t : SmbDownloadState.withoutTakenOver(published, merged)) {
-                if (!heldGids.contains(t.gid) && !device.isRetired(t.gid)) {
-                    back.add(t);
-                }
-            }
-            missing = back;
+            plan = SmbDownloadState.planReconcile(
+                    Settings.getSmbClientId(),
+                    device.snapshot(),
+                    SmbDownloadStateStore.readAll(),
+                    device::isRetired);
         } catch (Throwable e) {
             Log.e(TAG, "Failed to reconcile with the share", e);
             return;
         }
-        if (missing.isEmpty()) {
+        for (long gid : plan.yields) {
+            Log.i(TAG, "gid=" + gid + " was taken over elsewhere; standing down");
+            device.yieldTask(gid);
+        }
+        if (plan.shouldPublish) {
             // Either nothing was lost, or everything we had is gone -- taken over, or finished
             // elsewhere. Say where we are either way, so our file stops advertising claims we no
             // longer hold.
             publish();
-            return;
         }
-        device.restore(missing);
-    }
-
-    @NonNull
-    private static List<Long> gidsOf(@NonNull List<SmbDownloadState.Task> tasks) {
-        List<Long> out = new ArrayList<>(tasks.size());
-        for (SmbDownloadState.Task t : tasks) {
-            out.add(t.gid);
+        if (!plan.restores.isEmpty()) {
+            device.restore(plan.restores);
         }
-        return out;
     }
 
     // ---------- The all-devices view ----------
@@ -478,41 +380,33 @@ public final class SmbDownloadBoard {
     public void takeOver(@NonNull Context context, @NonNull SmbTaskInfo task,
                          @NonNull TakeOverCallback onResult) {
         final Context appContext = context.getApplicationContext();
-        try {
-            publisher.execute(() -> {
-                TakeOverResult result = takeOverNow(appContext, task);
-                SimpleHandler.getInstance().post(() -> onResult.onTakeOverFinished(result));
-            });
-        } catch (Throwable e) {
-            Log.w(TAG, "Could not schedule a takeover for gid=" + task.gid, e);
-            SimpleHandler.getInstance().post(() ->
-                    onResult.onTakeOverFinished(TakeOverResult.FAILED));
-        }
+        pulse.execute(() -> {
+            TakeOverResult result = takeOverNow(appContext, task);
+            SimpleHandler.getInstance().post(() -> onResult.onTakeOverFinished(result));
+        });
     }
 
     @NonNull
     private TakeOverResult takeOverNow(@NonNull Context ctx, @NonNull SmbTaskInfo task) {
-        final String selfId = Settings.getSmbClientId();
+        final SmbDownloadState.TakeOverAssessment fresh;
         try {
-            List<SmbDownloadState.OwnedTask> merged =
-                    SmbDownloadState.merge(SmbDownloadStateStore.readAll());
-            for (SmbDownloadState.OwnedTask o : merged) {
-                if (o.task.gid != task.gid) {
-                    continue;
-                }
-                if (o.clientId.equals(selfId)) {
-                    return TakeOverResult.TAKEN;   // already ours, by whatever route
-                }
-                if (o.ownerAlive) {
-                    return TakeOverResult.OWNER_RETURNED;
-                }
-                break;
-            }
+            fresh = SmbDownloadState.assessTakeOver(
+                    SmbDownloadState.merge(SmbDownloadStateStore.readAll()),
+                    task.gid, Settings.getSmbClientId());
         } catch (Throwable e) {
             // Without a fresh read there is no way to know the owner is still gone, and adopting a
             // download two devices then run at once is the worse outcome.
             Log.w(TAG, "Could not confirm gid=" + task.gid + " is still orphaned", e);
             return TakeOverResult.FAILED;
+        }
+        switch (fresh) {
+            case ALREADY_OURS:
+                return TakeOverResult.TAKEN;   // already ours, by whatever route
+            case OWNER_ALIVE:
+                return TakeOverResult.OWNER_RETURNED;
+            case ORPHAN:
+            default:
+                break;
         }
 
         GalleryInfo info = new GalleryInfo();

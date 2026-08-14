@@ -152,6 +152,12 @@ public class SmbDirectDownloaderTest {
     @Before
     public void setUp() {
         context = RuntimeEnvironment.getApplication();
+        // Settings is static process state; without this the suite only passed when some other
+        // test class happened to initialize it first (the publish path asks getSmbSaveEnabled).
+        com.hippo.ehviewer.Settings.initialize(context);
+        com.hippo.ehviewer.Settings.putString(com.hippo.ehviewer.Settings.KEY_SMB_HOST, "192.0.2.7");
+        com.hippo.ehviewer.Settings.putString(com.hippo.ehviewer.Settings.KEY_SMB_SHARE_NAME, "share");
+        com.hippo.ehviewer.Settings.putBoolean(com.hippo.ehviewer.Settings.KEY_SMB_SAVE_ENABLED, true);
         calls.clear();
         obtainThrows = false;
         deleteLatch = new CountDownLatch(1);

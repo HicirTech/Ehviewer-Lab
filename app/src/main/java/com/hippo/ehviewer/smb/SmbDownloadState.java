@@ -317,6 +317,106 @@ public final class SmbDownloadState {
         return kept;
     }
 
+    /**
+     * What a reconcile should do, decided from snapshots alone (#98).
+     *
+     * <p>The inputs are everything the decision depends on — what this device holds, what the
+     * share holds, what this process has already finished with — and the output is the whole
+     * decision. No IO, no threads: the board reads, this decides, the board applies. That is
+     * what makes the arithmetic testable without a share in the room, and what keeps the board
+     * an imperative shell.
+     */
+    public static final class ReconcilePlan {
+        /** Held here but claimed more recently by a live device: stand down, touch nothing shared. */
+        @NonNull public final List<Long> yields;
+        /** Published by this device but no longer held: bring back as paused. */
+        @NonNull public final List<Task> restores;
+        /** Nothing to restore, but our file may still advertise stale claims: say where we are. */
+        public final boolean shouldPublish;
+
+        ReconcilePlan(@NonNull List<Long> yields, @NonNull List<Task> restores,
+                      boolean shouldPublish) {
+            this.yields = yields;
+            this.restores = restores;
+            this.shouldPublish = shouldPublish;
+        }
+    }
+
+    /** Answers "may this gid be restored", so the plan can skip what the process finished with. */
+    public interface RetiredCheck {
+        boolean isRetired(long gid);
+    }
+
+    @NonNull
+    public static ReconcilePlan planReconcile(@NonNull String selfId,
+                                              @NonNull ClientState held,
+                                              @NonNull List<Published> all,
+                                              @NonNull RetiredCheck retired) {
+        List<OwnedTask> merged = merge(all);
+
+        List<Long> stillOurs = new ArrayList<>();
+        for (Task t : withoutTakenOver(held, merged)) {
+            stillOurs.add(t.gid);
+        }
+        List<Long> yields = new ArrayList<>();
+        for (Task t : held.tasks) {
+            if (!stillOurs.contains(t.gid)) {
+                yields.add(t.gid);
+            }
+        }
+
+        ClientState published = null;
+        for (Published p : all) {
+            if (p.state.clientId.equals(selfId)) {
+                published = p.state;
+                break;
+            }
+        }
+        if (published == null) {
+            // Nothing of ours has ever been published: nothing to restore, nothing to correct.
+            return new ReconcilePlan(yields, new ArrayList<>(), false);
+        }
+        List<Long> heldGids = new ArrayList<>();
+        for (Task t : held.tasks) {
+            heldGids.add(t.gid);
+        }
+        List<Task> restores = new ArrayList<>();
+        for (Task t : withoutTakenOver(published, merged)) {
+            if (!heldGids.contains(t.gid) && !retired.isRetired(t.gid)) {
+                restores.add(t);
+            }
+        }
+        return new ReconcilePlan(yields, restores, restores.isEmpty());
+    }
+
+    /** What a takeover attempt finds when it looks again, freshly, before acting. */
+    public enum TakeOverAssessment {
+        /** Already this device's, by whatever route: report taken, change nothing. */
+        ALREADY_OURS,
+        /** The owner woke up between the tap and now: leave it alone. */
+        OWNER_ALIVE,
+        /** Nobody live holds it: adopt. */
+        ORPHAN
+    }
+
+    @NonNull
+    public static TakeOverAssessment assessTakeOver(@NonNull List<OwnedTask> merged,
+                                                    long gid, @NonNull String selfId) {
+        for (OwnedTask o : merged) {
+            if (o.task.gid != gid) {
+                continue;
+            }
+            if (o.clientId.equals(selfId)) {
+                return TakeOverAssessment.ALREADY_OURS;
+            }
+            if (o.ownerAlive) {
+                return TakeOverAssessment.OWNER_ALIVE;
+            }
+            break;
+        }
+        return TakeOverAssessment.ORPHAN;
+    }
+
     // ------------------------------------------------------------------ json
 
     /**
