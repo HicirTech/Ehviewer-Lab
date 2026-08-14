@@ -34,7 +34,7 @@ public class SmbPreviewCacheTest {
     public void setUp() throws Exception {
         shimDir = Files.createTempDirectory("smb-preview-shim").toFile();
         legacyDir = Files.createTempDirectory("smb-preview-legacy").toFile();
-        plant("sShimDir", shimDir);
+        plantShim(shimDir);
         plant("sLegacyDir", legacyDir);
         plant("sLegacySwept", false);
         clearBuffer();
@@ -42,7 +42,7 @@ public class SmbPreviewCacheTest {
 
     @After
     public void tearDown() throws Exception {
-        plant("sShimDir", null);
+        plantShim(null);
         plant("sLegacyDir", null);
         plant("sLegacySwept", false);
         clearBuffer();
@@ -57,6 +57,16 @@ public class SmbPreviewCacheTest {
             //noinspection ResultOfMethodCallIgnored
             d.delete();
         }
+    }
+
+    private static void plantShim(java.io.File value) throws Exception {
+        Field f = SmbShims.class.getDeclaredField("sDir");
+        f.setAccessible(true);
+        f.set(null, value);
+        Field s = SmbShims.class.getDeclaredField("sSwept");
+        s.setAccessible(true);
+        // Swept: these tests are about pipes, not the startup sweep.
+        s.set(null, true);
     }
 
     private static void plant(String name, Object value) throws Exception {

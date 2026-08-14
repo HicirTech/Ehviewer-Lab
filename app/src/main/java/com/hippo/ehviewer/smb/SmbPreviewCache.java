@@ -88,9 +88,6 @@ public final class SmbPreviewCache {
     private static volatile File sLegacyDir;
     private static boolean sLegacySwept;
 
-    /** Where the decode shims are spilled; plantable by tests. */
-    private static volatile File sShimDir;
-
     private SmbPreviewCache() {}
 
     /**
@@ -287,16 +284,7 @@ public final class SmbPreviewCache {
     }
 
     private static File shimDir() {
-        File dir = sShimDir;
-        if (dir == null) {
-            dir = new File(EhApplication.getInstance().getCacheDir(), "smb_tmp");
-            sShimDir = dir;
-        }
-        if (!dir.exists()) {
-            //noinspection ResultOfMethodCallIgnored
-            dir.mkdirs();
-        }
-        return dir;
+        return SmbShims.dir();
     }
 
     /**

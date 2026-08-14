@@ -41,7 +41,7 @@ public class SmbCoverPrefetchTest {
     public void setUp() throws Exception {
         shimDir = Files.createTempDirectory("smb-cover-shim").toFile();
         legacyDir = Files.createTempDirectory("smb-cover-legacy").toFile();
-        plant("sShimDir", shimDir);
+        plantShim(shimDir);
         plant("sLegacyDir", legacyDir);
         setStatic("sLegacySwept", false);
         clearBuffer();
@@ -49,7 +49,7 @@ public class SmbCoverPrefetchTest {
 
     @After
     public void tearDown() throws Exception {
-        plant("sShimDir", null);
+        plantShim(null);
         plant("sLegacyDir", null);
         setStatic("sLegacySwept", false);
         clearBuffer();
@@ -64,6 +64,16 @@ public class SmbCoverPrefetchTest {
             //noinspection ResultOfMethodCallIgnored
             d.delete();
         }
+    }
+
+    private static void plantShim(java.io.File value) throws Exception {
+        Field f = SmbShims.class.getDeclaredField("sDir");
+        f.setAccessible(true);
+        f.set(null, value);
+        Field s = SmbShims.class.getDeclaredField("sSwept");
+        s.setAccessible(true);
+        // Swept: these tests are about pipes, not the startup sweep.
+        s.set(null, true);
     }
 
     private static void plant(String name, Object value) throws Exception {
