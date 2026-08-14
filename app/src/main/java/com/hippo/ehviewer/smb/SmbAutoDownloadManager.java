@@ -52,7 +52,7 @@ public final class SmbAutoDownloadManager {
     /** Called from the reader on first page open. Auto-download must be explicitly enabled. */
     public void enqueueFromFirstPage(@NonNull Context context, @NonNull GalleryInfo galleryInfo) {
         if (!Settings.getSmbSaveEnabled() || !Settings.getSmbAutoDownloadEnabled()
-                || !SmbStorage.isConfigured()) {
+                || !SmbConnection.isConfigured()) {
             return;
         }
         enqueueInternal(context, galleryInfo);
@@ -60,7 +60,7 @@ public final class SmbAutoDownloadManager {
 
     /** Called from the detail screen "Save to SMB" choice. Bypasses the auto-download toggle. */
     public void enqueueManual(@NonNull Context context, @NonNull GalleryInfo galleryInfo) {
-        if (!Settings.getSmbSaveEnabled() || !SmbStorage.isConfigured()) {
+        if (!Settings.getSmbSaveEnabled() || !SmbConnection.isConfigured()) {
             Toast.makeText(context.getApplicationContext(),
                     R.string.smb_save_not_configured, Toast.LENGTH_SHORT).show();
             return;
@@ -73,7 +73,7 @@ public final class SmbAutoDownloadManager {
 
         IoThreadPoolExecutor.Companion.getInstance().execute(() -> {
             try {
-                if (SmbStorage.isGalleryComplete(galleryInfo)) {
+                if (SmbGalleryLifecycle.isGalleryComplete(galleryInfo)) {
                     toast(appContext, appContext.getString(R.string.smb_save_already_complete));
                     return;
                 }

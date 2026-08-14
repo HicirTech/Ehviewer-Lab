@@ -134,13 +134,13 @@ public final class SmbPreviewCache {
      * on the UI thread.
      */
     public static void prefetchGallery(long gid, @Nullable String title, int count) {
-        if (count <= 0 || !SmbStorage.isConfigured()) {
+        if (count <= 0 || !SmbConnection.isConfigured()) {
             return;
         }
         if (!PREFETCHED_GIDS.add(gid)) {
             return;
         }
-        final GalleryInfo lookup = SmbStorage.lookupKey(gid, title);
+        final GalleryInfo lookup = SmbGalleryDirectory.lookupKey(gid, title);
         // One short-lived dispatch task; count-many per-page tasks are queued from inside it.
         track(gid, prefetchExecutor().submit(() -> dispatchPages(lookup, gid, count)));
     }
@@ -192,7 +192,7 @@ public final class SmbPreviewCache {
             return;
         }
         long tPerf0 = android.os.SystemClock.elapsedRealtime();
-        SmbFile remote = SmbStorage.findSmbImageFileForPreview(lookup, index);
+        SmbFile remote = SmbGalleryFiles.findSmbImageFileForPreview(lookup, index);
         if (remote == null) {
             return;
         }
@@ -200,7 +200,7 @@ public final class SmbPreviewCache {
         InputStream in = null;
         OutputStream out = null;
         try {
-            in = new java.io.BufferedInputStream(remote.getInputStream(), SmbStorage.SMB_IO_BUFFER);
+            in = new java.io.BufferedInputStream(remote.getInputStream(), SmbGalleryFiles.SMB_IO_BUFFER);
             out = new FileOutputStream(tmp);
             byte[] buf = new byte[16 * 1024];
             int n;

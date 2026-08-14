@@ -183,7 +183,7 @@ public final class SmbSavedGalleries {
     }
 
     private static boolean enabled() {
-        return SmbStorage.isConfigured() && Settings.getSmbSaveEnabled();
+        return SmbConnection.isConfigured() && Settings.getSmbSaveEnabled();
     }
 
     /**
@@ -194,9 +194,9 @@ public final class SmbSavedGalleries {
     private static Set<Long> read() {
         long t0 = SystemClock.elapsedRealtime();
         try {
-            List<SmbStorage.GalleryRef> refs = SmbStorage.listGalleryRefs();
+            List<SmbInventory.GalleryRef> refs = SmbInventory.listGalleryRefs();
             Set<Long> gids = new HashSet<>(refs.size() * 2);
-            for (SmbStorage.GalleryRef ref : refs) {
+            for (SmbInventory.GalleryRef ref : refs) {
                 long gid = SmbPaths.parseGid(ref.folderName);
                 if (gid != SmbPaths.NOT_A_GALLERY) {
                     gids.add(gid);

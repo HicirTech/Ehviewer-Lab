@@ -6,6 +6,7 @@
  */
 package com.hippo.ehviewer.ui.scene.localinventory;
 
+import com.hippo.ehviewer.smb.SmbSpiderStorage;
 import android.app.Dialog;
 import android.content.Context;
 import android.content.DialogInterface;
@@ -46,7 +47,9 @@ import com.hippo.ehviewer.smb.SmbMetadata;
 import com.hippo.ehviewer.smb.SmbPaths;
 import com.hippo.ehviewer.smb.SmbPreviewCache;
 import com.hippo.ehviewer.smb.SmbSortMode;
-import com.hippo.ehviewer.smb.SmbStorage;
+import com.hippo.ehviewer.smb.SmbConnection;
+import com.hippo.ehviewer.smb.SmbGalleryLifecycle;
+import com.hippo.ehviewer.smb.SmbInventory;
 import com.hippo.ehviewer.smb.SmbTaskInfo;
 import com.hippo.ehviewer.ui.GalleryActivity;
 import com.hippo.ehviewer.ui.scene.ToolbarScene;
@@ -234,7 +237,7 @@ public class LocalInventoryScene extends ToolbarScene
         }
         mLastBadgeRefreshAt = now;
 
-        if (!SmbStorage.isConfigured() || !Settings.getSmbSaveEnabled()) {
+        if (!SmbConnection.isConfigured() || !Settings.getSmbSaveEnabled()) {
             applyDownloadMarks(Collections.<Long, DownloadMark>emptyMap());
             return;
         }
@@ -362,7 +365,7 @@ public class LocalInventoryScene extends ToolbarScene
 
     @NonNull
     private String getEmptyString() {
-        if (!SmbStorage.isConfigured() || !Settings.getSmbSaveEnabled()) {
+        if (!SmbConnection.isConfigured() || !Settings.getSmbSaveEnabled()) {
             return getString(R.string.local_inventory_disabled);
         }
         return getString(R.string.local_inventory_empty);
@@ -818,7 +821,7 @@ public class LocalInventoryScene extends ToolbarScene
         Runnable task = () -> {
             final List<GalleryInfo> gone = new ArrayList<>();
             for (GalleryInfo gi : toErase) {
-                if (SmbStorage.deleteGalleryFolder(gi)) {
+                if (SmbGalleryLifecycle.deleteGalleryFolder(gi)) {
                     gone.add(gi);
                 }
             }
@@ -861,7 +864,7 @@ public class LocalInventoryScene extends ToolbarScene
     /** Main thread. Drops every trace of a gallery that is no longer on the share. */
     private void onGalleryDeleted(@NonNull Context appContext, @NonNull GalleryInfo gi) {
         // Reads for this gid must stop being routed to SMB now that nothing is there.
-        SmbStorage.unmarkGidAsSmbTarget(gi.gid);
+        SmbSpiderStorage.unmarkGidAsSmbTarget(gi.gid);
         // Local leftovers that would otherwise be served for a gallery that no longer exists.
         SmbPreviewCache.evictGallery(gi.gid);
         SmbCoverPrefetch.evict(gi.gid);
@@ -922,7 +925,7 @@ public class LocalInventoryScene extends ToolbarScene
         }
         // Mark the gid so SpiderDen routes reads (cover/spider info/pages) to SMB instead
         // of looking on phone storage.
-        SmbStorage.markGidAsSmbTarget(gi.gid);
+        SmbSpiderStorage.markGidAsSmbTarget(gi.gid);
         Intent intent = new Intent(context, GalleryActivity.class);
         intent.setAction(GalleryActivity.ACTION_EH);
         intent.putExtra(GalleryActivity.KEY_GALLERY_INFO, gi);
@@ -1067,12 +1070,12 @@ public class LocalInventoryScene extends ToolbarScene
 
     /** The full display ordering, computed once per refresh and sliced per page. */
     private static final class Ordering {
-        @NonNull final List<SmbStorage.GalleryRef> refs;
+        @NonNull final List<SmbInventory.GalleryRef> refs;
         // null => date sort: each ref's metadata is read on demand for its page.
         // non-null => sort needed every folder's metadata to order, so it's all cached here.
         @Nullable final Map<String, GalleryInfo> infos;
 
-        Ordering(@NonNull List<SmbStorage.GalleryRef> refs, @Nullable Map<String, GalleryInfo> infos) {
+        Ordering(@NonNull List<SmbInventory.GalleryRef> refs, @Nullable Map<String, GalleryInfo> infos) {
             this.refs = refs;
             this.infos = infos;
         }
@@ -1127,7 +1130,7 @@ public class LocalInventoryScene extends ToolbarScene
                     }
                     // Mark every gid on the page so cover/detail/reader reads route through SMB.
                     for (GalleryInfo gi : result.data) {
-                        SmbStorage.markGidAsSmbTarget(gi.gid);
+                        SmbSpiderStorage.markGidAsSmbTarget(gi.gid);
                     }
                     onGetPageData(taskId, result.pages, page + 1, result.data);
                     // After the page is on screen, not before it: a badge is worth a redraw, never
@@ -1161,17 +1164,17 @@ public class LocalInventoryScene extends ToolbarScene
                 ordering = buildOrdering(mode);
                 mOrdering = ordering;
             }
-            List<SmbStorage.GalleryRef> refs = ordering.refs;
+            List<SmbInventory.GalleryRef> refs = ordering.refs;
             int total = refs.size();
             int pages = Math.max(1, (total + PAGE_SIZE - 1) / PAGE_SIZE);
             List<GalleryInfo> data = new ArrayList<>();
             int from = page * PAGE_SIZE;
             int to = Math.min(from + PAGE_SIZE, total);
             for (int i = from; i < to; i++) {
-                SmbStorage.GalleryRef ref = refs.get(i);
+                SmbInventory.GalleryRef ref = refs.get(i);
                 GalleryInfo gi = ordering.infos != null
                         ? ordering.infos.get(ref.folderName)
-                        : SmbStorage.readGalleryInfo(ref);
+                        : SmbInventory.readGalleryInfo(ref);
                 if (gi != null) {
                     data.add(gi);
                 }
@@ -1200,12 +1203,12 @@ public class LocalInventoryScene extends ToolbarScene
             if (current == null) {
                 return;
             }
-            List<SmbStorage.GalleryRef> refs = new ArrayList<>(current.refs.size());
+            List<SmbInventory.GalleryRef> refs = new ArrayList<>(current.refs.size());
             boolean found = false;
-            for (SmbStorage.GalleryRef ref : current.refs) {
+            for (SmbInventory.GalleryRef ref : current.refs) {
                 if (!found && ref.folderName.equals(from)) {
                     found = true;
-                    refs.add(new SmbStorage.GalleryRef(to, ref.folderMtime));
+                    refs.add(new SmbInventory.GalleryRef(to, ref.folderMtime));
                 } else {
                     refs.add(ref);
                 }
@@ -1229,9 +1232,9 @@ public class LocalInventoryScene extends ToolbarScene
             if (current == null) {
                 return;
             }
-            List<SmbStorage.GalleryRef> refs = new ArrayList<>(current.refs.size());
+            List<SmbInventory.GalleryRef> refs = new ArrayList<>(current.refs.size());
             boolean removed = false;
-            for (SmbStorage.GalleryRef ref : current.refs) {
+            for (SmbInventory.GalleryRef ref : current.refs) {
                 if (!removed && ref.folderName.equals(folderName)) {
                     removed = true;
                     continue;
@@ -1254,18 +1257,18 @@ public class LocalInventoryScene extends ToolbarScene
             if (mode == SmbSortMode.DOWNLOAD_DATE_DESC) {
                 // Recently-downloaded order keys off the folder mtime the listing already carries, so
                 // no metadata is read until a page needs it.
-                List<SmbStorage.GalleryRef> refs = SmbStorage.listGalleryRefs();
+                List<SmbInventory.GalleryRef> refs = SmbInventory.listGalleryRefs();
                 Collections.sort(refs, (a, b) -> Long.compare(b.folderMtime, a.folderMtime));
                 return new Ordering(refs, null);
             }
             // Other sorts need fields that only live in metadata.json, so the whole share has to be
             // read to order it; cache it and serve pages from the cache.
-            List<GalleryInfo> loaded = SmbStorage.loadInventory(mode);
-            List<SmbStorage.GalleryRef> refs = new ArrayList<>(loaded.size());
+            List<GalleryInfo> loaded = SmbInventory.loadInventory(mode);
+            List<SmbInventory.GalleryRef> refs = new ArrayList<>(loaded.size());
             Map<String, GalleryInfo> infos = new HashMap<>();
             for (GalleryInfo gi : loaded) {
                 String folderName = SmbPaths.buildGalleryFolderName(gi);
-                refs.add(new SmbStorage.GalleryRef(folderName, 0L));
+                refs.add(new SmbInventory.GalleryRef(folderName, 0L));
                 infos.put(folderName, gi);
             }
             return new Ordering(refs, infos);

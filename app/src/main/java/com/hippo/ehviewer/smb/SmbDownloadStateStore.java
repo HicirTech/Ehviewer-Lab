@@ -64,7 +64,7 @@ public final class SmbDownloadStateStore {
 
     @NonNull
     private static String stateRootUrl() {
-        return SmbPaths.buildStateRootUrl(SmbStorage.buildSmbUrl());
+        return SmbPaths.buildStateRootUrl(SmbConnection.buildSmbUrl());
     }
 
     // ------------------------------------------------------------------ read
@@ -86,11 +86,11 @@ public final class SmbDownloadStateStore {
     @NonNull
     public static List<Published> readAll() {
         List<Published> out = new ArrayList<>();
-        if (!SmbStorage.isConfigured()) {
+        if (!SmbConnection.isConfigured()) {
             return out;
         }
         try {
-            CIFSContext cifs = SmbStorage.buildContext();
+            CIFSContext cifs = SmbConnection.buildContext();
             SmbFile dir = new SmbFile(stateRootUrl(), cifs);
             if (!dir.exists() || !dir.isDirectory()) {
                 // Nothing has published yet. Not an error: the directory is created by the first
@@ -180,11 +180,11 @@ public final class SmbDownloadStateStore {
      * @return whether the state reached the share.
      */
     public static boolean writeSelf(@NonNull ClientState state) {
-        if (!SmbStorage.isConfigured()) {
+        if (!SmbConnection.isConfigured()) {
             return false;
         }
         try {
-            SmbFile dir = new SmbFile(stateRootUrl(), SmbStorage.buildContext());
+            SmbFile dir = new SmbFile(stateRootUrl(), SmbConnection.buildContext());
             if (!dir.exists()) {
                 dir.mkdirs();
             }
@@ -207,7 +207,7 @@ public final class SmbDownloadStateStore {
         String target = clientId + SUFFIX;
         SmbFile tempFile = new SmbFile(dir, SmbTempFiles.nameFor(clientId));
         try (OutputStream os = new java.io.BufferedOutputStream(
-                tempFile.getOutputStream(), SmbStorage.SMB_IO_BUFFER)) {
+                tempFile.getOutputStream(), SmbGalleryFiles.SMB_IO_BUFFER)) {
             os.write(json.getBytes(StandardCharsets.UTF_8));
         }
 
@@ -258,11 +258,11 @@ public final class SmbDownloadStateStore {
      * @return whether the file is now free of the gallery — including when it never had it.
      */
     public static boolean removeTask(@NonNull String ownerClientId, long gid) {
-        if (!SmbStorage.isConfigured()) {
+        if (!SmbConnection.isConfigured()) {
             return false;
         }
         try {
-            CIFSContext cifs = SmbStorage.buildContext();
+            CIFSContext cifs = SmbConnection.buildContext();
             SmbFile dir = new SmbFile(stateRootUrl(), cifs);
             SmbFile file = new SmbFile(dir, ownerClientId + SUFFIX);
             if (!file.exists()) {
@@ -298,9 +298,9 @@ public final class SmbDownloadStateStore {
         // Open, read, close, as briefly as possible: while this handle is open, the owning device
         // cannot rename its new file over this one.
         try (InputStream is = new java.io.BufferedInputStream(
-                file.getInputStream(), SmbStorage.SMB_IO_BUFFER)) {
+                file.getInputStream(), SmbGalleryFiles.SMB_IO_BUFFER)) {
             ByteArrayOutputStream buffer = new ByteArrayOutputStream();
-            byte[] chunk = new byte[SmbStorage.SMB_IO_BUFFER];
+            byte[] chunk = new byte[SmbGalleryFiles.SMB_IO_BUFFER];
             int read;
             while ((read = is.read(chunk)) != -1) {
                 buffer.write(chunk, 0, read);

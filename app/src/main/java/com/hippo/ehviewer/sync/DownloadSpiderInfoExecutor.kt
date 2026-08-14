@@ -44,7 +44,7 @@ class DownloadSpiderInfoExecutor(
         // database for any gallery that has none, which for one that was never downloaded here
         // invents a local download that does not exist.
         if (com.hippo.ehviewer.smb.SmbTaskInfo.isSmb(info as? DownloadInfo)) {
-            return com.hippo.ehviewer.smb.SmbStorage.openSpiderInfoInputStream(info)
+            return com.hippo.ehviewer.smb.SmbGalleryFiles.openSpiderInfoInputStream(info)
                 ?.use { SpiderInfo.read(it) }
                 ?.takeIf { it.gid == info.gid }
         }

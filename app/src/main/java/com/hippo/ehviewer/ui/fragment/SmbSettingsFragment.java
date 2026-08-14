@@ -16,7 +16,7 @@ import androidx.preference.TwoStatePreference;
 import com.hippo.ehviewer.R;
 import com.hippo.ehviewer.Settings;
 import com.hippo.ehviewer.smb.SmbBenchmark;
-import com.hippo.ehviewer.smb.SmbStorage;
+import com.hippo.ehviewer.smb.SmbConnection;
 import com.hippo.lib.yorozuya.SimpleHandler;
 import com.hippo.util.IoThreadPoolExecutor;
 
@@ -470,7 +470,7 @@ public class SmbSettingsFragment extends PreferenceFragmentCompat implements Pre
             try {
                 // Non-null means the share is reachable but something about the setup needs
                 // saying — currently only that the gallery directory could not be created.
-                String warning = SmbStorage.testConnection();
+                String warning = SmbConnection.testConnection();
                 message = warning == null
                         ? appContext.getString(R.string.settings_smb_test_success)
                         : appContext.getString(R.string.settings_smb_test_success) + "\n" + warning;

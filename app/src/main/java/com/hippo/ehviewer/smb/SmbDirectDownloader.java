@@ -275,7 +275,7 @@ public final class SmbDirectDownloader {
      * trusting its own.
      */
     private void beatNow() {
-        if (!SmbStorage.isConfigured()) {
+        if (!SmbConnection.isConfigured()) {
             return;
         }
         long before = lastPublishedAtMillis;
@@ -329,7 +329,7 @@ public final class SmbDirectDownloader {
                 Log.w(TAG, "Failed to release SpiderQueen on yield gid=" + gid, e);
             }
         }
-        SmbStorage.unmarkGidAsSmbTarget(gid);
+        SmbSpiderStorage.unmarkGidAsSmbTarget(gid);
         notifyObservers();
         updateNotification();
         SimpleHandler.getInstance().post(this::pumpOnMainThread);
@@ -345,7 +345,7 @@ public final class SmbDirectDownloader {
      * being written to the share.
      */
     private static boolean smbAvailable() {
-        return Settings.getSmbSaveEnabled() && SmbStorage.isConfigured();
+        return Settings.getSmbSaveEnabled() && SmbConnection.isConfigured();
     }
 
     /**
@@ -471,7 +471,7 @@ public final class SmbDirectDownloader {
         if (!restoreStarted.compareAndSet(false, true)) {
             return;
         }
-        if (!SmbStorage.isConfigured()) {
+        if (!SmbConnection.isConfigured()) {
             return;
         }
         try {
@@ -602,7 +602,7 @@ public final class SmbDirectDownloader {
      */
     @NonNull
     public List<SmbTaskInfo> snapshotSharedTasks() {
-        if (!SmbStorage.isConfigured()) {
+        if (!SmbConnection.isConfigured()) {
             return new ArrayList<>();
         }
         try {
@@ -658,7 +658,7 @@ public final class SmbDirectDownloader {
         GalleryInfo hint = new GalleryInfo();
         hint.gid = task.gid;
         hint.title = task.title;
-        GalleryInfo read = SmbStorage.readGalleryMetadata(hint);
+        GalleryInfo read = SmbInventory.readGalleryMetadata(hint);
         if (read != null) {
             metadataCache.put(task.gid, read);
         }
@@ -698,7 +698,7 @@ public final class SmbDirectDownloader {
      * worker thread.
      */
     public boolean isClaimedElsewhere(long gid) {
-        if (!SmbStorage.isConfigured()) {
+        if (!SmbConnection.isConfigured()) {
             return false;
         }
         try {
@@ -957,13 +957,13 @@ public final class SmbDirectDownloader {
             final GalleryInfo finalInfo = infoForDelete;
             IoThreadPoolExecutor.Companion.getInstance().execute(() -> {
                 try {
-                    SmbStorage.deleteGalleryFolder(finalInfo);
+                    SmbGalleryLifecycle.deleteGalleryFolder(finalInfo);
                 } catch (Throwable e) {
                     Log.w(TAG, "Failed to delete SMB folder on cancel gid=" + gid, e);
                 }
             });
         }
-        SmbStorage.unmarkGidAsSmbTarget(gid);
+        SmbSpiderStorage.unmarkGidAsSmbTarget(gid);
         notifyObservers();
         publishState();
         updateNotification();
@@ -1090,7 +1090,7 @@ public final class SmbDirectDownloader {
         // metadata carries tags this skeleton does not.
         IoThreadPoolExecutor.Companion.getInstance().execute(() -> {
             try {
-                if (SmbStorage.readGalleryMetadata(info) == null) {
+                if (SmbInventory.readGalleryMetadata(info) == null) {
                     SmbMetadata.writeMetadataSkeleton(info);
                 }
             } catch (Throwable e) {
@@ -1099,7 +1099,7 @@ public final class SmbDirectDownloader {
         });
         // Mark BEFORE obtaining the queen so the SpiderDen it constructs immediately routes
         // to SMB. Unmarked in onJobFinish.
-        SmbStorage.markGidAsSmbTarget(info.gid);
+        SmbSpiderStorage.markGidAsSmbTarget(info.gid);
         try {
             SpiderQueen queen = SpiderQueen.obtainSpiderQueen(appContext, info, SpiderQueen.MODE_DOWNLOAD);
             ListenerImpl listener = new ListenerImpl(info);
@@ -1121,10 +1121,10 @@ public final class SmbDirectDownloader {
             // A regular DownloadManager download is already in progress for this gid.
             // We must NOT leave the gid marked or its concurrent phone download would
             // start routing through SMB mid-flight.
-            SmbStorage.unmarkGidAsSmbTarget(info.gid);
+            SmbSpiderStorage.unmarkGidAsSmbTarget(info.gid);
             Log.w(TAG, "SMB direct download skipped for gid=" + info.gid + ": " + e.getMessage());
         } catch (Throwable e) {
-            SmbStorage.unmarkGidAsSmbTarget(info.gid);
+            SmbSpiderStorage.unmarkGidAsSmbTarget(info.gid);
             Log.e(TAG, "Failed to start SMB direct download gid=" + info.gid, e);
         }
     }
@@ -1150,7 +1150,7 @@ public final class SmbDirectDownloader {
         final boolean wasMove = movingFromPhone.remove(info.gid);
         IoThreadPoolExecutor.Companion.getInstance().execute(() -> {
             try {
-                SmbStorage.finalizeDownloadedGallery(ctx, info);
+                SmbGalleryLifecycle.finalizeDownloadedGallery(ctx, info);
             } catch (Throwable e) {
                 Log.e(TAG, "SMB finalize failed for gid=" + info.gid, e);
             }
