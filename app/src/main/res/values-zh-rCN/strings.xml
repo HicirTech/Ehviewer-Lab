@@ -670,7 +670,6 @@
     <string name="settings_privacy_enable_analytics">启用数据统计</string>
     <string name="settings_privacy_about_analytics">关于数据统计</string>
     <string name="settings_about_version">版本号</string>
-    <string name="settings_about_version_debug">%1$s · 调试版</string>
     <string name="settings_about_check_for_updates">检查更新</string>
     <string name="settings_close_automatic_updates">关闭自动更新</string>
     <string name="settings_about_beta_update_channel">更新测试版</string>
@@ -827,7 +826,6 @@
     <string name="favorite_name">收藏画廊</string>
     <string name="no_blicklist">这里是黑名单</string>
 
-
     <!--  排行榜  -->
     <string name="gallery_toplists">画廊 排行榜</string>
     <string name="uploader_toplists">上传 排行榜</string>
@@ -842,7 +840,6 @@
     <string name="past_year_top_list">过去一年</string>
     <string name="past_month_top_list">过去一个月</string>
     <string name="yesterday_top_list">昨天</string>
-
 
     <!--  侧滑栏头像和背景修改  -->
     <string name="change_background_title">您确定要更改背景吗？</string>
@@ -925,7 +922,6 @@
     <string name="ip_base_limits">IP基础限制</string>
     <string name="limit_unneed_reset">当前无需重置配额，请在刷新后重试~</string>
 
-
     <string name="pagination_count">共</string>
     <string name="pagination_page_and_item">条/页</string>
     <string name="cookie_login_import_in_clipboard">从剪切板导入</string>
@@ -979,116 +975,5 @@
     <string name="imported_archive_category">本地导入</string>
 
     <!-- SMB save feature -->
-    <string name="local_inventory">SMB 库</string>
-    <string name="local_inventory_empty">SMB 共享中暂时没有画廊</string>
-    <string name="local_inventory_disabled">请在设置中启用「保存到 SMB」并配置共享</string>
-    <string name="local_inventory_timeout">SMB 共享 7 秒内未响应</string>
-    <string name="local_inventory_sort_title">排序方式</string>
-    <string name="local_inventory_sort_download_date">下载时间（从新到旧）</string>
-    <string name="local_inventory_sort_posted_date">发布时间（从新到旧）</string>
-    <string name="local_inventory_sort_title_az">标题（A–Z）</string>
-    <string name="local_inventory_sort_category">类别</string>
-    <string name="local_inventory_delete">从 SMB 共享删除</string>
-    <string name="local_inventory_delete_confirm_title">删除这本画廊?</string>
-    <string name="local_inventory_delete_confirm_title_many">删除这 %1$d 本画廊?</string>
-    <string name="local_inventory_delete_confirm_message">“%s”将从 SMB 共享上抹掉,无法恢复。</string>
-    <string name="local_inventory_delete_failed">没能从 SMB 共享删除</string>
-    <string name="local_inventory_resync_title">重新同步这本画廊</string>
-    <string name="local_inventory_resync_metadata">只同步画廊信息</string>
-    <string name="local_inventory_resync_pages">只补缺失的页</string>
-    <string name="local_inventory_resync_both">信息和缺失的页</string>
-    <string name="local_inventory_resync_running">正在同步\u2026</string>
-    <string name="local_inventory_resync_done">画廊信息已更新</string>
-    <string name="local_inventory_resync_failed">连不上 e-hentai,什么都没有改动。</string>
-    <string name="local_inventory_resync_queued">已加入队列,将补齐缺失的页。</string>
-    <string name="local_inventory_delete_confirm_many">%1$d 本画廊将从 SMB 共享上抹掉,无法恢复。</string>
-    <string name="local_inventory_delete_many_done">已删除 %1$d / %2$d</string>
-    <string name="local_inventory_resync_many_done">已更新 %1$d / %2$d</string>
-    <string name="smb_page_repair_failed">这一页已重新载入,但没能写回 SMB 共享</string>
 
-    <string name="smb_download_channel_name">SMB 保存</string>
-    <string name="smb_download_notif_title">正在保存到 SMB</string>
-    <string name="smb_download_notif_preparing">准备中…</string>
-    <string name="smb_notif_queue_title">SMB 保存</string>
-    <string name="smb_notif_queue_waiting">%d 个等待中</string>
-    <string name="smb_notif_extra_waiting">  （另 %d 个等待）</string>
-    <string name="smb_notif_progress_starting">启动中…%s</string>
-    <string name="smb_notif_progress_count">%1$d/%2$d%3$s</string>
-    <string name="smb_test_error_unconfigured">请先填写主机和共享名</string>
-    <string name="smb_test_error_share_not_accessible">无法访问共享</string>
-    <string name="smb_save_started">已开始保存到 SMB：%s</string>
-    <string name="smb_save_already_complete">已保存到 SMB，跳过</string>
-    <string name="smb_save_claimed_elsewhere">另一台设备正在把这本下载到 SMB 共享</string>
-    <string name="smb_task_action_cancel">取消下载</string>
-    <string name="smb_task_cancel_message">把《%1$s》移出队列?已经保存到共享的页面会一并删除。</string>
-    <string name="smb_task_owner_offline">设备离线</string>
-    <string name="smb_task_owner_last_seen">%1$s · 最后一次响应 %2$s</string>
-    <string name="smb_take_over_title">接管这个下载?</string>
-    <string name="smb_take_over_message">“%1$s”已经失去响应。要接管“%2$s”并在本机继续下载吗?</string>
-    <string name="smb_take_over_confirm">接管</string>
-    <string name="smb_take_over_owner_returned">那台设备已经回来了,它的下载保持不变</string>
-    <string name="smb_take_over_failed">无法接管这个下载</string>
-    <string name="smb_save_failed">无法开始保存到 SMB —— 共享可能连不上</string>
-    <string name="smb_save_not_configured">尚未配置 SMB</string>
-
-    <string name="gallery_download_target_title">下载到哪里？</string>
-    <string name="gallery_download_target_local">下载到手机</string>
-    <string name="gallery_download_target_smb">下载到 SMB 共享</string>
-
-    <string name="download_move_to_smb">移动到 SMB 共享</string>
-    <string name="download_moving_to_smb">正在复制到 SMB 共享…</string>
-
-    <string name="settings_smb">SMB 设置</string>
-    <string name="settings_smb_category_share">共享配置</string>
-    <string name="settings_smb_category_credentials">凭据</string>
-    <string name="settings_smb_enable_save">保存画廊到 SMB</string>
-    <string name="settings_smb_enable_save_summary">SMB 保存总开关。关闭时，所有 SMB 相关功能均不可用。</string>
-    <string name="settings_smb_enable_auto_download">自动下载到 SMB</string>
-    <string name="settings_smb_enable_auto_download_summary">开启后，打开画廊的第一页会自动在后台排队下载到 SMB。关闭时，按下载按钮会每次询问。</string>
-    <string name="settings_smb_share_path">SMB 共享路径</string>
-    <string name="settings_smb_share_path_summary">共享内子路径，例如：/ehviewer/（以 / 开头）</string>
-    <string name="settings_smb_host">SMB 主机</string>
-    <string name="settings_smb_host_summary">例如：192.168.1.10</string>
-    <string name="settings_smb_port">SMB 端口</string>
-    <string name="settings_smb_port_summary">默认：445</string>
-    <string name="settings_smb_share_name">SMB 共享名</string>
-    <string name="settings_smb_share_name_summary">例如：share</string>
-    <string name="settings_smb_username">SMB 用户名</string>
-    <string name="settings_smb_username_summary">可选，留空则以访客身份连接</string>
-    <string name="settings_smb_password">SMB 密码</string>
-    <string name="settings_smb_password_summary">可选，留空则以访客身份连接</string>
-    <string name="settings_smb_test">测试连接</string>
-    <string name="settings_smb_test_success">SMB 连接成功！</string>
-    <string name="settings_smb_device_name">本机名称</string>
-    <string name="settings_smb_device_name_summary">你的其它设备会在这台正在下载的画廊旁看到这个名字。默认使用机型名。</string>
-    <string name="smb_test_warn_gallery_dir">已连接,但无法创建「%1$s」文件夹 —— 共享可能是只读的。</string>
-    <string name="settings_smb_test_failed">SMB 连接失败：%s</string>
-    <string name="settings_smb_category_advanced">高级</string>
-    <string name="settings_smb_disable_signing">禁用 SMB 签名</string>
-    <string name="settings_smb_disable_signing_summary">跳过逐包签名，在慢 CPU（如部分联发科芯片）上加快传输。除非传输明显变慢，否则保持关闭（自动）；下次连接时生效。</string>
-    <string name="settings_smb_field_unset">点击设置</string>
-    <string name="settings_smb_field_unset_password">点击设置密码</string>
-
-    <string name="settings_about_upstream">上游 / 原项目</string>
-    <string name="settings_smb_metadata_concurrency">元数据并发数</string>
-    <string name="settings_smb_metadata_concurrency_summary">当前 %s 个并发。逐个读取画廊记录正是大库存排序缓慢的原因;过多则只会互相争抢。</string>
-    <string name="settings_smb_image_concurrency">图片并发数</string>
-    <string name="settings_smb_image_concurrency_summary">当前 %s 个并发。页面图片较大,超过某个数量后链路已满,再增加只是彼此等待。</string>
-    <string name="settings_smb_benchmark">测试当前共享</string>
-    <string name="settings_smb_benchmark_summary">用上面两个设置,测量一次目录枚举、一批画廊记录和几张页面图片的耗时。全程只读,不会向共享写入任何内容。</string>
-    <string name="settings_smb_benchmark_running">测量中…</string>
-    <string name="settings_smb_benchmark_title">共享性能</string>
-    <string name="settings_smb_benchmark_empty">共享上还没有画廊,无从测量。先保存一本再试。</string>
-    <string name="settings_smb_benchmark_unconfigured">请先填写主机和共享名。</string>
-    <string name="settings_smb_benchmark_result">枚举 %1$d 本画廊:%2$d 毫秒\n\n画廊记录,%3$d 并发:\n%4$d 本用时 %5$d 毫秒(每本 %6$s 毫秒)\n\n页面图片,%7$d 并发:\n%8$d 张用时 %9$d 毫秒(%10$s MB/秒)</string>
-    <string name="settings_smb_benchmark_hint">改动上面的设置后再测一次即可对比。每次结果都有些许波动,微小差异应视为没有差异。</string>
-    <string name="settings_smb_autotune">自动测出最快并发</string>
-    <string name="settings_smb_autotune_summary">对当前共享扫描 1–128 并发 —— 真实读取你的画廊,无任何缓存参与 —— 并应用最快的值。大库上图片阶段会搬运真实数据,预计需要几分钟。</string>
-    <string name="settings_smb_autotune_running">正在测 %1$s,并发 %2$d…</string>
-    <string name="settings_smb_autotune_stage_metadata">画廊记录</string>
-    <string name="settings_smb_autotune_stage_image">页面图片</string>
-    <string name="settings_smb_autotune_applied">已应用:画廊记录 %1$d 并发,图片 %2$d 并发。</string>
-    <string name="settings_smb_autotune_meta_header">画廊记录(共享上 %1$d 本):</string>
-    <string name="settings_smb_autotune_image_header">页面图片(取样 %1$d 张):</string>
-    <string name="settings_smb_autotune_collecting">正在收集取样页…</string>
 </resources>

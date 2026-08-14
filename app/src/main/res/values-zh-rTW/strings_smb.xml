@@ -1,0 +1,121 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  ~ Copyright 2026 Ehviewer SMB Saver fork
+  ~
+  ~ Licensed under the Apache License, Version 2.0 (the "License");
+  ~ you may not use this file except in compliance with the License.
+  -->
+
+<!-- The fork's own strings (#95). Everything here is fork-added; resource merging folds it into
+     the same table as strings.xml, so names and call sites are untouched. Upstream strings that
+     the fork MODIFIES stay in strings.xml — only additions live here, so that upstream merges of
+     strings.xml stop colliding with fork copy. Add new fork strings here, not there. -->
+<resources>
+    <string name="local_inventory">SMB 庫</string>
+    <string name="local_inventory_empty">SMB 共享中尚無畫廊</string>
+    <string name="local_inventory_disabled">請在設定中啟用「儲存至 SMB」並設定共享</string>
+    <string name="local_inventory_timeout">SMB 共享 7 秒內未回應</string>
+    <string name="local_inventory_sort_title">排序方式</string>
+    <string name="local_inventory_sort_download_date">下載時間（由新到舊）</string>
+    <string name="local_inventory_sort_posted_date">發佈時間（由新到舊）</string>
+    <string name="local_inventory_sort_title_az">標題（A–Z）</string>
+    <string name="local_inventory_sort_category">類別</string>
+    <string name="local_inventory_delete">從 SMB 共享刪除</string>
+    <string name="local_inventory_delete_confirm_title">刪除這本畫廊?</string>
+    <string name="local_inventory_delete_confirm_title_many">刪除這 %1$d 本畫廊?</string>
+    <string name="local_inventory_delete_confirm_message">「%s」將從 SMB 共享上抹掉,無法復原。</string>
+    <string name="local_inventory_delete_failed">沒能從 SMB 共享刪除</string>
+    <string name="local_inventory_resync_title">重新同步這本畫廊</string>
+    <string name="local_inventory_resync_metadata">只同步畫廊資訊</string>
+    <string name="local_inventory_resync_pages">只補缺少的頁</string>
+    <string name="local_inventory_resync_both">資訊和缺少的頁</string>
+    <string name="local_inventory_resync_running">正在同步\u2026</string>
+    <string name="local_inventory_resync_done">畫廊資訊已更新</string>
+    <string name="local_inventory_resync_failed">連不上 e-hentai,什麼都沒有改動。</string>
+    <string name="local_inventory_resync_queued">已加入佇列,將補齊缺少的頁。</string>
+    <string name="local_inventory_delete_confirm_many">%1$d 本畫廊將從 SMB 共享上抹掉,無法復原。</string>
+    <string name="local_inventory_delete_many_done">已刪除 %1$d / %2$d</string>
+    <string name="local_inventory_resync_many_done">已更新 %1$d / %2$d</string>
+    <string name="smb_page_repair_failed">這一頁已重新載入,但沒能寫回 SMB 共享</string>
+    <string name="smb_download_channel_name">SMB 儲存</string>
+    <string name="smb_download_notif_title">正在儲存至 SMB</string>
+    <string name="smb_download_notif_preparing">準備中…</string>
+    <string name="smb_notif_queue_title">SMB 儲存</string>
+    <string name="smb_notif_queue_waiting">%d 個等待中</string>
+    <string name="smb_notif_extra_waiting">  （另 %d 個等待）</string>
+    <string name="smb_notif_progress_starting">啟動中…%s</string>
+    <string name="smb_notif_progress_count">%1$d/%2$d%3$s</string>
+    <string name="smb_test_error_unconfigured">請先填寫主機和共享名稱</string>
+    <string name="smb_test_error_share_not_accessible">無法存取共享</string>
+    <string name="smb_save_started">已開始儲存至 SMB：%s</string>
+    <string name="smb_save_already_complete">已儲存至 SMB，略過</string>
+    <string name="smb_save_claimed_elsewhere">另一台裝置正在把這本下載到 SMB 共享</string>
+    <string name="smb_task_action_cancel">取消下載</string>
+    <string name="smb_task_cancel_message">把《%1$s》移出佇列?已經儲存到共享的頁面會一併刪除。</string>
+    <string name="smb_task_owner_offline">裝置離線</string>
+    <string name="smb_task_owner_last_seen">%1$s · 最後一次回應 %2$s</string>
+    <string name="smb_take_over_title">接管這個下載?</string>
+    <string name="smb_take_over_message">「%1$s」已經失去回應。要接管「%2$s」並在本機繼續下載嗎?</string>
+    <string name="smb_take_over_confirm">接管</string>
+    <string name="smb_take_over_owner_returned">那台裝置已經回來了,它的下載保持不變</string>
+    <string name="smb_take_over_failed">無法接管這個下載</string>
+    <string name="smb_save_failed">無法開始儲存到 SMB —— 共享可能連不上</string>
+    <string name="smb_save_not_configured">尚未設定 SMB</string>
+    <string name="gallery_download_target_title">下載到哪裡？</string>
+    <string name="gallery_download_target_local">下載到手機</string>
+    <string name="gallery_download_target_smb">下載到 SMB 共享</string>
+    <string name="download_move_to_smb">移動到 SMB 共享</string>
+    <string name="download_moving_to_smb">正在複製到 SMB 共享…</string>
+    <string name="settings_smb">SMB 設定</string>
+    <string name="settings_smb_category_share">共享設定</string>
+    <string name="settings_smb_category_credentials">登入資訊</string>
+    <string name="settings_smb_enable_save">儲存畫廊至 SMB</string>
+    <string name="settings_smb_enable_save_summary">SMB 儲存總開關。關閉時，所有 SMB 相關功能均不可用。</string>
+    <string name="settings_smb_enable_auto_download">自動下載至 SMB</string>
+    <string name="settings_smb_enable_auto_download_summary">啟用後，開啟畫廊的第一頁會自動在背景排隊下載至 SMB。關閉時，按下載按鈕會每次詢問。</string>
+    <string name="settings_smb_share_path">SMB 共享路徑</string>
+    <string name="settings_smb_share_path_summary">共享內的子路徑，例如：/ehviewer/（以 / 開頭）</string>
+    <string name="settings_smb_host">SMB 主機</string>
+    <string name="settings_smb_host_summary">例如：192.168.1.10</string>
+    <string name="settings_smb_port">SMB 埠</string>
+    <string name="settings_smb_port_summary">預設：445</string>
+    <string name="settings_smb_share_name">SMB 共享名稱</string>
+    <string name="settings_smb_share_name_summary">例如：share</string>
+    <string name="settings_smb_username">SMB 使用者名稱</string>
+    <string name="settings_smb_username_summary">選填，留空則以訪客身分連線</string>
+    <string name="settings_smb_password">SMB 密碼</string>
+    <string name="settings_smb_password_summary">選填，留空則以訪客身分連線</string>
+    <string name="settings_smb_test">測試連線</string>
+    <string name="settings_smb_test_success">SMB 連線成功！</string>
+    <string name="settings_smb_device_name">本機名稱</string>
+    <string name="settings_smb_device_name_summary">你的其它裝置會在這台正在下載的畫廊旁看到這個名字。預設使用機型名。</string>
+    <string name="smb_test_warn_gallery_dir">已連線,但無法建立「%1$s」資料夾 —— 共享可能是唯讀的。</string>
+    <string name="settings_smb_test_failed">SMB 連線失敗：%s</string>
+    <string name="settings_smb_category_advanced">進階</string>
+    <string name="settings_smb_disable_signing">停用 SMB 簽署</string>
+    <string name="settings_smb_disable_signing_summary">略過逐封包簽署，在慢 CPU（例如部分聯發科晶片）上加快傳輸。除非傳輸明顯變慢，否則保持關閉（自動）；下次連線時生效。</string>
+    <string name="settings_smb_field_unset">點擊設定</string>
+    <string name="settings_smb_field_unset_password">點擊設定密碼</string>
+    <string name="settings_about_upstream">上游 / 原專案</string>
+    <string name="settings_smb_metadata_concurrency">元數據並發數</string>
+    <string name="settings_smb_metadata_concurrency_summary">目前 %s 個並發。逐個讀取畫廊記錄正是大庫存排序緩慢的原因;過多則只會互相爭搶。</string>
+    <string name="settings_smb_image_concurrency">圖片並發數</string>
+    <string name="settings_smb_image_concurrency_summary">目前 %s 個並發。頁面圖片較大,超過某個數量後鏈路已滿,再增加只是彼此等待。</string>
+    <string name="settings_smb_benchmark">測試目前共享</string>
+    <string name="settings_smb_benchmark_summary">用上面兩個設定,測量一次目錄枚舉、一批畫廊記錄和幾張頁面圖片的耗時。全程唯讀,不會向共享寫入任何內容。</string>
+    <string name="settings_smb_benchmark_running">測量中…</string>
+    <string name="settings_smb_benchmark_title">共享效能</string>
+    <string name="settings_smb_benchmark_empty">共享上還沒有畫廊,無從測量。先儲存一本再試。</string>
+    <string name="settings_smb_benchmark_unconfigured">請先填寫主機和共享名。</string>
+    <string name="settings_smb_benchmark_result">枚舉 %1$d 本畫廊:%2$d 毫秒\n\n畫廊記錄,%3$d 並發:\n%4$d 本用時 %5$d 毫秒(每本 %6$s 毫秒)\n\n頁面圖片,%7$d 並發:\n%8$d 張用時 %9$d 毫秒(%10$s MB/秒)</string>
+    <string name="settings_smb_benchmark_hint">改動上面的設定後再測一次即可對比。每次結果都有些許波動,微小差異應視為沒有差異。</string>
+    <string name="settings_smb_autotune">自動測出最快並發</string>
+    <string name="settings_smb_autotune_summary">對目前共享掃描 1–128 並發 —— 真實讀取你的畫廊,無任何快取參與 —— 並套用最快的值。大庫上圖片階段會搬運真實資料,預計需要幾分鐘。</string>
+    <string name="settings_smb_autotune_running">正在測 %1$s,並發 %2$d…</string>
+    <string name="settings_smb_autotune_stage_metadata">畫廊記錄</string>
+    <string name="settings_smb_autotune_stage_image">頁面圖片</string>
+    <string name="settings_smb_autotune_applied">已套用:畫廊記錄 %1$d 並發,圖片 %2$d 並發。</string>
+    <string name="settings_smb_autotune_meta_header">畫廊記錄(共享上 %1$d 本):</string>
+    <string name="settings_smb_autotune_image_header">頁面圖片(取樣 %1$d 張):</string>
+    <string name="settings_smb_autotune_collecting">正在蒐集取樣頁…</string>
+</resources>
