@@ -39,19 +39,12 @@ import com.hippo.ehviewer.Settings;
 import com.hippo.ehviewer.client.EhCacheKeyFactory;
 import com.hippo.ehviewer.client.EhUtils;
 import com.hippo.ehviewer.client.data.GalleryInfo;
-import com.hippo.ehviewer.smb.SmbCoverPrefetch;
 import com.hippo.ehviewer.smb.SmbCoverDataContainer;
 import com.hippo.ehviewer.smb.SmbDeviceColor;
-import com.hippo.ehviewer.smb.SmbDirectDownloader;
 import com.hippo.ehviewer.smb.SmbMetadata;
 import com.hippo.ehviewer.smb.SmbPaths;
-import com.hippo.ehviewer.smb.SmbPreviewCache;
 import com.hippo.ehviewer.smb.SmbSortMode;
 import com.hippo.ehviewer.smb.SmbConnection;
-import com.hippo.ehviewer.smb.SmbDownloadBoard;
-import com.hippo.ehviewer.smb.SmbGalleryLifecycle;
-import com.hippo.ehviewer.smb.SmbInventory;
-import com.hippo.ehviewer.smb.SmbTaskInfo;
 import com.hippo.ehviewer.ui.GalleryActivity;
 import com.hippo.ehviewer.ui.scene.ToolbarScene;
 import com.hippo.ehviewer.ui.scene.gallery.detail.GalleryDetailScene;
@@ -68,18 +61,12 @@ import com.hippo.widget.LoadImageView;
 import com.hippo.widget.Slider;
 import com.hippo.widget.recyclerview.AutoStaggeredGridLayoutManager;
 
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
 
 /**
  * Browses the share's galleries, paginated like the online list (ContentHelper); each page reads
@@ -118,52 +105,81 @@ public class LocalInventoryScene extends ToolbarScene
     @Nullable
     private ExecutorService mExecutor;
 
-    // ---------- "someone is downloading this" badge (#77) ----------
+    // ---------- collaborators (#99) ----------
 
-    /** What a card needs in order to draw its badge: whose download, and how far along. */
-    private static final class DownloadMark {
-        @NonNull final String clientId;
-        final float progress;
-
-        DownloadMark(@NonNull String clientId, float progress) {
-            this.clientId = clientId;
-            this.progress = progress;
+    /** Runs on the app pool when there is one; the fallback thread keeps early calls working. */
+    private final java.util.concurrent.Executor mWorker = task -> {
+        if (mExecutor != null) {
+            mExecutor.execute(task);
+        } else {
+            new Thread(task, "LocalInventory").start();
         }
+    };
 
-        /** Compared, not merely stored: an unchanged mark is a redraw not done. */
+    private final InventoryPager mPager = new InventoryPager();
+
+    private final InventoryBadges mBadges = new InventoryBadges(mWorker, this::applyDownloadMarks);
+
+    private final InventoryOps mOps = new InventoryOps(mWorker, new InventoryOps.Listener() {
         @Override
-        public boolean equals(@Nullable Object o) {
-            if (this == o) {
-                return true;
-            }
-            if (!(o instanceof DownloadMark)) {
-                return false;
-            }
-            DownloadMark other = (DownloadMark) o;
-            return clientId.equals(other.clientId)
-                    && Float.compare(progress, other.progress) == 0;
+        public void onRowResynced(@NonNull GalleryInfo fresh) {
+            replaceRow(fresh);
         }
 
         @Override
-        public int hashCode() {
-            return clientId.hashCode() * 31 + Float.floatToIntBits(progress);
+        public void onResyncFinished(int done, int total) {
+            Context context = getEHContext();
+            if (context == null) {
+                return;
+            }
+            Context appContext = context.getApplicationContext();
+            if (total == 1) {
+                // Distinguished from success on purpose: a failed fetch must not look like a no-op sync.
+                Toast.makeText(appContext,
+                        done == 1 ? R.string.local_inventory_resync_done
+                                  : R.string.local_inventory_resync_failed,
+                        Toast.LENGTH_SHORT).show();
+            } else {
+                Toast.makeText(appContext, getString(
+                        R.string.local_inventory_resync_many_done, done, total),
+                        Toast.LENGTH_LONG).show();
+            }
         }
-    }
 
-    /** Claims by gid (queued/paused included — half-written is half-written), for the badges. */
+        @Override
+        public void onGalleryDeleted(@NonNull GalleryInfo gi) {
+            dropRow(gi);
+        }
+
+        @Override
+        public void onDeleteFinished(int gone, int total) {
+            Context context = getEHContext();
+            if (context == null) {
+                return;
+            }
+            Context appContext = context.getApplicationContext();
+            if (gone == total) {
+                if (total > 1) {
+                    Toast.makeText(appContext, getString(
+                            R.string.local_inventory_delete_many_done, gone, total),
+                            Toast.LENGTH_SHORT).show();
+                }
+                return;
+            }
+            Toast.makeText(appContext,
+                    total == 1
+                            ? getString(R.string.local_inventory_delete_failed)
+                            : getString(R.string.local_inventory_delete_many_done, gone, total),
+                    Toast.LENGTH_LONG).show();
+        }
+    });
+
+    /** Marks by gid, as last applied; kept for the per-row diff. */
     @NonNull
-    private Map<Long, DownloadMark> mDownloadMarks = Collections.emptyMap();
+    private Map<Long, InventoryBadges.Mark> mDownloadMarks = Collections.emptyMap();
 
     /** Tells the adapter to redraw a card's badge and leave the rest of it alone. */
     private static final Object PAYLOAD_BADGE = new Object();
-
-    // 2s: others' progress only moves on a 20s heartbeat; own moves per page.
-    private static final long BADGE_REFRESH_INTERVAL_MS = 2_000L;
-
-    private long mLastBadgeRefreshAt;
-    private boolean mBadgeRefreshScheduled;
-
-    private final SmbDirectDownloader.TaskObserver mSmbTaskObserver = this::refreshDownloadingBadges;
 
     @Override
     public int getNavCheckedItem() {
@@ -177,73 +193,25 @@ public class LocalInventoryScene extends ToolbarScene
         if (context != null) {
             mExecutor = EhApplication.getExecutorService(context);
         }
-        // Our own downloads need no round trip to notice: the downloader says so directly.
-        SmbDirectDownloader.getInstance().addTaskObserver(mSmbTaskObserver);
+        mBadges.attach();
     }
 
     @Override
     public void onDestroy() {
         super.onDestroy();
-        SmbDirectDownloader.getInstance().removeTaskObserver(mSmbTaskObserver);
+        mBadges.detach();
     }
 
     @Override
     public void onResume() {
         super.onResume();
         // Coming back from the reader or a detail page, where a download may have been started.
-        refreshDownloadingBadges();
-    }
-
-    /** Re-reads claims, rate-limited; the last call of a burst is honoured late, not dropped. */
-    private void refreshDownloadingBadges() {
-        long now = System.currentTimeMillis();
-        long since = now - mLastBadgeRefreshAt;
-        if (since < BADGE_REFRESH_INTERVAL_MS) {
-            if (!mBadgeRefreshScheduled) {
-                mBadgeRefreshScheduled = true;
-                SimpleHandler.getInstance().postDelayed(() -> {
-                    mBadgeRefreshScheduled = false;
-                    refreshDownloadingBadges();
-                }, BADGE_REFRESH_INTERVAL_MS - since);
-            }
-            return;
-        }
-        mLastBadgeRefreshAt = now;
-
-        if (!SmbConnection.isConfigured() || !Settings.getSmbSaveEnabled()) {
-            applyDownloadMarks(Collections.<Long, DownloadMark>emptyMap());
-            return;
-        }
-        Runnable task = () -> {
-            final Map<Long, DownloadMark> marks = new HashMap<>();
-            // Reads the share. Never throws: an unreachable share comes back as an empty list, and
-            // the cards simply show no badges rather than the screen failing over a decoration.
-            for (SmbTaskInfo t : SmbDownloadBoard.getInstance().snapshotSharedTasks()) {
-                marks.put(t.gid, new DownloadMark(t.ownerClientId, fractionOf(t)));
-            }
-            SimpleHandler.getInstance().post(() -> applyDownloadMarks(marks));
-        };
-        if (mExecutor != null) {
-            mExecutor.execute(task);
-        } else {
-            new Thread(task, "LocalInventoryBadges").start();
-        }
-    }
-
-    /** Progress 0-1; zero while the total is unknown (claimed before counted). */
-    private static float fractionOf(@NonNull SmbTaskInfo t) {
-        if (t.total <= 0) {
-            return 0f;
-        }
-        return (float) t.finished / (float) t.total;
+        mBadges.refresh();
     }
 
     /** Main thread. Payload-rebinds only changed cards — a full rebuild swallows long-presses. */
-    private void applyDownloadMarks(@NonNull Map<Long, DownloadMark> marks) {
-        if (mDownloadMarks.equals(marks)) {
-            return;
-        }
-        Map<Long, DownloadMark> previous = mDownloadMarks;
+    private void applyDownloadMarks(@NonNull Map<Long, InventoryBadges.Mark> marks) {
+        Map<Long, InventoryBadges.Mark> previous = mDownloadMarks;
         mDownloadMarks = marks;
         if (mAdapter == null || mHelper == null) {
             return;
@@ -253,8 +221,8 @@ public class LocalInventoryScene extends ToolbarScene
             if (gi == null) {
                 continue;
             }
-            DownloadMark before = previous.get(gi.gid);
-            DownloadMark after = marks.get(gi.gid);
+            InventoryBadges.Mark before = previous.get(gi.gid);
+            InventoryBadges.Mark after = marks.get(gi.gid);
             boolean changed = before == null ? after != null : !before.equals(after);
             if (changed) {
                 mAdapter.notifyItemChanged(i, PAYLOAD_BADGE);
@@ -613,59 +581,22 @@ public class LocalInventoryScene extends ToolbarScene
                 .show();
     }
 
-    /** Serial (a fan-out at e-hentai meets a rate limit); rows swap in as they land. */
     private void resyncMetadata(@NonNull List<GalleryInfo> galleries) {
         Context context = getEHContext();
         if (context == null || galleries.isEmpty()) {
             return;
         }
-        final Context appContext = context.getApplicationContext();
-        final List<GalleryInfo> batch = new ArrayList<>(galleries);
+        Context appContext = context.getApplicationContext();
         Toast.makeText(appContext, R.string.local_inventory_resync_running, Toast.LENGTH_SHORT).show();
-        Runnable task = () -> {
-            int updated = 0;
-            for (GalleryInfo gi : batch) {
-                final GalleryInfo fresh = SmbMetadata.resyncMetadata(appContext, gi);
-                if (fresh != null) {
-                    updated++;
-                    // A re-sync can bring a different cover; the staged copy would keep showing
-                    // the old one until the process restarted.
-                    SmbCoverPrefetch.evict(gi.gid);
-                    SimpleHandler.getInstance().post(() -> replaceRow(fresh));
-                }
-            }
-            final int done = updated;
-            SimpleHandler.getInstance().post(() -> {
-                if (batch.size() == 1) {
-                    // Distinguished from success on purpose: the old path wrote the unchanged
-                    // record back when the fetch failed, so the two looked identical.
-                    Toast.makeText(appContext,
-                            done == 1 ? R.string.local_inventory_resync_done
-                                      : R.string.local_inventory_resync_failed,
-                            Toast.LENGTH_SHORT).show();
-                } else {
-                    Toast.makeText(appContext, getString(
-                            R.string.local_inventory_resync_many_done, done, batch.size()),
-                            Toast.LENGTH_LONG).show();
-                }
-            });
-        };
-        if (mExecutor != null) {
-            mExecutor.execute(task);
-        } else {
-            new Thread(task, "LocalInventoryResync").start();
-        }
+        mOps.resyncMetadata(appContext, galleries);
     }
 
-    /** Re-enqueues; contain() skips what is already on the share, so only the holes download. */
     private void repairMissingPages(@NonNull List<GalleryInfo> galleries) {
         Context context = getEHContext();
         if (context == null || galleries.isEmpty()) {
             return;
         }
-        for (GalleryInfo gi : galleries) {
-            SmbDirectDownloader.getInstance().start(context, gi);
-        }
+        mOps.repairMissingPages(context, galleries);
         Toast.makeText(context.getApplicationContext(), R.string.local_inventory_resync_queued,
                 Toast.LENGTH_SHORT).show();
     }
@@ -683,7 +614,7 @@ public class LocalInventoryScene extends ToolbarScene
             String before = SmbPaths.buildGalleryFolderName(at);
             String after = SmbPaths.buildGalleryFolderName(fresh);
             if (!before.equals(after)) {
-                mHelper.renameRef(before, after);
+                mPager.renameRef(before, after);
             }
             mHelper.replaceAt(i, fresh);
             break;
@@ -714,94 +645,21 @@ public class LocalInventoryScene extends ToolbarScene
                 .show();
     }
 
-    /** Deletes serially; a folder that would not delete keeps its row. */
     private void deleteGalleries(@NonNull List<GalleryInfo> galleries) {
         Context context = getEHContext();
         if (context == null || galleries.isEmpty()) {
             return;
         }
-        final Context appContext = context.getApplicationContext();
-        final List<GalleryInfo> batch = new ArrayList<>(galleries);
         leaveSelection();
-
-        // A download in flight owns the folder: it holds a SpiderQueen that keeps writing pages
-        // into it, so deleting underneath would just let it reappear half-populated. Cancelling
-        // releases the queen and wipes the folder itself, which is the same end state.
-        final List<GalleryInfo> toErase = new ArrayList<>();
-        for (GalleryInfo gi : batch) {
-            if (isBeingDownloaded(gi.gid)) {
-                SmbDirectDownloader.getInstance().cancel(gi.gid);
-                onGalleryDeleted(appContext, gi);
-            } else {
-                toErase.add(gi);
-            }
-        }
-        if (toErase.isEmpty()) {
-            return;
-        }
-
-        Runnable task = () -> {
-            final List<GalleryInfo> gone = new ArrayList<>();
-            for (GalleryInfo gi : toErase) {
-                if (SmbGalleryLifecycle.deleteGalleryFolder(gi)) {
-                    gone.add(gi);
-                }
-            }
-            SimpleHandler.getInstance().post(() -> {
-                for (GalleryInfo gi : gone) {
-                    onGalleryDeleted(appContext, gi);
-                }
-                if (gone.size() == toErase.size()) {
-                    if (toErase.size() > 1) {
-                        Toast.makeText(appContext, getString(
-                                R.string.local_inventory_delete_many_done, gone.size(), toErase.size()),
-                                Toast.LENGTH_SHORT).show();
-                    }
-                    return;
-                }
-                Toast.makeText(appContext,
-                        toErase.size() == 1
-                                ? getString(R.string.local_inventory_delete_failed)
-                                : getString(R.string.local_inventory_delete_many_done,
-                                        gone.size(), toErase.size()),
-                        Toast.LENGTH_LONG).show();
-            });
-        };
-        if (mExecutor != null) {
-            mExecutor.execute(task);
-        } else {
-            new Thread(task, "LocalInventoryDelete").start();
-        }
+        mOps.deleteGalleries(context.getApplicationContext(), galleries);
     }
 
-    private static boolean isBeingDownloaded(long gid) {
-        for (SmbDirectDownloader.TaskSnapshot t : SmbDirectDownloader.getInstance().snapshotTasks()) {
-            if (t.gid == gid) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    /** Main thread. Drops every trace of a gallery that is no longer on the share. */
-    private void onGalleryDeleted(@NonNull Context appContext, @NonNull GalleryInfo gi) {
-        // Reads for this gid must stop being routed to SMB now that nothing is there.
-        SmbSpiderStorage.unmarkGidAsSmbTarget(gi.gid);
-        // Local leftovers that would otherwise be served for a gallery that no longer exists.
-        SmbPreviewCache.evictGallery(gi.gid);
-        SmbCoverPrefetch.evict(gi.gid);
-        try {
-            EhApplication.getConaco(appContext).getBeerBelly()
-                    .remove(EhCacheKeyFactory.getThumbKey(gi.gid));
-        } catch (Throwable ignored) {
-            // A stale cover is cosmetic; never let it fail the delete.
-        }
-
+    /** Main thread. Drops the row and the paging ref of a gallery no longer on the share. */
+    private void dropRow(@NonNull GalleryInfo gi) {
         if (mHelper == null) {
             return;
         }
-        // Look the row up by gid rather than trusting the position captured before the dialogs:
-        // a refresh may have landed in between.
+        // By gid, not a captured position: a refresh may have landed since the dialogs.
         for (int i = 0, n = mHelper.size(); i < n; i++) {
             GalleryInfo at = mHelper.getDataAt(i);
             if (at != null && at.gid == gi.gid) {
@@ -809,9 +667,7 @@ public class LocalInventoryScene extends ToolbarScene
                 break;
             }
         }
-        // The paging cache is only rebuilt on refresh, so a ref left behind here would come back as
-        // a row with no readable metadata the next time that page is fetched.
-        mHelper.forgetRef(SmbPaths.buildGalleryFolderName(gi));
+        mPager.forgetRef(SmbPaths.buildGalleryFolderName(gi));
     }
 
     private void openDetail(@Nullable GalleryInfo gi) {
@@ -963,7 +819,7 @@ public class LocalInventoryScene extends ToolbarScene
 
     /** Progress ring in the writing device's colour (#77); own downloads too, one rule. */
     private void bindDownloadingBadge(@NonNull InventoryHolder holder, long gid) {
-        DownloadMark mark = mDownloadMarks.get(gid);
+        InventoryBadges.Mark mark = mDownloadMarks.get(gid);
         if (mark == null) {
             holder.smbBadge.setVisibility(View.GONE);
             return;
@@ -972,64 +828,17 @@ public class LocalInventoryScene extends ToolbarScene
         holder.smbBadge.setVisibility(View.VISIBLE);
     }
 
-    /** One page's galleries plus the total page count, computed off the main thread. */
-    private static final class PageResult {
-        @NonNull final List<GalleryInfo> data;
-        final int pages;
-
-        PageResult(@NonNull List<GalleryInfo> data, int pages) {
-            this.data = data;
-            this.pages = pages;
-        }
-    }
-
-    /** The full display ordering, computed once per refresh and sliced per page. */
-    private static final class Ordering {
-        @NonNull final List<SmbInventory.GalleryRef> refs;
-        // null => date sort: each ref's metadata is read on demand for its page.
-        // non-null => sort needed every folder's metadata to order, so it's all cached here.
-        @Nullable final Map<String, GalleryInfo> infos;
-
-        Ordering(@NonNull List<SmbInventory.GalleryRef> refs, @Nullable Map<String, GalleryInfo> infos) {
-            this.refs = refs;
-            this.infos = infos;
-        }
-    }
-
     private final class InventoryHelper extends GalleryInfoContentHelper {
-
-        // Cached across page fetches so paging doesn't re-list the share every page. Rebuilt on
-        // refresh. volatile because it's assigned/read from the load executor.
-        @Nullable
-        private volatile Ordering mOrdering;
 
         @Override
         protected void getPageData(int taskId, int type, int page) {
-            // Date sort can order from the cheap listing alone; rebuild the ordering on a refresh or
-            // when we have none yet (e.g. paging after the view was recreated).
-            final boolean rebuild = type == TYPE_REFRESH || mOrdering == null;
+            // Date sort can order from the cheap listing alone; rebuild on refresh or first use.
+            final boolean rebuild = type == TYPE_REFRESH;
             final SmbSortMode mode = SmbSortMode.fromOrdinal(Settings.getLocalInventorySort());
-            Runnable task = () -> {
-                final PageResult result;
+            mWorker.execute(() -> {
+                final InventoryPager.Page result;
                 try {
-                    // Issue #2644 requires a hard 7s cap — if the share can't be reached, surface the
-                    // error state instead of hanging. jcifs's socket timeouts can't be bounded without
-                    // rebuilding the global SingletonContext, so wrap the read in a Future.
-                    ExecutorService pool = Executors.newSingleThreadExecutor(r -> {
-                        Thread t = new Thread(r, "smb-inventory-page");
-                        t.setDaemon(true);
-                        return t;
-                    });
-                    Future<PageResult> fut = pool.submit(() -> loadPage(mode, page, rebuild));
-                    try {
-                        result = fut.get(7, TimeUnit.SECONDS);
-                    } catch (TimeoutException te) {
-                        fut.cancel(true);
-                        throw new IOException(EhApplication.getInstance()
-                                .getString(R.string.local_inventory_timeout));
-                    } finally {
-                        pool.shutdownNow();
-                    }
+                    result = mPager.loadPageBounded(mode, page, rebuild);
                 } catch (Throwable e) {
                     final Exception ex = e instanceof Exception ? (Exception) e : new Exception(e);
                     SimpleHandler.getInstance().post(() -> {
@@ -1048,16 +857,10 @@ public class LocalInventoryScene extends ToolbarScene
                         SmbSpiderStorage.markGidAsSmbTarget(gi.gid);
                     }
                     onGetPageData(taskId, result.pages, page + 1, result.data);
-                    // After the page is on screen, not before it: a badge is worth a redraw, never
-                    // worth making the page wait on a second trip to the share.
-                    refreshDownloadingBadges();
+                    // After the page is on screen: a badge is never worth making the page wait.
+                    mBadges.refresh();
                 });
-            };
-            if (mExecutor != null) {
-                mExecutor.execute(task);
-            } else {
-                new Thread(task, "LocalInventoryLoader").start();
-            }
+            });
         }
 
         @Override
@@ -1067,115 +870,8 @@ public class LocalInventoryScene extends ToolbarScene
 
         @Override
         protected void getExPageData(int pageAction, int taskId, int page) {
-            // Inventory paging is plain page-index based (no e-hentai prev/next hrefs), so this is the
-            // same fetch as the normal path.
+            // Plain page-index paging; same fetch as the normal path.
             getPageData(taskId, pageAction, page);
-        }
-
-        @NonNull
-        private PageResult loadPage(@NonNull SmbSortMode mode, int page, boolean rebuild) {
-            Ordering ordering = mOrdering;
-            if (rebuild || ordering == null) {
-                ordering = buildOrdering(mode);
-                mOrdering = ordering;
-            }
-            List<SmbInventory.GalleryRef> refs = ordering.refs;
-            int total = refs.size();
-            int pages = Math.max(1, (total + PAGE_SIZE - 1) / PAGE_SIZE);
-            List<GalleryInfo> data = new ArrayList<>();
-            int from = page * PAGE_SIZE;
-            int to = Math.min(from + PAGE_SIZE, total);
-            for (int i = from; i < to; i++) {
-                SmbInventory.GalleryRef ref = refs.get(i);
-                GalleryInfo gi = ordering.infos != null
-                        ? ordering.infos.get(ref.folderName)
-                        : SmbInventory.readGalleryInfo(ref);
-                if (gi != null) {
-                    data.add(gi);
-                }
-            }
-            // Start pulling this page's covers now, several at once, rather than leaving them to
-            // Conaco's serial disk thread to fetch one at a time as each row is drawn. Fire and
-            // forget: a cover that does not arrive in time is read the old way.
-            SmbCoverPrefetch.prefetch(data);
-            return new PageResult(data, pages);
-        }
-
-        /** Re-points the ordering after a rename (#86); replaced, not mutated (concurrent readers). */
-        void renameRef(@NonNull String from, @NonNull String to) {
-            Ordering current = mOrdering;
-            if (current == null) {
-                return;
-            }
-            List<SmbInventory.GalleryRef> refs = new ArrayList<>(current.refs.size());
-            boolean found = false;
-            for (SmbInventory.GalleryRef ref : current.refs) {
-                if (!found && ref.folderName.equals(from)) {
-                    found = true;
-                    refs.add(new SmbInventory.GalleryRef(to, ref.folderMtime));
-                } else {
-                    refs.add(ref);
-                }
-            }
-            if (!found) {
-                return;
-            }
-            Map<String, GalleryInfo> infos = null;
-            if (current.infos != null) {
-                infos = new HashMap<>(current.infos);
-                GalleryInfo moved = infos.remove(from);
-                if (moved != null) {
-                    infos.put(to, moved);
-                }
-            }
-            mOrdering = new Ordering(refs, infos);
-        }
-
-        void forgetRef(@NonNull String folderName) {
-            Ordering current = mOrdering;
-            if (current == null) {
-                return;
-            }
-            List<SmbInventory.GalleryRef> refs = new ArrayList<>(current.refs.size());
-            boolean removed = false;
-            for (SmbInventory.GalleryRef ref : current.refs) {
-                if (!removed && ref.folderName.equals(folderName)) {
-                    removed = true;
-                    continue;
-                }
-                refs.add(ref);
-            }
-            if (!removed) {
-                return;
-            }
-            Map<String, GalleryInfo> infos = null;
-            if (current.infos != null) {
-                infos = new HashMap<>(current.infos);
-                infos.remove(folderName);
-            }
-            mOrdering = new Ordering(refs, infos);
-        }
-
-        @NonNull
-        private Ordering buildOrdering(@NonNull SmbSortMode mode) {
-            if (mode == SmbSortMode.DOWNLOAD_DATE_DESC) {
-                // Recently-downloaded order keys off the folder mtime the listing already carries, so
-                // no metadata is read until a page needs it.
-                List<SmbInventory.GalleryRef> refs = SmbInventory.listGalleryRefs();
-                Collections.sort(refs, (a, b) -> Long.compare(b.folderMtime, a.folderMtime));
-                return new Ordering(refs, null);
-            }
-            // Other sorts need fields that only live in metadata.json, so the whole share has to be
-            // read to order it; cache it and serve pages from the cache.
-            List<GalleryInfo> loaded = SmbInventory.loadInventory(mode);
-            List<SmbInventory.GalleryRef> refs = new ArrayList<>(loaded.size());
-            Map<String, GalleryInfo> infos = new HashMap<>();
-            for (GalleryInfo gi : loaded) {
-                String folderName = SmbPaths.buildGalleryFolderName(gi);
-                refs.add(new SmbInventory.GalleryRef(folderName, 0L));
-                infos.put(folderName, gi);
-            }
-            return new Ordering(refs, infos);
         }
 
         @Override
