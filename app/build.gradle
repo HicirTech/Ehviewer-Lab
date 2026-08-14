@@ -39,7 +39,11 @@ android {
         // would only shadow the default locale — app_name is declared in all eleven values-* files.
         manifestPlaceholders = [appLabel: "@string/app_name"]
         resourceConfigurations += ['zh', 'zh-rCN', 'zh-rHK', 'zh-rTW', 'es', 'ja', 'ko', 'fr', 'de', 'th']
+        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         testOptions.unitTests.includeAndroidResources = true
+        // The on-device workflow suite must not stall on window/drawer animations,
+        // and Espresso's idle detection must not race them either.
+        testOptions.animationsDisabled = true
         multiDexEnabled true
         ndk {
             moduleName "native-lib"
@@ -220,6 +224,20 @@ dependencies {
     // OpenSSLProvider hits UnsatisfiedLinkError under Robolectric. The uber jar
     // carries the host-JVM natives.
     testImplementation 'org.conscrypt:conscrypt-openjdk-uber:2.5.2'
+
+    // The on-device workflow suite (src/androidTest): Espresso for in-app
+    // assertions, espresso-contrib for NavigationView/RecyclerView navigation,
+    // UiAutomator for the waits Espresso cannot see (SMB loads happen on pools
+    // Espresso does not track) and for cross-activity ground truth.
+    androidTestImplementation 'androidx.test.ext:junit:1.2.1'
+    androidTestImplementation 'androidx.test:rules:1.6.1'
+    androidTestImplementation 'androidx.test.espresso:espresso-core:3.6.1'
+    androidTestImplementation('androidx.test.espresso:espresso-contrib:3.6.1') {
+        // The app pins its own versions of these; contrib must not drag in others.
+        exclude group: 'com.google.android.material', module: 'material'
+        exclude group: 'androidx.recyclerview', module: 'recyclerview'
+    }
+    androidTestImplementation 'androidx.test.uiautomator:uiautomator:2.3.0'
 
     // https://mvnrepository.com/artifact/androidx.webkit/webkit
     runtimeOnly group: 'androidx.webkit', name: 'webkit', version: '1.13.0'
