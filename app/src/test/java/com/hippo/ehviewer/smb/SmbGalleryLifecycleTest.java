@@ -36,12 +36,7 @@ import java.util.Set;
 
 import jcifs.smb.SmbFile;
 
-/**
- * The gallery-as-a-whole operations (#97): completeness and deletion, characterised over a nested
- * {@link SmbFile} shadow. Completeness is the gate the download path trusts to skip a gallery —
- * wrong in one direction it re-downloads a finished gallery, wrong in the other it abandons a
- * partial one — so both directions get a test.
- */
+/** The gallery-as-a-whole operations (#97): completeness and deletion, characterised over a nested SmbFile shadow. */
 @RunWith(RobolectricTestRunner.class)
 @Config(application = android.app.Application.class,
         shadows = {SmbGalleryLifecycleTest.ShadowSmbFile.class},

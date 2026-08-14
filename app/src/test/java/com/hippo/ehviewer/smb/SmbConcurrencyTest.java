@@ -15,12 +15,7 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
-/**
- * The two things {@link SmbConcurrency} has to get right, neither of which is obvious from reading
- * it: a stored value that cannot be trusted, and a pool resize that cannot be done in either order.
- *
- * <p>Plain JUnit — nothing here touches Android or a share.
- */
+/** The two things SmbConcurrency has to get right, neither of which is obvious from reading it: a stored value that cannot be trusted, and a pool resize */
 public class SmbConcurrencyTest {
 
     private static ThreadPoolExecutor pool(int size) {

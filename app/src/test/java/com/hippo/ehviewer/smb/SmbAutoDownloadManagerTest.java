@@ -29,23 +29,7 @@ import org.robolectric.annotation.Implementation;
 import org.robolectric.annotation.Implements;
 import org.robolectric.shadow.api.Shadow;
 
-/**
- * Pins what stops a gallery being saved twice, and what stops it being saveable at all (#51).
- *
- * <p>Both halves have to hold at once, and the known regression was the second: a gid stuck in a
- * per-process dedup set made every later enqueue a silent no-op until a restart — the app looked
- * fine, saves just stopped happening. That set has since been removed (#59) in favour of the
- * claims on the share, which cannot get stuck because they are not this process's memory. The
- * rules it produced still have to hold, so they are pinned through behaviour rather than through
- * whatever currently implements them.
- *
- * <p>{@code SmbGalleryLifecycle.isGalleryComplete} runs only inside the enqueue's IO task, which makes it
- * an exact probe for "this enqueue got past the gates"; obtaining a SpiderQueen is the probe for
- * "a download actually began".
- *
- * <p>No production code is modified: shadows stand in for the share, the fetch engine and the
- * foreground service, all nested here as the rest of the suite does.
- */
+/** Pins what stops a gallery being saved twice, and what stops it being saveable at all (#51). */
 @RunWith(RobolectricTestRunner.class)
 @Config(application = android.app.Application.class,
         shadows = {
@@ -95,12 +79,7 @@ public class SmbAutoDownloadManagerTest {
 
     @Implements(SmbInventory.class)
     public static class ShadowSmbInventory {
-        /**
-         * Starting a job now checks whether the gallery already has metadata on the share, so
-         * that a download restored or adopted rather than enqueued still gets a skeleton (#59).
-         * Unshadowed it reaches for a real connection -- isConfigured() says yes here -- and the
-         * seconds it spends failing outlast the pump.
-         */
+        /** Starting a job now checks whether the gallery already has metadata on the share, so that a download restored or adopted rather than enqueued still get */
         @Implementation
         protected static GalleryInfo readGalleryMetadata(GalleryInfo hint) {
             return hint;   // already there; nothing for startJob to write
@@ -134,12 +113,7 @@ public class SmbAutoDownloadManagerTest {
         protected void removeOnSpiderListener(SpiderQueen.OnSpiderListener l) {}
     }
 
-    /**
-     * The enqueue path now asks the share whether another device already claimed the gallery (#59).
-     * That is not what this test is about, and left unshadowed it would reach for a real connection
-     * -- SmbStorage is faked here, so isConfigured() says yes -- and take long enough to outlast
-     * the pump. An empty share means nobody else has claimed anything.
-     */
+    /** The enqueue path now asks the share whether another device already claimed the gallery (#59). */
     @Implements(SmbDownloadStateStore.class)
     public static class ShadowSmbDownloadStateStore {
 
@@ -176,20 +150,7 @@ public class SmbAutoDownloadManagerTest {
     /** Rounds of nothing arriving before the work is taken to have finished crossing threads. */
     private static final int PUMP_QUIET_ROUNDS = 25;
 
-    /**
-     * Lets whatever was handed to a background thread find its way back to the main one.
-     *
-     * <p>The path under test crosses threads — an enqueue goes to the IO pool, posts back to the
-     * main looper, and the publisher thread writes somewhere in the middle — so there is no single
-     * thing to await, only a point at which nothing further arrives.
-     *
-     * <p>Waits for that quiet rather than for a fixed number of rounds. The fixed version spent
-     * the same second whatever happened, and a second turned out to be a coin toss under load:
-     * this class passed on its own and failed in a full run, purely because the suite had grown.
-     * A CI runner is busier again. This returns as soon as the main thread has had nothing to do
-     * for {@link #PUMP_QUIET_ROUNDS} in a row — usually a fraction of the old cost — and only a
-     * genuinely stuck test pays the deadline.
-     */
+    /** Lets whatever was handed to a background thread find its way back to the main one. */
     private void pump() {
         long deadline = System.currentTimeMillis() + PUMP_DEADLINE_MS;
         int quiet = 0;
@@ -259,11 +220,7 @@ public class SmbAutoDownloadManagerTest {
         assertEquals(1, accepted.size());
     }
 
-    /**
-     * The manual path deliberately ignores the auto-download toggle, so the user can save one
-     * gallery from the detail screen without turning auto-download on. Collapsing the two gate
-     * checks into one would break that.
-     */
+    /** The manual path deliberately ignores the auto-download toggle, so the user can save one gallery from the detail screen without turning auto-download o */
     @Test
     public void manualPath_needsOnlyTheSaveToggle() {
         Settings.putBoolean(Settings.KEY_SMB_AUTO_DOWNLOAD_ENABLED, false);
@@ -313,11 +270,7 @@ public class SmbAutoDownloadManagerTest {
         assertEquals(SmbDirectDownloader.TaskSnapshot.State.ACTIVE, stateOf(GID));
     }
 
-    /**
-     * The other half, and the regression this test class exists for: a gallery has to stay
-     * saveable. A short-circuit that left something behind used to make every later attempt a
-     * silent no-op.
-     */
+    /** The other half, and the regression this test class exists for: a gallery has to stay saveable. */
     @Test
     public void aGalleryAlreadyOnTheShareCanBeSavedAgainOnceItIsGone() {
         alreadyComplete = true;

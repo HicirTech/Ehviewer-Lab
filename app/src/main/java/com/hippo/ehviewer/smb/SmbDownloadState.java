@@ -17,23 +17,9 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * What one device publishes about its SMB downloads, and how several devices' publications combine
- * into the single list a user sees.
- *
- * <p>The share is a space several clients read and write, so download state belongs on it rather
- * than in a local database: it survives the process, it lets one device see what another is doing,
- * and that visibility is what stops two devices downloading the same gallery. The layout is one
- * JSON file per client under {@code state/}, and <b>only its owner ever writes it</b>. That is what
- * keeps the common path free of locking — measurements on a real share put a lock-read-modify-write
- * cycle at 129 ms against 64 ms for a plain write, and the shared-file design would have paid the
- * former on every heartbeat.
- *
- * <p>The file's own mtime is the heartbeat; nothing here records a timestamp for liveness. Freshness
- * is therefore something only the reader of the directory can determine, which is why
- * {@link #merge} takes it as an argument rather than reading a clock.
- *
- * <p>Everything in this class is a pure function of its arguments — no SMB, no Android, no clock —
- * so the merge and claim rules can be tested without a share.
+ * The vocabulary of state/ (#59): one JSON file per client, only its owner writes it (lock-free;
+ * a locked cycle measured 129ms vs 64ms plain write), the file's mtime is the heartbeat.
+ * Everything here is a pure function — no SMB, no Android, no clock.
  */
 public final class SmbDownloadState {
 
@@ -50,11 +36,7 @@ public final class SmbDownloadState {
         @Nullable public final String title;
         public final int finished;
         public final int total;
-        /**
-         * When this device took the task on, in epoch millis by that device's clock. Only ever
-         * compared against another device's claim on the same gallery, and never against the
-         * reader's own clock — see {@link #merge}.
-         */
+        /** Claim time by the owner's clock; only ever compared against other claims, never ours. */
         public final long claimedAt;
         /** The client this was taken over from, or null if it was never anyone else's. */
         @Nullable public final String takenOverFrom;
@@ -118,25 +100,12 @@ public final class SmbDownloadState {
             this.lastSeenMillis = lastSeenMillis;
         }
 
-        /**
-         * Whether this device may pause, resume or delete the task.
-         *
-         * <p>Only its own. Another device's is not ours to stop — the decision lives in the process
-         * doing the work, which would carry on regardless — and not ours to delete either, since
-         * removing it from the list means editing a file this device must never write. An orphan is
-         * not an exception to this: it has to be adopted first, and then it is simply ours.
-         */
+        /** Only own tasks may be paused/resumed/deleted; an orphan must be adopted first. */
         public boolean isActionableBy(@NonNull String viewerClientId) {
             return clientId.equals(viewerClientId);
         }
 
-        /**
-         * Whether this device may adopt the task.
-         *
-         * <p>The one thing anybody may do to somebody else's download, and only once that somebody
-         * has stopped saying it is still there. Without it a device that died mid-download would
-         * take its queue with it, and nothing on the share could ever pick the work back up.
-         */
+        /** Adoptable: the one action on another's task, and only once its owner went silent. */
         public boolean isTakeOverableBy(@NonNull String viewerClientId) {
             return !clientId.equals(viewerClientId) && !ownerAlive;
         }
@@ -146,11 +115,7 @@ public final class SmbDownloadState {
     public static final class Published {
         @NonNull final ClientState state;
         final boolean alive;
-        /**
-         * The file's mtime — the heartbeat itself, carried through so the list can say how long
-         * ago another device was last heard from. A user deciding whether to take a download over
-         * needs that far more than the yes/no {@link #alive} the same number produced.
-         */
+        /** The file's mtime — the heartbeat, carried through for "last seen N ago". */
         final long lastSeenMillis;
 
         public Published(@NonNull ClientState state, boolean alive, long lastSeenMillis) {
@@ -165,20 +130,8 @@ public final class SmbDownloadState {
     // ------------------------------------------------------------------ merge
 
     /**
-     * Combines every client's published state into one list, at most one entry per gallery.
-     *
-     * <p>Two devices can name the same gallery: a takeover writes the claim into the claiming
-     * device's own file and leaves the original alone, so until the original device next comes
-     * online and drops its stale entry, both files mention it. The rule that resolves this is
-     * <b>a live owner beats a dead one</b>, and only when both are equally alive does the later
-     * {@code claimedAt} win.
-     *
-     * <p>That ordering matters more than it looks. Comparing timestamps first would let a dead
-     * device's clock — which may be wrong, and which nobody can correct — keep a gallery hostage
-     * from the device actually holding it. Liveness comes from file mtime, which the reader
-     * observes itself, so it is the trustworthy half of the comparison.
-     *
-     * <p>Files whose schema is newer than this build understands are skipped entirely.
+     * All clients merged, one entry per gallery. A live owner beats a dead one BEFORE claim time —
+     * a dead clock must not hold a gallery hostage. Newer-schema files are skipped.
      */
     @NonNull
     public static List<OwnedTask> merge(@NonNull Collection<Published> published) {
@@ -200,19 +153,8 @@ public final class SmbDownloadState {
     }
 
     /**
-     * Orders the merged list: what each device is working on, then everything waiting.
-     *
-     * <p>The top row is one gallery per device — the head of that device's queue, which is the one
-     * it is actually writing to the share. Nothing records that; it is derived. The downloader
-     * takes its queue in the order it claimed things and runs one at a time, so the earliest claim
-     * a device still holds <em>is</em> the job in progress. Deriving it is the point: a device that
-     * loses contact cannot correct anything it published, so a stored "downloading" flag would
-     * freeze mid-truth and stay there. A timestamp cannot go stale in that way.
-     *
-     * <p>Those heads sort by device name — deliberately not by how recently each device was heard
-     * from, which would have rows reshuffle underneath a reader every time a heartbeat landed.
-     * Everything below sorts by claim time, oldest first, which is the order the work will actually
-     * happen in.
+     * Working heads first (derived: earliest held claim per device — a stored flag would freeze
+     * mid-truth), sorted by device name so heartbeats don't reshuffle rows; the rest by claim time.
      */
     @NonNull
     private static List<OwnedTask> inDisplayOrder(@NonNull List<OwnedTask> tasks) {
@@ -268,13 +210,7 @@ public final class SmbDownloadState {
         return candidate.task.claimedAt > current.task.claimedAt;
     }
 
-    /**
-     * Whether this device should skip enqueuing a gallery because another one already has it.
-     *
-     * <p>Its own entries do not block it — re-enqueuing something already queued here is handled by
-     * the downloader — and neither does an orphan, which is the whole point of being able to take
-     * one over.
-     */
+    /** Skip an enqueue? Own entries and orphans never block. */
     public static boolean isClaimedByAnotherLiveClient(@NonNull List<OwnedTask> merged,
                                                        long gid,
                                                        @NonNull String selfClientId) {
@@ -286,15 +222,7 @@ public final class SmbDownloadState {
         return false;
     }
 
-    /**
-     * Drops entries this device no longer owns, for use when it comes back online.
-     *
-     * <p>A device that went away may have had its tasks taken over. It cannot be told directly —
-     * nobody writes to another device's file — so it works it out on its next read: anything of
-     * its own that a live client now claims more recently is no longer its business, and it removes
-     * it from its own file. This is what keeps the duplicate visible after a takeover transient
-     * rather than permanent.
-     */
+    /** Drops what a live client claimed more recently — how takeover duplicates stay transient. */
     @NonNull
     public static List<Task> withoutTakenOver(@NonNull ClientState self,
                                               @NonNull List<OwnedTask> merged) {
@@ -419,11 +347,7 @@ public final class SmbDownloadState {
 
     // ------------------------------------------------------------------ json
 
-    /**
-     * Parses one {@code state/<uuid>.json}. Returns null for anything unreadable rather than
-     * throwing: one corrupt or half-written file must not take the whole list down, and the worst
-     * case of ignoring it is that its owner looks idle.
-     */
+    /** Parses one state file; null (never throws) so one corrupt file cannot blind the list. */
     @Nullable
     public static ClientState parse(@Nullable String json) {
         if (json == null || json.isEmpty()) {
@@ -472,13 +396,7 @@ public final class SmbDownloadState {
         }
     }
 
-    /**
-     * Serialises one client's state.
-     *
-     * <p>Indented, and with keys in insertion order, because being able to open these on the NAS
-     * and read them is the reason the format is plain JSON in the first place. The files are a few
-     * hundred bytes, so the whitespace costs nothing worth counting.
-     */
+    /** Serialises, indented — being readable on the NAS is why the format is JSON. */
     @NonNull
     public static String serialize(@NonNull ClientState state) {
         JSONObject root = new JSONObject(true);

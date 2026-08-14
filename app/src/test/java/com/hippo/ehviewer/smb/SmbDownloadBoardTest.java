@@ -30,13 +30,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 
-/**
- * The share side of the download queue, tested without a device side (#98): a fake
- * {@link SmbDownloadBoard.Device} records what the board asks of it, and a shadowed
- * {@link SmbDownloadStateStore} plays the share. What these pin is the reconcile-and-takeover
- * arithmetic — who yields, what comes back, and that an owner who woke up is left alone —
- * which is exactly the part that cannot be watched happening on real devices.
- */
+/** The share side of the download queue, tested without a device side (#98): a fake SmbDownloadBoard.Device records what the board asks of it, and a shad */
 @RunWith(RobolectricTestRunner.class)
 @Config(application = Application.class,
         shadows = {SmbDownloadBoardTest.ShadowStore.class},
@@ -165,11 +159,7 @@ public class SmbDownloadBoardTest {
         throw new AssertionError("board never called " + prefix + "; calls=" + device.calls);
     }
 
-    /**
-     * A task this device holds that a live device claimed more recently is not ours any more:
-     * the board tells the device to stand down, and touches nothing on the share — the pages
-     * belong to whoever adopted them.
-     */
+    /** A task this device holds that a live device claimed more recently is not ours any more: the board tells the device to stand down, and touches nothing */
     @Test
     public void reconcileYieldsWhatWasTakenOverElsewhere() {
         device.held.add(task(42L, 1_000L));

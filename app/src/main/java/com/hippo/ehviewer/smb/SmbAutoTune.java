@@ -28,30 +28,10 @@ import java.util.concurrent.TimeUnit;
 import jcifs.smb.SmbFile;
 
 /**
- * Finds the fastest concurrency for this share by asking the share, not a table.
- *
- * <p>Every number this app ever carried for "how many at once" turned out to be a property of one
- * particular library on one particular link: six looked optimal on twelve galleries because twelve
- * items cannot keep more than a few workers busy, and the same share kept scaling almost linearly
- * to sixteen and beyond once there were a hundred and forty. So instead of shipping a guess, the
- * settings screen can sweep the range and keep what actually won.
- *
- * <p><b>Everything measured here is a real share read; nothing local can answer.</b> Metadata goes
- * through {@link SmbStorage#readGalleryInfo}, which opens {@code metadata.json} on the share every
- * time — the app deliberately has no local metadata cache. Page bytes are streamed straight off
- * the {@link SmbFile} and discarded as they arrive: no temp file, no buffer kept, nothing for a
- * second pass to accidentally hit. A tuner that could be satisfied from a cache would tune the
- * cache.
- *
- * <p>Memory stays flat by construction. The image pass holds one 64 KB scratch buffer per worker
- * — at the widest setting that is 4 MB, released as the sweep ends — and page bytes are counted,
- * never accumulated. The sweep runs on its own pool so it neither resizes nor competes with the
- * pools the app is using for real work.
- *
- * <p>The sweep covers 1–128 by sampling {@link #CANDIDATES} rather than walking all sixty-four
- * values: between neighbours the curve cannot turn around, so the intermediate points only add
- * run time and noise. A level higher than the number of work items cannot be distinguished from
- * one equal to it, so candidates above the sample size are skipped rather than reported as ties.
+ * Sweeps 1-128 and keeps what actually won — the optimum is a property of the library and link,
+ * not a constant. Every measurement is a real share read (a tuner satisfiable from a cache would
+ * tune the cache); page bytes are streamed and dropped, memory stays flat; candidates above the
+ * sample size are skipped (indistinguishable = censored).
  */
 public final class SmbAutoTune {
 
@@ -60,28 +40,14 @@ public final class SmbAutoTune {
     /** The sampled ladder over 1–128. */
     static final int[] CANDIDATES = {1, 2, 4, 6, 8, 12, 16, 24, 32, 48, 64, 96, 128};
 
-    /**
-     * How many metadata files one level reads. Small files, so even this many is a few hundred
-     * kilobytes per level. It must sit comfortably above the top candidate, or the top levels
-     * collapse into each other: at a sample equal to the level, every item runs at once and the
-     * level above it measures the same thing.
-     */
+    // Must sit above the top candidate or the top levels measure the same thing.
     private static final int METADATA_SAMPLE = 192;
 
-    /**
-     * Page images too must sample past the top candidate, or the image sweep is censored the way
-     * the metadata sweep once was — its first run reported "16 is fastest" purely because sixteen
-     * pages were all it had. The cost is honest to name: pages run hundreds of kilobytes, so a
-     * full sweep moves a few hundred megabytes through the link. It moves them through a 64 KB
-     * scratch per worker and drops them; nothing accumulates, whatever the level.
-     */
+    // Same censoring rule ("16 is fastest" once meant "only had 16 pages"); a full sweep moves
+    // a few hundred MB, through 64KB scratch buffers, accumulating nothing.
     private static final int IMAGE_SAMPLE = 128;
 
-    /**
-     * How close to the winner a lower concurrency has to be to take the crown anyway. Run-to-run
-     * noise is larger than a few percent, and when two levels are this close the one holding
-     * fewer sockets open against the NAS is the better citizen.
-     */
+    // Within this of the winner, the lower level wins — noise exceeds a few percent anyway.
     private static final double TIE_MARGIN = 0.08;
 
     /** One stage of the sweep, for the settings screen to narrate. */
@@ -247,12 +213,7 @@ public final class SmbAutoTune {
         }
     }
 
-    /**
-     * The lowest time wins; a lower concurrency within {@link #TIE_MARGIN} of it wins instead.
-     *
-     * <p>Pure and package-visible so the tie-break — the part with room to be subtly wrong — is
-     * pinned by tests without a share in the room.
-     */
+    /** Lowest time wins; a lower level within TIE_MARGIN wins instead. Pure, pinned by tests. */
     static int pickBest(@NonNull Map<Integer, Long> times) {
         long best = Long.MAX_VALUE;
         for (long t : times.values()) {

@@ -6,20 +6,8 @@ import androidx.annotation.Nullable;
 import com.hippo.ehviewer.dao.DownloadInfo;
 
 /**
- * An SMB download shown in the ordinary download list (#59).
- *
- * <p>The list, its adapter, its sorting, filtering and search all speak {@link DownloadInfo}, so
- * these arrive as one — which is what makes an SMB save look like any other download instead of
- * living in a screen of its own.
- *
- * <p>Being a distinct type is the point, though. Every action on the list has to go somewhere
- * different for these: stopping one means telling the SMB downloader, not
- * {@code DownloadManager}, and deleting one means the share rather than a row in the database.
- * Branching on the item's own type means an action is routed correctly wherever the item turns up,
- * which a flag on the surrounding screen would not guarantee.
- *
- * <p>These are never written to the database. They are built from what the devices published under
- * {@code state/} and thrown away on the next refresh.
+ * An SMB download as a DownloadInfo, so the list treats it like any other row while actions
+ * route by type to the SMB layer. Never in the database — built from state/, discarded on refresh.
  */
 public final class SmbTaskInfo extends DownloadInfo {
 
@@ -40,13 +28,7 @@ public final class SmbTaskInfo extends DownloadInfo {
     /** True when it is somebody else's abandoned work, and so open to being adopted. */
     public final boolean takeOverable;
 
-    /**
-     * When the owning device last wrote its file, by the share's clock. Zero if unknown.
-     *
-     * <p>Shown on the row rather than kept for the liveness check alone: "last seen four minutes
-     * ago" is what actually tells someone whether a download has stopped or is merely between
-     * heartbeats, and it is the thing to judge a takeover by.
-     */
+    /** Owner's last heartbeat (share clock, 0 unknown) — what a takeover is judged by. */
     public final long lastSeenMillis;
 
     private SmbTaskInfo(@NonNull SmbDownloadState.OwnedTask owned, @NonNull String selfClientId,
@@ -88,14 +70,7 @@ public final class SmbTaskInfo extends DownloadInfo {
         this.takeOverable = owned.isTakeOverableBy(selfClientId);
     }
 
-    /**
-     * Adapts one merged entry for the list.
-     *
-     * @param selfClientId this device's identity, so it can tell its own work from everyone else's
-     * @param metadata     the gallery's own record on the share, or null if it is not there yet
-     * @param state        how to draw it; resolved by the downloader, which is the only thing that
-     *                     knows the difference between its own work and a claim it can only observe
-     */
+    /** Adapts one merged entry for the list; state resolved by the downloader. */
     @NonNull
     public static SmbTaskInfo of(@NonNull SmbDownloadState.OwnedTask owned,
                                  @NonNull String selfClientId,
@@ -109,14 +84,7 @@ public final class SmbTaskInfo extends DownloadInfo {
         return info instanceof SmbTaskInfo;
     }
 
-    /**
-     * Whether this device may pause, resume or delete the item.
-     *
-     * <p>Another device's download is not ours to stop — it would carry on regardless, since the
-     * decision lives in the process doing the work — and not ours to delete, since taking it off
-     * the list means editing a file only its owner may write. An abandoned one is no exception:
-     * it must be taken over first, and is then simply this device's own.
-     */
+    /** Only own items are actionable; an abandoned one must be adopted first. */
     public static boolean isActionable(@Nullable DownloadInfo info) {
         if (!(info instanceof SmbTaskInfo)) {
             return true;   // an ordinary download, handled the ordinary way

@@ -7,15 +7,8 @@ import com.hippo.ehviewer.client.data.PreviewSet;
 import com.hippo.widget.LoadImageView;
 
 /**
- * A {@link PreviewSet} that points each preview slot at the corresponding
- * full-size image already stored on the SMB share. Used by the Local Inventory
- * detail page so the preview grid renders entirely offline.
- *
- * <p>Stores only the primitives needed to locate the gallery folder ({@code gid} and
- * {@code title}); does NOT hold a back-reference to its owning GalleryInfo, which
- * would create a cycle when both objects are parcelled (the GalleryDetail's
- * {@code previewSet} would point at us, and we'd point back at it → infinite
- * recursion → {@code StackOverflowError}).
+ * PreviewSet over the on-share full-size images, for offline detail. Holds gid+title only — a
+ * GalleryInfo back-reference cycles on parcel (StackOverflowError).
  */
 public class LocalSmbPreviewSet extends PreviewSet {
 

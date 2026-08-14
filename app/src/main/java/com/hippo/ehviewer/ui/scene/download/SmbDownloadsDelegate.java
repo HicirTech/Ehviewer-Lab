@@ -28,18 +28,9 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Everything the Downloads screen does about SMB saves (#59), in one fork-owned class.
- *
- * <p>This used to be ~250 lines living inside upstream's {@code DownloadsScene}, and every
- * upstream merge paid for the lodging (#95). The scene now owns only what cannot leave it —
- * adapter-position bookkeeping, the selection loop, its lifecycle calls — and everything with
- * actual SMB behaviour in it lives here: the shared task list and its rate-limited refresh, the
- * take-over conversation, the long-press menu, and handing a local download to the share as a
- * move.
- *
- * <p>The screen talks to this class; this class talks to {@link SmbDirectDownloader}. The scene
- * never touches the SMB layer directly, which is also the seam #100 will want when the backend
- * stops being spelled "SMB".
+ * Everything the Downloads screen does about SMB saves (#59, #95): the shared task list and its
+ * rate-limited refresh, takeover, the long-press menu, move-to-share. The scene never touches
+ * the SMB layer directly.
  */
 public final class SmbDownloadsDelegate {
 
@@ -53,23 +44,12 @@ public final class SmbDownloadsDelegate {
         void onTasksChanged();
     }
 
-    /**
-     * How often the share may be re-read, however often something asks.
-     *
-     * <p>Two seconds because the thing being watched is a page count. The heartbeat that publishes
-     * it only runs every twenty, so nothing finer is even visible.
-     */
+    // 2s: the watched value is published every 20s, so nothing finer is even visible.
     private static final long REFRESH_INTERVAL_MS = 2_000L;
 
     private final Host mHost;
 
-    /**
-     * The SMB saves every device has published, as of the last read (#59).
-     *
-     * <p>Held apart from the scene's list until {@link #mergeInto} folds them in: they come from
-     * the share rather than the database, and arrive on their own schedule. Empty until the first
-     * read lands, so the local downloads are never kept waiting on a NAS that may not answer.
-     */
+    /** Every device's published saves as of the last read; empty until the first read lands. */
     @NonNull
     private volatile List<SmbTaskInfo> mTasks = new ArrayList<>();
 
@@ -95,16 +75,8 @@ public final class SmbDownloadsDelegate {
     }
 
     /**
-     * Re-reads the shared list, at most every {@link #REFRESH_INTERVAL_MS}.
-     *
-     * <p>The downloader announces every finished page, and each announcement used to mean a full
-     * pass: enumerate {@code state/}, read every device's file, rebuild the list, redraw it. A
-     * hundred-page gallery did that a hundred times. Worse than the round trips was the redraw —
-     * a list rebuilding under a finger loses the gesture, so with a download running a long press
-     * on any row would sometimes simply not happen.
-     *
-     * <p>Rate-limited rather than dropped, with the last call in a burst always honoured: a page
-     * count that stopped a beat early would stay wrong until something else happened to ask.
+     * Re-reads the shared list, rate-limited (a full pass per finished page lost long-presses
+     * under the redraw); the last call in a burst is always honoured.
      */
     public void refresh() {
         long now = System.currentTimeMillis();
@@ -126,8 +98,7 @@ public final class SmbDownloadsDelegate {
     private void refreshNow() {
         final boolean enabled = Settings.getSmbSaveEnabled() && SmbConnection.isConfigured();
         if (!enabled) {
-            // Not just a list that stops showing them: the downloads stop too, or the feature
-            // would be off everywhere except where it counts.
+            // Off means the downloads stop too, not just the list.
             SmbDirectDownloader.getInstance().onSmbAvailabilityChanged();
             SimpleHandler.getInstance().post(() -> {
                 if (!mTasks.isEmpty()) {
@@ -137,9 +108,7 @@ public final class SmbDownloadsDelegate {
             });
             return;
         }
-        // The queue lives on the share and so outlives the process, but nothing brings it back on
-        // its own. The screen that used to ask for it is gone, and this is the one that replaced
-        // it -- without this an interrupted download would sit on the share forever.
+        // This screen is what brings the on-share queue back after a restart.
         SmbDirectDownloader.getInstance().onSmbAvailabilityChanged();
         IoThreadPoolExecutor.Companion.getInstance().execute(() -> {
             final List<SmbTaskInfo> fresh =
@@ -151,10 +120,7 @@ public final class SmbDownloadsDelegate {
         });
     }
 
-    /**
-     * Folds the shared tasks into the scene's list, first, because they are the ones in flight.
-     * Only in the default view — a label is a database column and these have no row.
-     */
+    /** Folds shared tasks in first; only in the default view (labels are database columns). */
     @Nullable
     public List<DownloadInfo> mergeInto(@Nullable String label, @Nullable List<DownloadInfo> list) {
         List<SmbTaskInfo> smb = mTasks;
@@ -167,10 +133,7 @@ public final class SmbDownloadsDelegate {
         return combined;
     }
 
-    /**
-     * "Stop all" means all of them, including the ones on the share that this device is
-     * responsible for. Other devices' downloads are theirs to stop.
-     */
+    /** "Stop all" includes this device's share tasks; other devices' are theirs. */
     public void pauseAllOwn() {
         for (SmbTaskInfo t : mTasks) {
             if (SmbTaskInfo.isActionable(t)) {
@@ -179,13 +142,7 @@ public final class SmbDownloadsDelegate {
         }
     }
 
-    /**
-     * Asks before adopting a download whose owner has gone quiet (#59).
-     *
-     * <p>Worth a question rather than just a tap: the row looks like any other stalled download,
-     * but starting it moves a gallery from one device's queue into this one's, and the name of the
-     * device it is being taken from is the piece of information that makes that clear.
-     */
+    /** Confirms a takeover, naming the device it is taken from (#59). */
     public void confirmTakeOver(@NonNull SmbTaskInfo task) {
         Context context = mHost.context();
         if (context == null) {
@@ -225,17 +182,7 @@ public final class SmbDownloadsDelegate {
         }
     }
 
-    /**
-     * The long-press menu for an SMB row, which cannot be multi-selected (#59).
-     *
-     * <p>What a long press does everywhere else on this screen is start a selection, and these are
-     * kept out of selections — so the gesture is free, and it is where the actions that have
-     * nowhere else to live now go. Cancelling in particular: the row's own buttons pause and
-     * resume, and without this there was no way at all to take a gallery back out of the queue.
-     *
-     * <p>Nothing is offered for another device's live download. There is nothing this device may
-     * do to it, and a menu listing only greyed-out choices is worse than no menu.
-     */
+    /** Long-press menu for an SMB row (its cancel lives here); none for another device's live task. */
     public void showTaskMenu(@NonNull DownloadInfo info) {
         Context context = mHost.context();
         if (context == null || !(info instanceof SmbTaskInfo)) {
@@ -267,12 +214,7 @@ public final class SmbDownloadsDelegate {
                 .show();
     }
 
-    /**
-     * Deletes an SMB save, if that is what this is, and says so. There is no database row to
-     * remove and no directory on the phone: cancelling releases the claim and wipes whatever was
-     * written to the share, which is everything the save consists of. The answer doubles as
-     * "nothing local left to clean up" for the caller.
-     */
+    /** Deletes an SMB save (cancel = release claim + wipe share folder); true = nothing local. */
     public boolean deleteIfSmbTask(@Nullable com.hippo.ehviewer.client.data.GalleryInfo info) {
         if (!(info instanceof SmbTaskInfo)) {
             return false;
@@ -283,20 +225,7 @@ public final class SmbDownloadsDelegate {
         return true;
     }
 
-    /**
-     * Hands the selected downloads to the SMB downloader as moves.
-     *
-     * <p>This used to be a copy loop of its own, walking each gallery's files onto the share and
-     * then deleting the phone copy. As an enqueue it inherits everything the download path already
-     * has -- a claim in {@code state/} so no other device mistakes a half-copied folder for a
-     * finished gallery (#88), a row in this very list with progress, pause and resume, and the
-     * ability to carry on after an interruption. The pages themselves still come from the phone:
-     * the download asks {@code SpiderDen.contain} for each one, and a page already in phone storage
-     * is put on the share rather than fetched again.
-     *
-     * <p>What it no longer does is report the outcome here. A move is now as long-running as a
-     * download, and the download list is where a download's progress is.
-     */
+    /** Moves = enqueues (#88): claims, progress rows, resume — the pages come from the phone. */
     public void moveToShare(@NonNull Context context, @NonNull List<DownloadInfo> downloads) {
         final Context appContext = context.getApplicationContext();
         for (DownloadInfo info : downloads) {

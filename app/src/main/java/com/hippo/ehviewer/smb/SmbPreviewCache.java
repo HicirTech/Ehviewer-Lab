@@ -30,19 +30,8 @@ import java.util.concurrent.atomic.AtomicInteger;
 import jcifs.smb.SmbFile;
 
 /**
- * Parallelises SMB preview reads. Conaco's disk-load executor is a single-thread serial
- * pool, so all per-cell loads happen one after another and a 40-page gallery on a slow
- * share appears to load previews "one at a time".
- *
- * <p>This cache prefetches every page in a gallery in parallel and writes each one to a
- * deterministic local file. {@link SmbImageDataContainer#get()} then hits the local file
- * directly without doing any SMB I/O on Conaco's serial thread, so the visible loading
- * becomes effectively concurrent.
- *
- * <p>Bandwidth assumption: the local SMB share is treated as having effectively unlimited
- * bandwidth, so we fan out a worker pool (sized by {@link SmbConcurrency#image()}) per gallery
- * rather than per page. The cache directory is shared with the legacy on-demand temp
- * staging path so disk space is bounded by the same eviction (manual clear / cache wipe).
+ * Fans preview reads out ahead of Conaco's serial executor into deterministic local files, so
+ * per-cell loads never do SMB I/O on that thread. Pool sized by {@link SmbConcurrency#image()}.
  */
 public final class SmbPreviewCache {
 
@@ -62,13 +51,7 @@ public final class SmbPreviewCache {
         PREFETCH_EXECUTOR.allowCoreThreadTimeOut(true);
     }
 
-    /**
-     * The prefetch pool, resized to whatever the image-concurrency setting says now.
-     *
-     * <p>Read through here rather than used directly so a change to the setting takes effect on the
-     * next gallery instead of on the next launch. Package-private for the settings screen's
-     * benchmark, which must measure the pool the app actually uses.
-     */
+    /** The pool, resized to the current setting; package-private so the benchmark measures it. */
     static ThreadPoolExecutor prefetchExecutor() {
         SmbConcurrency.resize(PREFETCH_EXECUTOR, SmbConcurrency.image());
         return PREFETCH_EXECUTOR;
@@ -124,14 +107,8 @@ public final class SmbPreviewCache {
     }
 
     /**
-     * Kicks off a parallel SMB → local prefetch for {@code count} previews of the gallery, exactly
-     * once per process lifetime (until {@link #cancelGallery}). Safe to call from any thread;
-     * returns immediately.
-     *
-     * <p>The fan-out loop itself runs on the prefetch pool rather than the caller's thread:
-     * for big galleries allocating N lambdas + N {@code LinkedBlockingQueue.put} calls inline
-     * took long enough to cause a visible one-frame stutter when the preview grid first bound
-     * on the UI thread.
+     * Parallel prefetch of a gallery's previews, once per process. The fan-out loop itself runs
+     * pooled — inline it stuttered a UI frame on big galleries.
      */
     public static void prefetchGallery(long gid, @Nullable String title, int count) {
         if (count <= 0 || !SmbConnection.isConfigured()) {
@@ -226,12 +203,7 @@ public final class SmbPreviewCache {
         }
     }
 
-    /**
-     * Stop prefetching a gallery and forget that we started: cancels every outstanding dispatch /
-     * per-page task and clears the dedup mark so a later visit re-prefetches. Called when the
-     * gallery's detail scene goes away, so leaving the page doesn't leave the shared prefetch pool
-     * busy reading previews nobody is looking at anymore. Already-finished tasks are simply no-ops.
-     */
+    /** Cancels outstanding tasks and the dedup mark when the detail scene goes away. */
     public static void cancelGallery(long gid) {
         // Drop the mark first so any task that slips past cancellation bails at its guard.
         PREFETCHED_GIDS.remove(gid);
@@ -246,14 +218,7 @@ public final class SmbPreviewCache {
         }
     }
 
-    /**
-     * Cancels any prefetch and deletes the cached preview files for one gallery. Called when the
-     * gallery is deleted from the share: the local copies would otherwise linger until the whole
-     * cache directory is cleared, and be served for a gallery that no longer exists.
-     *
-     * <p>Files are named {@code <gid>-<index>} in one flat directory (see
-     * {@link #cacheFileFor}), so this filters the listing by prefix.
-     */
+    /** Cancels and deletes the gallery's cached files (on share-side delete). */
     public static void evictGallery(long gid) {
         cancelGallery(gid);
         String prefix = gid + "-";

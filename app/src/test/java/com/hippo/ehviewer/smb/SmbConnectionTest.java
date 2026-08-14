@@ -27,12 +27,7 @@ import java.lang.reflect.Field;
 import jcifs.CIFSContext;
 import jcifs.smb.NtlmPasswordAuthenticator;
 
-/**
- * The protocol-specific floor (#97): configuration gating, credential wiring, and the base-context
- * cache. Everything here runs offline — building a jcifs context parses configuration, it does not
- * touch a network — so these pin the wiring, and the share-bound behaviour stays with the device
- * suite.
- */
+/** The protocol-specific floor (#97): configuration gating, credential wiring, and the base-context cache. */
 @RunWith(RobolectricTestRunner.class)
 @Config(application = android.app.Application.class)
 public class SmbConnectionTest {
@@ -65,12 +60,7 @@ public class SmbConnectionTest {
         assertFalse(SmbConnection.isConfigured());
     }
 
-    /**
-     * One base context per setting, not per call — the cache is what keeps jcifs' connection pool
-     * shared. Pinned on the signing-disabled path deliberately: the default path hands out jcifs'
-     * own JVM singleton, which is identical with or without a cache, so only this path can tell a
-     * working cache from a missing one.
-     */
+    /** One base context per setting, not per call — the cache is what keeps jcifs' connection pool shared. */
     @Test
     public void theBaseContextIsOneInstanceWhileTheSettingHoldsStill() {
         Settings.putBoolean(Settings.KEY_SMB_SIGNING_DISABLED, true);
@@ -103,11 +93,7 @@ public class SmbConnectionTest {
         assertEquals("bamboo", credentials.getPassword());
     }
 
-    /**
-     * The URL the whole layer builds on is exactly the four settings through SmbPaths — the
-     * normalized accessors, not the raw strings, which is why the expectation reads them back
-     * (getSmbSharePath wraps the path in slashes).
-     */
+    /** The URL the whole layer builds on is exactly the four settings through SmbPaths — the normalized accessors, not the raw strings, which is why the expe */
     @Test
     public void theShareUrlIsComposedFromSettings() {
         assertEquals(

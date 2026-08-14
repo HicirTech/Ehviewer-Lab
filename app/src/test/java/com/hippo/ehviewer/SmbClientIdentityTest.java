@@ -11,16 +11,7 @@ import org.robolectric.RobolectricTestRunner;
 import org.robolectric.RuntimeEnvironment;
 import org.robolectric.annotation.Config;
 
-/**
- * How this installation names itself to the other devices on the share (#59).
- *
- * <p>The client id names this device's file under {@code state/}. If it ever changed, everything
- * that file claims would be orphaned and this device would look like a new one that had published
- * nothing — its downloads offered to whoever else is online. That failure appears as work quietly
- * going missing rather than as an error, which is why it is worth pinning rather than noticing.
- *
- * <p>An anchor set: identity and stability only. What the id looks like is not the point.
- */
+/** How this installation names itself to the other devices on the share (#59). */
 @RunWith(RobolectricTestRunner.class)
 @Config(application = android.app.Application.class)
 public class SmbClientIdentityTest {
@@ -52,11 +43,7 @@ public class SmbClientIdentityTest {
         assertEquals(first, Settings.getSmbClientId());
     }
 
-    /**
-     * Clearing the app's data is the case the platform id exists to survive. A value we generated
-     * and stored would go with it, and everything this device had published would become
-     * unreclaimable by the device that actually owns it.
-     */
+    /** Clearing the app's data is the case the platform id exists to survive. */
     @Test
     public void clientId_survivesLosingTheStoredFallback() {
         String first = Settings.getSmbClientId();

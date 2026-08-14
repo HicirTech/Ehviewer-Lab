@@ -50,11 +50,7 @@ public class SmbSettingsFragment extends PreferenceFragmentCompat implements Pre
     private EditTextPreference mMetadataConcurrency;
     private EditTextPreference mImageConcurrency;
 
-    /**
-     * Snapshot of each EditText preference's XML-defined {@code android:summary} taken before
-     * we overwrite it with the entered value. When the user clears a field we restore this
-     * original hint (e.g. "Example: 192.168.1.10") instead of showing a generic placeholder.
-     */
+    /** XML summaries snapshotted before values overwrite them, restored when a field clears. */
     private final Map<Preference, CharSequence> mHintSummaries = new HashMap<>();
 
     @Override
@@ -269,11 +265,7 @@ public class SmbSettingsFragment extends PreferenceFragmentCompat implements Pre
         }
     }
 
-    /**
-     * Snapshot the current {@code android:summary} so future "empty value" rebinds can restore
-     * it. If the preference has no XML summary (e.g. username/password), use the supplied
-     * generic fallback. Stored once per preference; subsequent calls are no-ops.
-     */
+    /** Stores the XML summary (or fallback) once per preference. */
     private void cacheHint(@NonNull Preference pref, @Nullable CharSequence fallback) {
         if (mHintSummaries.containsKey(pref)) {
             return;
@@ -285,19 +277,7 @@ public class SmbSettingsFragment extends PreferenceFragmentCompat implements Pre
         mHintSummaries.put(pref, current);
     }
 
-    /**
-     * Measures the share at the settings currently in force and shows what came back.
-     *
-     * <p>A dialog and not a toast, unlike the connection test beside it. The result is several
-     * numbers whose point is being compared with the next run's, and a toast that has already
-     * faded is no use for that — nor is it any use to somebody who left the screen while a slow
-     * share was still answering.
-     *
-     * <p>The summary line doubles as the progress indicator: there is nothing else on this screen
-     * that could show one, and a share that takes ten seconds to answer would otherwise look like
-     * a button that does nothing.
-     */
-    /** The two number boxes show their current value, the way host and port beside them do. */
+    /** Benchmark at current settings; dialog (numbers are for comparing), summary = progress. */
     private void updateConcurrencySummaries() {
         if (mMetadataConcurrency != null) {
             mMetadataConcurrency.setSummary(getString(
@@ -311,14 +291,7 @@ public class SmbSettingsFragment extends PreferenceFragmentCompat implements Pre
         }
     }
 
-    /**
-     * Sweeps 1–64 against the real share and applies the winners.
-     *
-     * <p>Progress goes to the row's own summary — the sweep takes tens of seconds on a big
-     * library and a button that long-silently works is indistinguishable from one that is
-     * broken. The result dialog shows the whole table, not just the verdict, so a user whose
-     * share behaves oddly can see the shape and not merely the number.
-     */
+    /** Auto-tune sweep; summary shows progress, the dialog shows the whole table. */
     private void runAutoTune() {
         Context context = getContext();
         if (context == null) {

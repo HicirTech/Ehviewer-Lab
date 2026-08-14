@@ -41,30 +41,7 @@ import org.junit.runner.RunWith;
 import java.io.IOException;
 import java.util.regex.Pattern;
 
-/**
- * The workflow suite: every SMB screen the app has, against the share the device is actually
- * configured for, in well under two minutes.
- *
- * <p>This replaces an external Python driver that re-invented what the platform test stack
- * already provides — and re-invented it with the bugs to match (stale hierarchy dumps, taps
- * racing scroll inertia, hand-rolled polling). Here the pieces do what they are made for:
- * Espresso navigates and clicks inside the app with menu ids instead of screen coordinates,
- * UiAutomator waits on the accessibility tree for results that arrive from SMB pools Espresso
- * does not track, and each check is an ordinary JUnit test with an ordinary per-test report.
- *
- * <p>Ground rules, inherited from the Python era and worth keeping:
- * <ul>
- *   <li><b>Read-only.</b> Nothing here downloads, deletes, or writes gallery state. The runner
- *       script snapshots the share before and after and fails the run on any difference.</li>
- *   <li><b>Assert the work, not the pixels.</b> "The reader works" is a logcat line proving a
- *       page was materialised off the share, not a screenshot looking plausible.</li>
- *   <li><b>No sleeps.</b> Every wait polls a condition and moves the moment it holds.</li>
- * </ul>
- *
- * <p>The device must be awake and unlocked, and the app must already be configured for a share
- * with at least one gallery — this is the workflow suite for a working installation, not a
- * first-run wizard test. The runner script handles wake/unlock.
- */
+/** The workflow suite: every SMB screen the app has, against the share the device is actually configured for, in well under two minutes. */
 @RunWith(AndroidJUnit4.class)
 @LargeTest
 public class SmbWorkflowTest {
@@ -78,13 +55,7 @@ public class SmbWorkflowTest {
     private String mPkg;
     private ActivityScenario<MainActivity> mScenario;
 
-    /**
-     * Installing the APK — which the connected-test task does on every run — drops the
-     * MANAGE_EXTERNAL_STORAGE appop, and the app answers its first launch without it by
-     * bouncing to the system grant screen. Six tests then time out staring at system
-     * settings. Instrumentation carries shell privileges, so grant it here, after the
-     * install and before anything launches.
-     */
+    /** Installing the APK — which the connected-test task does on every run — drops the MANAGE_EXTERNAL_STORAGE appop, and the app answers its first launch w */
     @org.junit.BeforeClass
     public static void grantAllFilesAccess() throws IOException {
         UiDevice.getInstance(InstrumentationRegistry.getInstrumentation()).executeShellCommand(
@@ -193,11 +164,7 @@ public class SmbWorkflowTest {
         throw new AssertionError("main scene did not draw its search bar");
     }
 
-    /**
-     * Drawer navigation by menu id. The drawer opens through the activity's own public API and
-     * the item is resolved by id, not by matching text at coordinates — the predecessor suite
-     * spent its whole flaky tail on taps landing where a still-scrolling drawer used to be.
-     */
+    /** Drawer navigation by menu id. */
     private void openFromDrawer(int menuId) {
         mScenario.onActivity(a -> a.openDrawer(Gravity.LEFT));
         // The drawer is a custom view sliding on its own scroller: animationsDisabled does not

@@ -34,15 +34,7 @@ import java.util.Set;
 
 import jcifs.smb.SmbFile;
 
-/**
- * Directory resolution and the listing cache (#97). The load-bearing invariant, pinned twice
- * here, is the reader/writer split: {@code getGalleryDir} may create, {@code resolveGalleryDir}
- * must never touch the share at all — a query that creates leaves empty folders the inventory
- * then counts (#59 found it the hard way).
- *
- * <p>The share is a nested {@link SmbFile} shadow: constructors and path math run jcifs' real
- * offline code, and only the calls that would go on the wire are stood in for.
- */
+/** Directory resolution and the listing cache (#97). */
 @RunWith(RobolectricTestRunner.class)
 @Config(application = android.app.Application.class,
         shadows = {SmbGalleryDirectoryTest.ShadowSmbFile.class},

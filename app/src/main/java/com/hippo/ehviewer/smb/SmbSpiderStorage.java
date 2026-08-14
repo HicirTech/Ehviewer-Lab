@@ -25,16 +25,8 @@ import java.io.OutputStream;
  */
 public final class SmbSpiderStorage implements GallerySpiderStorage {
 
-    /**
-     * Per-gid intent mark for routing reads/writes to SMB. Replaces the old global
-     * {@code Settings.getSmbSaveEnabled()} routing flag — that was leaking phone downloads
-     * onto the SMB share whenever the master toggle was on. Now only galleries explicitly
-     * marked here (by {@link SmbDirectDownloader} or {@code LocalInventoryScene.openReader})
-     * use SMB I/O. Regular DownloadManager downloads always go to phone storage.
-     *
-     * <p>Lives beside {@link #createIfTarget} because that is the one consumer: the mark and
-     * the backend selection it drives are a single seam (#97).
-     */
+    // Per-gid routing mark (a global flag once leaked phone downloads onto the share); lives
+    // beside createIfTarget, its one consumer.
     private static final java.util.Set<Long> SMB_TARGET_GIDS =
             java.util.Collections.synchronizedSet(new java.util.HashSet<>());
 
@@ -57,15 +49,7 @@ public final class SmbSpiderStorage implements GallerySpiderStorage {
         this.info = info;
     }
 
-    /**
-     * Returns an SMB backend for the gallery iff {@code gid} is currently marked as an SMB target,
-     * otherwise null (meaning: use phone storage). The mark is re-checked on every call so that
-     * clearing it — e.g. when a download is cancelled — immediately reverts to local storage,
-     * preserving the behaviour of the old per-call {@code useSmbStorage()} check.
-     *
-     * <p>{@code gid} and {@code info} are passed separately to mirror {@code SpiderDen}, which
-     * tracks a gid independently of the GalleryInfo it hands to the storage helpers.
-     */
+    /** An SMB backend iff the gid is marked, re-checked per call so unmarking acts immediately. */
     @Nullable
     public static SmbSpiderStorage createIfTarget(@NonNull GalleryInfo info, long gid) {
         return SmbSpiderStorage.isGidMarkedSmbTarget(gid) ? new SmbSpiderStorage(info) : null;

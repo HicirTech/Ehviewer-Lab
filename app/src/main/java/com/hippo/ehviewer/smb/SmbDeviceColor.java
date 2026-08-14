@@ -3,19 +3,8 @@ package com.hippo.ehviewer.smb;
 import androidx.annotation.NonNull;
 
 /**
- * A colour that stands for one device on the share (#77).
- *
- * <p>The inventory has room for a dot and nothing more, so the dot has to carry the "who" by
- * itself. Derived from the client id — which is this installation's Android id — so the same tablet
- * is the same colour on every screen of every device, without anybody having to agree on anything:
- * two phones looking at the same share pick the same colour for the same third device because they
- * are computing it from the same string, not exchanging it.
- *
- * <p>Colours come from a fixed list rather than a hue computed from the hash. A hue circle spreads
- * ids evenly across values a screen can show but not across ones an eye can tell apart — two
- * devices twenty degrees apart are simply the same colour to look at, and some of the circle is
- * hard to see at all at 12dp. A short hand-picked list gives up uniqueness for the thing actually
- * being asked of it. Two devices can land on the same colour; the download list still names them.
+ * A colour per device, derived from the client id so every device computes the same one (#77).
+ * Hand-picked palette, not a hue circle — eyes can't tell 20° apart at 12dp; collisions are fine.
  */
 public final class SmbDeviceColor {
 
@@ -51,16 +40,7 @@ public final class SmbDeviceColor {
         return PALETTE[indexOf(clientId)];
     }
 
-    /**
-     * Which slot of the palette an id falls in.
-     *
-     * <p>The mixing step is the lowbias32 finaliser, and it is insurance rather than a fix: over
-     * twenty thousand random sixteen-character hex ids, {@link String#hashCode()} taken modulo
-     * sixteen already fills every slot to within ten percent of even, so for the ids this sees
-     * today it changes nothing measurable. What it buys is that the spread does not depend on that
-     * — the id is only usually an Android id, and the made-up fallback and anything a later change
-     * substitutes get an even spread without anyone re-checking.
-     */
+    /** Palette slot via lowbias32 mixing — insurance so the spread survives any id shape. */
     static int indexOf(@NonNull String clientId) {
         int h = clientId.hashCode();
         h ^= h >>> 16;

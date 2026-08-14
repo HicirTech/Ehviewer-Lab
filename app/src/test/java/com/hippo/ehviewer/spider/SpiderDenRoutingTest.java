@@ -34,19 +34,7 @@ import org.robolectric.annotation.Implementation;
 import org.robolectric.annotation.Implements;
 import org.robolectric.annotation.Resetter;
 
-/**
- * Pins how {@link SpiderDen} dispatches storage on {@code (mode, remote backend present)} — issue
- * #41.
- *
- * <p>This is the code every upstream merge conflicts in, and two real regressions came out of it:
- * #35 (remote reads had no cache fallback, so pages failed while the share was still uploading)
- * and #30. The invariants below are named so a failure says which one broke.
- *
- * <p>No production code is modified to make this testable: the SMB backend is replaced by
- * {@link ShadowSmbSpiderStorage}, and whether a backend exists at all is driven by the real
- * {@code SmbSpiderStorage} target mark. The cache is a real on-disk one under Robolectric's temp dir.
- * No share, no network.
- */
+/** Pins how SpiderDen dispatches storage on (mode, remote backend present) — issue #41. */
 @RunWith(RobolectricTestRunner.class)
 @Config(application = android.app.Application.class,
         shadows = {SpiderDenRoutingTest.ShadowSmbSpiderStorage.class,
@@ -165,11 +153,7 @@ public class SpiderDenRoutingTest {
         public void close() {}
     }
 
-    /**
-     * The extension a page is stored under is read from the bytes, and Robolectric's BitmapFactory
-     * does not report a MIME type for anything. Without this the copy gives up before it starts,
-     * for a reason that has nothing to do with the routing being pinned here.
-     */
+    /** The extension a page is stored under is read from the bytes, and Robolectric's BitmapFactory does not report a MIME type for anything. */
     @Implements(android.graphics.BitmapFactory.class)
     public static class ShadowMimeAwareBitmapFactory {
         @Implementation
@@ -290,11 +274,7 @@ public class SpiderDenRoutingTest {
 
     // --- I2: download-mode reads fall back to the cache (#35) --------------------------------
 
-    /**
-     * SpiderQueen is a per-gid singleton whose mode is shared, so starting an SMB download flips
-     * the reader's den to MODE_DOWNLOAD. Pages not yet uploaded must still come from the cache,
-     * or the reader fails them with error_reading_failed.
-     */
+    /** SpiderQueen is a per-gid singleton whose mode is shared, so starting an SMB download flips the reader's den to MODE_DOWNLOAD. */
     @Test
     public void invariant2_downloadModeFallsBackToCacheWhenNotOnShareYet() {
         seedCache();
@@ -332,11 +312,7 @@ public class SpiderDenRoutingTest {
     // protecting: true means the page is there, whether it already was or this call put it there.
     // A copy that fails must still answer false, or the download skips a page it never wrote.
 
-    /**
-     * The direction that keeps the share complete. If the share will not take the write, the page
-     * is not on it, and saying otherwise loses the page for good -- the downloader moves on and
-     * nothing comes back to it.
-     */
+    /** The direction that keeps the share complete. */
     @Test
     public void invariant3_containIsFalseWhenTheCachedPageCannotBeCopiedAcross() {
         seedCache();
@@ -498,15 +474,7 @@ public class SpiderDenRoutingTest {
                 ShadowSmbSpiderStorage.written());
     }
 
-    /**
-     * Puts one page of this gallery in phone storage, the way a completed phone download leaves it.
-     *
-     * <p>The folder name goes in the download database too, which is where a real phone download
-     * records it. Without that entry the lookup falls back to listing the download directory, and
-     * that path refuses to run on the main thread -- which is the only thread a Robolectric test
-     * has. Seeding the row is not a shortcut around the production code; it is the state the
-     * production code is normally in.
-     */
+    /** Puts one page of this gallery in phone storage, the way a completed phone download leaves it. */
     private void seedPhoneCopy(String content) {
         java.io.File root = new java.io.File(
                 RuntimeEnvironment.getApplication().getCacheDir(), "phone-downloads");

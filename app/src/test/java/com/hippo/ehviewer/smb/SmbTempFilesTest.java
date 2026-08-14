@@ -8,16 +8,7 @@ import org.junit.Test;
 import java.util.HashSet;
 import java.util.Set;
 
-/**
- * When a leftover on the share may be deleted (#75).
- *
- * <p>This decides whether one device removes a file another device may still be writing. Getting it
- * wrong in one direction leaves litter; in the other it corrupts somebody's write — including, in
- * {@code state/}, a file this class has no other business touching. So the rule is stated here
- * rather than left to a threshold nobody re-reads.
- *
- * <p>Both clocks are arguments, so none of this is waited out.
- */
+/** When a leftover on the share may be deleted (#75). */
 public class SmbTempFilesTest {
 
     private static final long NOW = 1_700_000_000_000L;
@@ -36,11 +27,7 @@ public class SmbTempFilesTest {
                 NOW - OLD_ENOUGH + 1, NOW));
     }
 
-    /**
-     * The one that matters most. Everything published lives beside these temporaries — in
-     * {@code state/} another device's whole queue, in a gallery folder its pages — and none of it
-     * ages out of existence. A sweep that went by age alone would empty the share.
-     */
+    /** The one that matters most. */
     @Test
     public void nothingThatIsNotATemporaryIsEverAbandoned() {
         long ancient = NOW - 400L * 24 * 60 * 60 * 1000;
@@ -60,11 +47,7 @@ public class SmbTempFilesTest {
         assertFalse(SmbTempFiles.isAbandoned("x.1.tmp", -1L, NOW));
     }
 
-    /**
-     * A file dated after this device's clock means the share and this device disagree about the
-     * time, not that the file is impossibly new. Same direction as the liveness rule next door:
-     * when the clocks argue, assume somebody is still working.
-     */
+    /** A file dated after this device's clock means the share and this device disagree about the time, not that the file is impossibly new. */
     @Test
     public void aTemporaryDatedInTheFutureIsLeftAlone() {
         assertFalse(SmbTempFiles.isAbandoned("x.1.tmp", NOW + 60_000L, NOW));
@@ -97,12 +80,7 @@ public class SmbTempFilesTest {
         assertTrue("names collided: " + (1000 - names.size()) + " of 1000", names.size() == 1000);
     }
 
-    /**
-     * Guards the threshold itself. A publish gives up after eight seconds and a page is written in
-     * one pass, so the window is meant to be minutes — orders past anything merely slow. Tightening
-     * it to keep the share tidier is exactly the change that would start deleting live writes, and
-     * it would show up as corrupted files on somebody else's device, not here.
-     */
+    /** Guards the threshold itself. */
     @Test
     public void theWindowStaysFarBeyondAnyWriteThatIsMerelySlow() {
         assertTrue("abandonment window is " + SmbTempFiles.ABANDONED_AFTER_MS + "ms",

@@ -15,19 +15,7 @@ import java.io.FileOutputStream;
 import java.lang.reflect.Field;
 import java.nio.file.Files;
 
-/**
- * Deleting a gallery from the share has to take its cached previews with it, and take nothing
- * else. The cache is one flat directory of {@code <gid>-<index>} files shared by every gallery,
- * so the selection is a string prefix over other galleries' data — get it wrong and the delete
- * quietly takes out a neighbour's cache.
- *
- * <p>The gid boundaries are the whole point here: {@code 1000-0} must survive a delete of gid
- * {@code 100}, and {@code 100-12} must not survive it.
- *
- * <p>{@code sCacheDir} is memoised from {@code EhApplication.getInstance()}, which does not exist
- * under Robolectric, so it is planted directly — the same reflection approach
- * {@code SpiderDenRoutingTest} uses to reach {@code SpiderDen.sCache}.
- */
+/** Deleting a gallery from the share has to take its cached previews with it, and take nothing else. */
 @RunWith(RobolectricTestRunner.class)
 @Config(application = android.app.Application.class)
 public class SmbPreviewCacheEvictTest {

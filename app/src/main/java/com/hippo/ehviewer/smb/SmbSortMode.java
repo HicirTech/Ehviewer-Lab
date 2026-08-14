@@ -8,17 +8,8 @@ import com.hippo.ehviewer.client.data.GalleryInfo;
 import java.util.Comparator;
 
 /**
- * Ordering policy for the Local Inventory list.
- *
- * <p>Extracted from {@code SmbStorage} so the sort logic lives apart from SMB I/O and can be
- * unit-tested without a live share. The persisted value (see
- * {@link com.hippo.ehviewer.Settings#getLocalInventorySort()}) is the {@link #ordinal()} of one
- * of these constants, so the declaration order must stay stable.
- *
- * <p>Sorting operates on {@link Entry} values rather than {@link GalleryInfo} directly because
- * {@link #DOWNLOAD_DATE_DESC} keys off the share-side {@code metadata.json} mtime, which is not a
- * field on {@code GalleryInfo}. Carrying it alongside the gallery keeps every comparator a pure
- * function of its inputs.
+ * Inventory ordering. Persisted as ordinal() — declaration order must stay stable. Entries carry
+ * the mtime DOWNLOAD_DATE_DESC needs, keeping comparators pure.
  */
 public enum SmbSortMode {
     /** Most recently downloaded first (mtime of metadata.json on the share). */

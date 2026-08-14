@@ -10,33 +10,15 @@ import java.util.HashSet;
 import java.util.Random;
 import java.util.Set;
 
-/**
- * The colour that stands for a device in the inventory badge (#77).
- *
- * <p>The badge says who is downloading a gallery with nothing but a colour, so the colour has to be
- * the same one on every device looking at the share and the same one tomorrow. Nothing agrees on it
- * — each device computes it from the owner's client id — which is exactly why it has to be a pure
- * function of that id and stay one.
- */
+/** The colour that stands for a device in the inventory badge (#77). */
 public class SmbDeviceColorTest {
 
     private static final String ANDROID_ID = "a1b2c3d4e5f60718";
 
-    /**
-     * Stated here rather than read back from {@code SmbDeviceColor}, which used to expose a
-     * {@code paletteSize()} that existed for these two assertions and nothing else. Comparing the
-     * production palette against itself made the reachability test a tautology: it could not fail
-     * however the palette changed. A literal turns it into a real claim — sixteen colours, and
-     * every one of them reachable — and a change to the palette becomes something a person has to
-     * look at rather than something the test quietly absorbs.
-     */
+    /** Stated here rather than read back from SmbDeviceColor, which used to expose a paletteSize() that existed for these two assertions and nothing else. */
     private static final int PALETTE_SIZE = 16;
 
-    /**
-     * The property everything else rests on. Two devices work out the same colour for a third only
-     * because they both run this on the same string, so anything that made the answer depend on
-     * time, order or state would silently give every device a different picture of the share.
-     */
+    /** The property everything else rests on. */
     @Test
     public void theSameIdAlwaysGivesTheSameColour() {
         int first = SmbDeviceColor.of(ANDROID_ID);
@@ -91,11 +73,7 @@ public class SmbDeviceColorTest {
                 colours.size() >= 5);
     }
 
-    /**
-     * Pins the spread as a stated property rather than a measured accident. Holds with or without
-     * the mixing step in {@code indexOf} — the mixer is there so it keeps holding for ids that are
-     * not shaped like today's, not to rescue the ones that are.
-     */
+    /** Pins the spread as a stated property rather than a measured accident. */
     @Test
     public void everyColourInThePaletteIsReachable() {
         Set<Integer> seen = new HashSet<>();

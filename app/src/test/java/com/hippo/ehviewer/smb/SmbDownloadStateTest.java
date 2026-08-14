@@ -17,20 +17,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
-/**
- * The rules by which several devices' published download state becomes one list (#59).
- *
- * <p>Every device writes only its own file, so the single view a user sees exists nowhere on disk —
- * it is computed here, every time, out of files written by devices that never coordinated with each
- * other. There is no server to arbitrate and no lock; these rules are the whole of the agreement.
- *
- * <p>Plain JUnit. This class touches no SMB, no Android and no clock — liveness arrives as an
- * argument precisely so it can be stated rather than waited for.
- *
- * <p>Deliberately an anchor set. What is pinned here is what would be a silent data problem if it
- * changed: a gallery downloaded twice, a device's queue quietly lost, work nobody can reclaim.
- * Presentation details are left to the screen.
- */
+/** The rules by which several devices' published download state becomes one list (#59). */
 public class SmbDownloadStateTest {
 
     private static final String ME = "client-me";
@@ -81,13 +68,7 @@ public class SmbDownloadStateTest {
         assertEquals(OTHER, find(merged, 2).clientId);
     }
 
-    /**
-     * The state a takeover leaves behind, and the rule that makes takeover safe at all.
-     *
-     * <p>A device that has gone away cannot be corrected and its clock cannot be trusted — nobody
-     * can even tell whether it is wrong. If a timestamp could beat liveness, one dead device could
-     * hold a gallery hostage from the device actually downloading it, forever.
-     */
+    /** The state a takeover leaves behind, and the rule that makes takeover safe at all. */
     @Test
     public void merge_aLiveClaimBeatsADeadOneWhateverTheTimestampsSay() {
         List<OwnedTask> merged = SmbDownloadState.merge(Arrays.asList(
@@ -108,11 +89,7 @@ public class SmbDownloadStateTest {
         assertEquals(ME, find(merged, 7).clientId);
     }
 
-    /**
-     * A file written by a newer build is ignored rather than half-understood. Reading what we
-     * recognise and dropping the rest would make this device act on a partial picture of a
-     * gallery somebody else is working on.
-     */
+    /** A file written by a newer build is ignored rather than half-understood. */
     @Test
     public void merge_skipsFilesWithAnUnknownSchema() {
         ClientState future = new ClientState(
@@ -134,15 +111,7 @@ public class SmbDownloadStateTest {
 
     // --- display order ---------------------------------------------------------------------------
 
-    /**
-     * One gallery per device first — the one that device is actually downloading — then everything
-     * queued behind, oldest claim first.
-     *
-     * <p>Which gallery a device is on is derived, never stored: the downloader takes its queue in
-     * claim order and runs one at a time, so the earliest claim a device still holds is the job in
-     * progress. Nothing published can say this, because the moment a device loses contact is the
-     * moment it can no longer correct what it said.
-     */
+    /** One gallery per device first — the one that device is actually downloading — then everything queued behind, oldest claim first. */
     @Test
     public void order_whatEachDeviceIsOnComesFirst() {
         List<OwnedTask> merged = SmbDownloadState.merge(Arrays.asList(
@@ -154,13 +123,7 @@ public class SmbDownloadStateTest {
                 Arrays.toString(gidsOf(merged)));
     }
 
-    /**
-     * Heads sort by device name, so a heartbeat landing never reshuffles rows under a reader.
-     *
-     * <p>The claim times are chosen so that name order, oldest-first and newest-first each give a
-     * different answer — otherwise this passes by coincidence, which is exactly what an earlier
-     * draft of it did.
-     */
+    /** Heads sort by device name, so a heartbeat landing never reshuffles rows under a reader. */
     @Test
     public void order_headsSortByDeviceNameNotByClaimTime() {
         List<OwnedTask> merged = SmbDownloadState.merge(Arrays.asList(
@@ -307,11 +270,7 @@ public class SmbDownloadStateTest {
         assertEquals(OTHER, t.takenOverFrom);
     }
 
-    /**
-     * One corrupt or half-written file must not take the whole list down with it. The worst case of
-     * ignoring one is that its owner looks idle; the worst case of throwing is that this device
-     * cannot see anybody.
-     */
+    /** One corrupt or half-written file must not take the whole list down with it. */
     @Test
     public void parse_returnsNullRatherThanThrowing() {
         assertNull(SmbDownloadState.parse(null));

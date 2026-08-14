@@ -29,18 +29,7 @@ import org.robolectric.annotation.Implements;
 import org.robolectric.annotation.Resetter;
 import org.robolectric.shadow.api.Shadow;
 
-/**
- * Pins the SMB download task state machine (issue #43).
- *
- * <p>Its bugs are the silent kind: a task that never starts, a gid that can never be enqueued
- * again, or a folder deleted while it is still being written. One of those has already shipped —
- * the {@code clearPending} leak that made every later enqueue a no-op until the app restarted.
- *
- * <p>No production code is modified to make this testable. Robolectric shadows stand in for the
- * fetch engine, the foreground service and the share delete, so what is asserted here is state
- * transitions and call ordering. The SMB target mark is left running for real, since it is plain
- * in-memory state and the marking rules are part of what this pins.
- */
+/** Pins the SMB download task state machine (issue #43). */
 @RunWith(RobolectricTestRunner.class)
 @Config(application = android.app.Application.class,
         shadows = {
@@ -107,11 +96,7 @@ public class SmbDirectDownloaderTest {
         }
     }
 
-    /**
-     * Only the folder delete is stood in for. Everything else in the SMB layer — notably
-     * the SMB target mark — keeps running for real, since it is plain in-memory state and the
-     * marking rules are part of what this test pins.
-     */
+    /** Only the folder delete is stood in for. */
     @Implements(SmbGalleryLifecycle.class)
     public static class ShadowSmbGalleryLifecycle {
 
@@ -321,15 +306,7 @@ public class SmbDirectDownloaderTest {
         assertTrue("a job that never started must not be listed as active", tasks().isEmpty());
     }
 
-    /**
-     * A cancelled gallery must be enqueueable again.
-     *
-     * <p>Note this only covers the downloader's own dedup (its queue/active maps). The related
-     * regression that shipped once — {@code SmbAutoDownloadManager.pendingGids} keeping a gid
-     * forever, so later auto/manual enqueues silently no-op — is one layer up and is not
-     * covered: reaching it means going through {@code enqueueInternal}, which writes metadata
-     * to the share. That needs its own seam.
-     */
+    /** A cancelled gallery must be enqueueable again. */
     @Test
     public void cancel_allowsTheGalleryToBeEnqueuedAgain() {
         SmbDirectDownloader.getInstance().start(context, gallery(1));
@@ -346,17 +323,7 @@ public class SmbDirectDownloaderTest {
 
     // --- service lifecycle ---------------------------------------------------------------------
 
-    /**
-     * The foreground service is what keeps the process alive past UI tear-down, so the first
-     * task must bring it up.
-     *
-     * <p>Neither the shutdown nor the "don't start it twice" behaviour is asserted here. Both
-     * hang off {@code service != null}, which is only true once the real
-     * {@link SmbDownloadService} has called {@code attachService} on create. Nothing attaches
-     * through this seam, so those paths are unreachable and asserting them would only be
-     * testing the fake. Covering them needs a Robolectric service, which is a different kind
-     * of test from this one.
-     */
+    /** The foreground service is what keeps the process alive past UI tear-down, so the first task must bring it up. */
     @Test
     public void service_startsWithTheFirstTask() {
         SmbDirectDownloader.getInstance().start(context, gallery(1));

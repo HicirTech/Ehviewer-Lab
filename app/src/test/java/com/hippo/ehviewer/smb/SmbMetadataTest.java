@@ -20,14 +20,7 @@ import org.junit.runner.RunWith;
 import org.robolectric.RobolectricTestRunner;
 import org.robolectric.annotation.Config;
 
-/**
- * Pins the in-memory half of the on-share metadata contract (#42).
- *
- * <p>{@code SmbMetadata} is what turns a stored {@code metadata.json} into the objects the
- * detail screen renders offline. Everything asserted here is a pure transform, so the fixtures
- * are built in the test — no share, no network, and deliberately not the {@code Panda/} corpus,
- * which is scratch data that CI never has.
- */
+/** Pins the in-memory half of the on-share metadata contract (#42). */
 @RunWith(RobolectricTestRunner.class)
 @Config(application = android.app.Application.class)
 public class SmbMetadataTest {
@@ -90,12 +83,7 @@ public class SmbMetadataTest {
         assertEquals("another", groups[0].getTagAt(1));
     }
 
-    /**
-     * Documents a wart rather than endorsing it: an entry starting with ':' is treated as
-     * ungrouped and the colon stays part of the tag, because the ungrouped branch assigns the
-     * whole entry. Harmless in practice — stored tgList entries are always "group:tag" — but
-     * pinned so a future rewrite notices it is changing behaviour.
-     */
+    /** Documents a wart rather than endorsing it: an entry starting with ':' is treated as ungrouped and the colon stays part of the tag, because the ungroup */
     @Test
     public void tagGroups_leadingColonIsKeptInTheTag() {
         GalleryTagGroup[] groups = SmbMetadata.buildTagGroupsFromList(tg(":leadingColon"));
@@ -232,12 +220,7 @@ public class SmbMetadataTest {
     // A re-sync overwrites the on-share record with what e-hentai says (#16). One field may not be
     // overwritten, because it is also where the gallery lives on disk.
 
-    /**
-     * The rule this exists for. The folder is named {@code <gid>-<title>} and
-     * {@code resolveGalleryDir} builds the path back out of the record, so a record carrying a new
-     * title points at a directory that does not exist — and getGalleryDir would then create it,
-     * leaving an empty gallery in the inventory and the real one unreachable.
-     */
+    /** The rule this exists for. */
     @Test
     public void keepPathFields_refusesToLetANewTitleThrough() {
         GalleryInfo local = new GalleryInfo();

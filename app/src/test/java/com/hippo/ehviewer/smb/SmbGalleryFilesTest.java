@@ -39,12 +39,7 @@ import java.util.Set;
 
 import jcifs.smb.SmbFile;
 
-/**
- * The per-file half of the SMB layer (#97): page lookup by cached listing, and — the part with
- * the history — the atomic write. #35 was precisely a reader seeing a half-written file and a
- * stale listing calling a just-written page missing; the two tests at the bottom pin the shape
- * that fixed it: nothing publishes until close, and close both renames and invalidates.
- */
+/** The per-file half of the SMB layer (#97): page lookup by cached listing, and — the part with the history — the atomic write. */
 @RunWith(RobolectricTestRunner.class)
 @Config(application = android.app.Application.class,
         shadows = {SmbGalleryFilesTest.ShadowSmbFile.class,

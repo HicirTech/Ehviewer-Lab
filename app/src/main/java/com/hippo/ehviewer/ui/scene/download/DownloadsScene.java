@@ -165,11 +165,7 @@ public class DownloadsScene extends ToolbarScene
     @Nullable
     public String mLabel;
 
-    /**
-     * Everything SMB about this screen lives in the delegate (#59, #95); the scene keeps only
-     * call sites. The host wiring is the whole contract: the delegate may ask for a context and
-     * may say the merged list went stale.
-     */
+    /** The screen's SMB behaviour lives in the delegate (#59, #95); the scene keeps call sites. */
     private final SmbDownloadsDelegate mSmbDelegate =
             new SmbDownloadsDelegate(new SmbDownloadsDelegate.Host() {
                 @Override
@@ -390,17 +386,8 @@ public class DownloadsScene extends ToolbarScene
     }
 
     /**
-     * Keeps the FAB clear of the pagination bar without moving it on the screens that have none
-     * (#74).
-     *
-     * <p>This screen used to hold its FAB 70dp up and 3dp in from the edge where every other screen
-     * puts one at 16dp, because the bar below it is 40dp tall. The bar is hidden unless pagination
-     * is switched on <em>and</em> the list runs past a page, so most of the time that bought a FAB
-     * sitting somewhere else than the rest of the app for no reason at all.
-     *
-     * <p>The bar's real height is not its declared 40dp — it carries a layout weight, so it settles
-     * a few dp shorter — hence measuring rather than assuming, with the declared height standing in
-     * until a layout pass has happened.
+     * Keeps the FAB clear of the pagination bar only while the bar shows (#74); measured height,
+     * because layout weight settles it short of its declared 40dp.
      */
     private void updateFabClearance() {
         if (mFabLayout == null || !isAdded()) {
@@ -1110,15 +1097,7 @@ public class DownloadsScene extends ToolbarScene
         return true;
     }
 
-    /**
-     * Whether the row at this adapter position is an SMB save, which cannot be multi-selected (#59).
-     *
-     * <p>The batch actions are Start, Stop, Delete and Move, and every one of them means something
-     * different for a gallery being saved to the share by some device — or nothing at all, when
-     * that device is not this one. Rather than teach each action what to do, and the next one
-     * somebody adds, these are simply kept out of a selection. Acting on one individually still
-     * works: that is what the row's own buttons and menu are for.
-     */
+    /** SMB rows stay out of multi-select (#59): every batch action means something else for them. */
     private boolean isSmbAt(int position) {
         List<DownloadInfo> list = mList;
         if (list == null) {
@@ -1217,11 +1196,8 @@ public class DownloadsScene extends ToolbarScene
             for (int i = 0, n = stateArray.size(); i < n; i++) {
                 if (stateArray.valueAt(i)) {
                     DownloadInfo info = list.get(positionInList(stateArray.keyAt(i)));
-                    // SMB saves are excluded from selection, so one should never reach here. The
-                    // guard stays because this loop feeds every batch action there is, including
-                    // ones added later: "Start" hands its gids to DownloadService, which would
-                    // fetch the gallery to the phone while another device was saving it to the
-                    // share. Being wrong here is silent, and this is the one place to be sure.
+                    // Belt over the selection guard: this loop feeds every batch action, present
+                    // and future, and being wrong here is silent.
                     if (SmbTaskInfo.isSmb(info)) {
                         continue;
                     }

@@ -9,13 +9,8 @@ import androidx.annotation.Nullable;
 import com.hippo.ehviewer.R;
 
 /**
- * The foreground service and its notification, as one small concern (#98).
- *
- * <p>The service exists to keep the process alive while downloads run and to carry the progress
- * notification; this class owns the handle to it and the words in the notification, and nothing
- * about downloading. It reads the queue only through the
- * {@link SmbTaskLedger.NotificationContent} snapshot handed to {@link #update}, so there is no
- * lock shared with the ledger and no ordering to reason about.
+ * The foreground service handle and the words in its notification. Reads the queue only through
+ * the snapshot handed to {@link #update} — no lock shared with the ledger.
  */
 final class SmbDownloadForeground {
 
@@ -24,14 +19,13 @@ final class SmbDownloadForeground {
     @Nullable
     private SmbDownloadService service;
 
-    /** Starts the service if none is attached yet. Safe to call repeatedly. */
+    /** Starts the service (keeps the process alive past UI tear-down) if none is attached. */
     void ensureStarted(@NonNull Context context) {
         synchronized (this) {
             if (service != null) {
                 return;
             }
         }
-        // Foreground service keeps the process alive past UI tear-down / screen lock.
         try {
             SmbDownloadService.start(context);
         } catch (Throwable e) {
@@ -51,7 +45,7 @@ final class SmbDownloadForeground {
         }
     }
 
-    /** Renders one queue snapshot into the notification; a null content means leave it alone. */
+    /** Renders one queue snapshot into the notification; null means leave it alone. */
     void update(@NonNull Context ctx, @Nullable SmbTaskLedger.NotificationContent content) {
         SmbDownloadService svc;
         synchronized (this) {

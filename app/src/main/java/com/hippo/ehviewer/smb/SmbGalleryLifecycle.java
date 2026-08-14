@@ -26,15 +26,8 @@ import okhttp3.Request;
 import okhttp3.Response;
 
 /**
- * What happens to a gallery on the share as a whole (#97): is it complete, deleting it,
- * renaming it, and finalizing it when its download ends.
- *
- * <p>The line against {@link SmbGalleryFiles} is per-gallery versus per-file: this class treats
- * the gallery folder as one thing with a state, and only reaches inside it for evidence (the
- * page count, the saved-image count) or for the finalize ritual — metadata, cover, temp-file
- * sweep. Everything here answers the download path; the reading path never needs it.
- *
- * <p>Split out of the old 1494-line {@code SmbStorage}; method bodies are verbatim from there.
+ * The gallery as a whole: completeness, delete, rename, download finalize. Per-gallery where
+ * {@link SmbGalleryFiles} is per-file; only the download path needs this class.
  */
 public final class SmbGalleryLifecycle {
 
@@ -42,23 +35,13 @@ public final class SmbGalleryLifecycle {
 
     private SmbGalleryLifecycle() {}
 
-    /**
-     * Recursively deletes the on-share gallery folder. Used when a SMB download task is
-     * cancelled — leaving partial pages behind would clutter the share and confuse a later
-     * resume / re-enqueue (since {@link #isGalleryComplete} could count stale pages).
-     * Returns true if the folder was deleted or never existed.
-     */
+    /** Deletes the gallery folder recursively. True when deleted or never there. */
     public static boolean deleteGalleryFolder(@NonNull GalleryInfo info) {
         try {
-            // Build the directory reference without auto-creating it (getGalleryDir would
-            // mkdirs() on a missing dir, then we'd immediately try to delete what we just
-            // created — wasteful at best, wrong at worst if the dir never existed).
             SmbFile galleryDir = SmbGalleryDirectory.resolveGalleryDir(info);
             if (!galleryDir.exists()) {
                 return true;
             }
-            // jcifs-ng's SmbFile.delete() throws SmbException (STATUS_DIRECTORY_NOT_EMPTY)
-            // when the directory is non-empty. Delete all contents first, then the dir.
             deleteSmbDirRecursive(galleryDir);
             return !galleryDir.exists();
         } catch (Throwable e) {
@@ -69,15 +52,7 @@ public final class SmbGalleryLifecycle {
         }
     }
 
-    /**
-     * Recursively deletes {@code dir} and all of its contents on the SMB share.
-     * jcifs-ng requires a directory to be empty before {@link SmbFile#delete()} succeeds,
-     * so we traverse depth-first and delete files before their parent directories.
-     * <p>
-     * Deletion is best-effort: individual child failures are logged and skipped so that
-     * remaining siblings are still processed. The parent directory delete at the end will
-     * propagate any {@link IOException} if not all children were removed.
-     */
+    /** Depth-first (jcifs refuses non-empty dirs); child failures are logged and skipped. */
     private static void deleteSmbDirRecursive(@NonNull SmbFile dir) throws IOException {
         SmbFile[] children = dir.listFiles();
         if (children != null) {
@@ -96,12 +71,7 @@ public final class SmbGalleryLifecycle {
         dir.delete();
     }
 
-    /**
-     * Returns true when the on-share copy has a metadata.json declaring a positive
-     * page count and the same number of image files are present on the share. Used by
-     * the SMB download path to skip galleries that are already fully saved.
-     * Performs SMB I/O — must be called from a worker thread.
-     */
+    /** Complete = metadata declares N pages and N image files are there. Worker thread only. */
     public static boolean isGalleryComplete(@NonNull GalleryInfo info) {
         long tPerf = SystemClock.elapsedRealtime();
         try {
@@ -134,19 +104,14 @@ public final class SmbGalleryLifecycle {
                     + " " + (SystemClock.elapsedRealtime() - tPerf) + "ms thr=" + Thread.currentThread().getName());
             return saved >= declaredPages;
         } catch (Throwable e) {
-            // A transient failure here (congested transport, timeout) must be visible: returning
-            // false silently turns into a full re-download of a complete gallery.
+            // Logged loudly: a silent false here means re-downloading a complete gallery.
             Log.w("SmbPerf", "isGalleryComplete gid=" + info.gid + " EXCEPTION after "
                     + (SystemClock.elapsedRealtime() - tPerf) + "ms: " + e);
             return false;
         }
     }
 
-    /**
-     * Counts pages that have at least one image file in the gallery folder. Uses a single
-     * {@code listFiles()} call to avoid N×{extensions} SMB round-trips (which previously
-     * caused OOMs on large galleries because each round-trip allocated jcifs buffers).
-     */
+    /** One list(), then in-memory counting — N×extensions round-trips once OOMed here. */
     private static int countSavedImages(@NonNull SmbFile galleryDir, int pageCount) throws IOException {
         String[] names = galleryDir.list();
         if (names == null || names.length == 0) {
@@ -166,34 +131,14 @@ public final class SmbGalleryLifecycle {
         return count;
     }
 
-    /**
-     * How long to keep trying to rename a gallery folder before giving up.
-     *
-     * <p>The failure being retried is another device holding a file inside the folder open, which
-     * the server answers with {@code 0xc0000022} and which clears the moment the handle does. The
-     * spike measured a writer through in 13 attempts over 1918 ms against a reader that held on for
-     * 1.5 s, so this leaves room for a considerably slower one. Giving up is not serious: the
-     * gallery keeps the name it has.
-     */
+    // Retrying 0xc0000022 (another device's open handle); measured through in ~2s, 8s is slack.
     private static final long RENAME_DEADLINE_MS = 8_000L;
     private static final long RENAME_BACKOFF_START_MS = 100L;
     private static final long RENAME_BACKOFF_MAX_MS = 800L;
 
     /**
-     * Renames a gallery's folder so it matches a new title (#86).
-     *
-     * <p>The folder is named {@code <gid>-<title>} and the path is built back out of the record, so
-     * the two have to move together. Doing this first and writing the record second is not a
-     * detail: the intermediate state it avoids -- a record naming a folder that does not exist --
-     * is one where {@code getGalleryDir} creates an empty one and the gallery disappears from
-     * Local Inventory behind it.
-     *
-     * <p>Refuses rather than merges when something already occupies the new name. Two galleries
-     * with the same gid cannot both be right, and picking one would throw the other away.
-     *
-     * <p>Performs SMB I/O; call from a worker thread.
-     *
-     * @return whether the folder now carries the new name, including when it already did
+     * Renames the folder to match a new title (#86); must happen before the record is rewritten.
+     * Refuses an occupied target. Worker thread only.
      */
     public static boolean renameGalleryFolder(@NonNull GalleryInfo info, @Nullable String newTitle) {
         String from = SmbPaths.buildGalleryFolderName(info);
@@ -220,8 +165,7 @@ public final class SmbGalleryLifecycle {
             Throwable last = null;
             while (true) {
                 try {
-                    // Single-argument on purpose: the two-argument form replaces the target, and
-                    // there is nothing here worth replacing that we would not rather refuse.
+                    // One-arg renameTo on purpose: refuses rather than replaces an occupied target.
                     source.renameTo(target);
                     SmbGalleryDirectory.invalidateListing(info.gid);
                     Log.i(TAG, "Renamed gid=" + info.gid + " to " + to);
@@ -251,11 +195,7 @@ public final class SmbGalleryLifecycle {
     public static void finalizeDownloadedGallery(@NonNull Context context, @NonNull GalleryInfo info) {
         try {
             SmbFile galleryDir = SmbGalleryDirectory.getGalleryDir(info);
-            // Resolve the real page count if the caller didn't already have it (e.g. info came
-            // from a search list). We deliberately do NOT mutate `info.pages` here — the same
-            // GalleryInfo instance is held by SmbDirectDownloader.active and can be observed
-            // concurrently from the main thread (task snapshots, notifications). Passing the
-            // resolved value down keeps the write thread-local.
+            // Never mutate info.pages: the instance is observed concurrently from the main thread.
             int resolvedPages = info.pages;
             if (resolvedPages <= 0) {
                 int spiderPages = readPagesFromSpiderInfo(info);
@@ -265,15 +205,12 @@ public final class SmbGalleryLifecycle {
             }
             SmbMetadata.writeMetadataWithDetail(context, galleryDir, info, resolvedPages);
             downloadAndWriteCover(context, galleryDir, info);
-            // The one moment this folder is both certainly ours and worth a listing: an earlier
-            // run of this download that was killed mid-page left its temporaries here, and nothing
-            // else will ever look (#75).
+            // The one moment this folder is certainly ours: sweep old temporaries (#75).
             SmbTempFiles.sweep(galleryDir, System.currentTimeMillis());
         } catch (Throwable e) {
             Log.e(TAG, "Failed to finalize SMB gallery gid=" + info.gid, e);
         } finally {
-            // The download just wrote every page; drop the stale listing so a reader opening this
-            // gallery right after sees the saved files instead of a pre-download empty snapshot.
+            // Every page just changed; a reader must not see the pre-download listing.
             SmbGalleryDirectory.invalidateListing(info.gid);
         }
     }
@@ -315,9 +252,6 @@ public final class SmbGalleryLifecycle {
                     extension = "." + ext;
                 }
             }
-            // Open source first; the response body's byteStream is owned by the response
-            // (closed via try-with-resources) so we just need to make sure the SMB output
-            // open failing doesn't drop a still-uncopied body on the floor.
             InputStream in = response.body().byteStream();
             OutputStream out;
             try {
@@ -332,13 +266,7 @@ public final class SmbGalleryLifecycle {
         }
     }
 
-    /**
-     * Copies one stream into another, at least one end of which is always on the share.
-     *
-     * <p>Deliberately not {@code IOUtils.copy}: its buffer is 4 KB, the slowest setting available
-     * here, and it is a shared utility so widening it would change every unrelated local-file copy
-     * in the app too.
-     */
+    /** Not IOUtils.copy: its 4KB buffer is the slowest SMB setting available. */
     private static void copyStream(InputStream in, OutputStream out) throws IOException {
         try {
             byte[] chunk = new byte[SmbGalleryFiles.SMB_IO_BUFFER];

@@ -21,25 +21,11 @@ import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 
 /**
- * Standalone background downloader for "Save to SMB" galleries — the conductor, not the score.
- * <p>
- * Bypasses the normal {@link com.hippo.ehviewer.download.DownloadManager} entirely so SMB-saved
- * galleries never appear in the Downloads list. Internally uses a {@link SpiderQueen} in
- * {@link SpiderQueen#MODE_DOWNLOAD} which, combined with {@code SpiderDen} routing writes through
- * the SMB layer, downloads every page directly into the SMB share.
- * <p>
- * The moving parts each live in a class of their own (#98), and this one only wires them:
- * <ul>
- *   <li>{@link SmbTaskLedger} — the queue state machine: every map, every transition, one lock.
- *       Transitions return what remains to be done; this class does it.</li>
- *   <li>{@link SmbDownloadForeground} — the foreground service handle and the words in its
- *       notification.</li>
- *   <li>{@link SmbDownloadBoard} — the download's other life, on the share (#59): heartbeat,
- *       the all-devices list, takeover, restore. It sees this device only through
- *       {@link SmbDownloadBoard.Device}, implemented here over the ledger.</li>
- * </ul>
- * What stays in this file is exactly the parts that touch more than one of those at once: the
- * public API, the pump, the SpiderQueen job lifecycle, and move-to-share's phone-copy cleanup.
+ * Background downloader for "Save to SMB" galleries: SpiderQueen in MODE_DOWNLOAD writing
+ * straight to the share, bypassing DownloadManager. This class is the conductor over
+ * {@link SmbTaskLedger} (queue state), {@link SmbDownloadForeground} (service/notification) and
+ * {@link SmbDownloadBoard} (the share side, #59) — it keeps only the API, the pump, the job
+ * lifecycle and the move cleanup.
  */
 public final class SmbDirectDownloader {
 
@@ -58,26 +44,13 @@ public final class SmbDirectDownloader {
     private final SmbDownloadForeground foreground = new SmbDownloadForeground();
     private final CopyOnWriteArrayList<TaskObserver> observers = new CopyOnWriteArrayList<>();
 
-    /**
-     * Written by {@link #start} / {@link #attachService} from any thread, read by main-thread
-     * pump / notification updates. {@code volatile} keeps the writes visible without a full
-     * lock; the field is otherwise idempotent (only flipped from null to a process-lived
-     * application context).
-     */
+    /** Latched once from any entry point; only ever flips null → application context. */
     @Nullable
     private volatile Context appContext;
 
     // ---------- Public API --------------------------------------------------------------------
 
-    /**
-     * Moves a gallery from phone storage to the share, as an ordinary SMB download.
-     *
-     * <p>It used to be its own copy loop, which meant a second way of writing a gallery to the
-     * share with its own notion of when a folder is finished -- and #88 was the bill for that: the
-     * folder appeared before the first byte and nothing claimed it, so every other device read it
-     * as a finished gallery while it was still empty. As a download it takes the same claim in
-     * {@code state/} that everything else does, and the question does not arise.
-     */
+    /** Move = an ordinary download that also drops the phone copy; a separate loop was #88. */
     public void startMove(@NonNull Context context, @NonNull GalleryInfo info) {
         enqueue(context, info, true);
     }
@@ -97,30 +70,16 @@ public final class SmbDirectDownloader {
         foreground.ensureStarted(appContext);
         SimpleHandler.getInstance().post(this::pumpOnMainThread);
         notifyObservers();
-        // Publish as soon as the claim is made. Not a guarantee that it lands before the download
-        // starts -- this hands the write to another thread while the job is posted to the main one,
-        // and neither waits for the other -- so two devices deciding on the same gallery within a
-        // second or so of each other can still both begin it. Closing that window entirely would
-        // need the lock this design gets its speed by not taking. What this does buy is the common
-        // case, and the one where nothing else would publish for a while: a gallery queued behind
-        // an active job triggers no startJob, so without this its claim would wait for the next
-        // heartbeat.
+        // Publish the claim promptly; a small two-devices race window remains by design.
         publishState();
     }
 
-    /**
-     * Cancel a task by gid. Removes it from queue/paused immediately; for an active task,
-     * releases the SpiderQueen on the main thread. The SMB-target mark is also cleared so a
-     * subsequent download via DownloadManager (if the user chooses "to phone") would not be
-     * silently re-routed to SMB.
-     */
+    /** Cancels: forget locally, wipe the on-share folder, clear the SMB-target mark. */
     public void cancel(long gid) {
         SimpleHandler.getInstance().post(() -> {
             SmbTaskLedger.CancelOutcome outcome = ledger.cancel(gid);
             releaseQueen(outcome.jobToRelease, "cancel", gid);
-            // Wipe the on-share folder so partial pages don't accumulate. Run on the IO pool
-            // because SMB delete is a network round trip. Must happen AFTER releasing the
-            // SpiderQueen so we're not racing its writes.
+            // Delete AFTER the queen is released, on the IO pool — not racing its writes.
             if (outcome.infoForDelete != null) {
                 final GalleryInfo info = outcome.infoForDelete;
                 IoThreadPoolExecutor.Companion.getInstance().execute(() -> {
@@ -137,11 +96,7 @@ public final class SmbDirectDownloader {
         });
     }
 
-    /**
-     * Pause a task. Active → release the queen but keep the gid held so the user can resume
-     * later (the partially-saved pages on the share will be skipped by SpiderQueen's existence
-     * check, giving "resume" semantics for free). Queued → just move to paused.
-     */
+    /** Pauses; resume comes free (SpiderQueen skips pages already on the share). */
     public void pause(long gid) {
         SimpleHandler.getInstance().post(() -> {
             releaseQueen(ledger.pause(gid), "pause", gid);
@@ -156,11 +111,7 @@ public final class SmbDirectDownloader {
             if (info == null) {
                 return;
             }
-            // The hypothetical this guard was written for became the normal case (#59): a paused
-            // task restored from the share never goes through start() or attachService(), so
-            // nothing has latched a context, and the first thing the user does to it is press
-            // play. Falling back to the application rather than refusing -- there is always one,
-            // and refusing made the button look broken.
+            // Restored tasks never latched a context; fall back rather than break the button (#59).
             Context ctx = appContext != null ? appContext : EhApplication.getInstance();
             if (ctx == null) {
                 Log.w(TAG, "resume: no context available, cannot re-enqueue gid=" + gid);
@@ -186,19 +137,10 @@ public final class SmbDirectDownloader {
         SmbDownloadBoard.getInstance().ensureRestored();
     }
 
-    /**
-     * Called when the master switch may have moved, or a screen wants the queue brought up to date.
-     *
-     * <p>Off means off: the downloads stop, the heartbeat stops, the service goes away and the app
-     * is local-only. Back on means going and looking at the share again rather than trusting
-     * whatever this process was last told — another device may have taken work over in between.
-     */
+    /** Off = suspend everything; back on = reconcile with the share before trusting memory. */
     public void onSmbAvailabilityChanged() {
         boolean available = SmbDownloadBoard.smbAvailable();
-        // Only on a change. Screens call this whenever they refresh, and the download list
-        // refreshes on every finished page -- reconciling that often turned a rare repair into a
-        // hot path, and one that races completion: it reads the published file, a job finishes
-        // before it writes, and the task it thought was missing comes back as paused.
+        // Only on a change: screens call this per refresh, and reconciling races completion.
         Boolean was = lastKnownAvailable;
         if (was != null && was == available) {
             return;
@@ -267,12 +209,8 @@ public final class SmbDirectDownloader {
     }
 
     private void startJob(@NonNull GalleryInfo info) {
-        // Make sure the gallery has its metadata.json before pages start landing beside it.
-        // Enqueuing writes one, but the two ways a download can begin without ever being enqueued
-        // here -- restored from the share after a restart, or adopted from a device that went away
-        // -- both skipped it. The result is a folder full of images that Local Inventory will not
-        // list and whose row has no cover or category. Only when absent: a finished gallery's
-        // metadata carries tags this skeleton does not.
+        // Restored/adopted downloads skipped the enqueue-time metadata skeleton; write it if
+        // absent, or the inventory will not list the folder.
         IoThreadPoolExecutor.Companion.getInstance().execute(() -> {
             try {
                 if (SmbInventory.readGalleryMetadata(info) == null) {
@@ -291,18 +229,12 @@ public final class SmbDirectDownloader {
             queen.addOnSpiderListener(listener);
             ledger.jobStarted(info, new SmbTaskLedger.ActiveJob(queen, listener, info));
             Log.i(TAG, "SMB direct download started gid=" + info.gid);
-            // Push an immediate notification update so the progress bar appears as soon as the
-            // job starts, rather than staying on "Preparing..." until the first onPageSuccess
-            // arrives (which can take many seconds for big galleries on slow SMB shares).
             updateNotification();
             notifyObservers();
-            // Queued -> active. Worth its own write: another device seeing "active" knows this one
-            // is really working on it, not merely intending to.
+            // Queued -> active is worth its own write: "active" means working, not intending.
             publishState();
         } catch (IllegalStateException e) {
-            // A regular DownloadManager download is already in progress for this gid.
-            // We must NOT leave the gid marked or its concurrent phone download would
-            // start routing through SMB mid-flight.
+            // A phone download already runs this gid; leaving the mark would re-route it mid-flight.
             SmbSpiderStorage.unmarkGidAsSmbTarget(info.gid);
             Log.w(TAG, "SMB direct download skipped for gid=" + info.gid + ": " + e.getMessage());
         } catch (Throwable e) {
@@ -317,10 +249,8 @@ public final class SmbDirectDownloader {
             return;
         }
         Log.i(TAG, "SMB direct download finished gid=" + info.gid);
-        // Drop the claim promptly: the gallery is on the share now, and leaving it listed would
-        // have other devices think it is still being worked on.
+        // Drop the claim promptly, or other devices think this is still being worked on.
         publishState();
-        // Finalize metadata + cover on the IO pool.
         final Context ctx = appContext != null ? appContext : EhApplication.getInstance();
         IoThreadPoolExecutor.Companion.getInstance().execute(() -> {
             try {
@@ -332,22 +262,15 @@ public final class SmbDirectDownloader {
                 dropPhoneCopy(ctx, info);
             }
         });
-        // releaseSpiderQueen must run on the main thread.
+        // releaseSpiderQueen must run on the main thread; the gid stays marked so reads still
+        // resolve to SMB.
         SimpleHandler.getInstance().post(() -> {
             releaseQueen(outcome.job, "finish", info.gid);
-            // Keep the gid marked so any subsequent READs from LocalInventoryScene
-            // continue to resolve to SMB even before the process restarts.
             pumpOnMainThread();
         });
     }
 
-    /**
-     * Drops a task another device has taken over, without touching what is on the share.
-     *
-     * <p>Deliberately not {@link #cancel}: that deletes the gallery folder, and the folder now
-     * belongs to whoever adopted the download. The pages already written are theirs to continue
-     * from -- that is what makes a takeover a resumption rather than a restart.
-     */
+    /** Stands down from a taken-over task; not cancel — the folder is the adopter's now. */
     private void yieldOnMainThread(long gid) {
         releaseQueen(ledger.yield(gid), "yield", gid);
         SmbSpiderStorage.unmarkGidAsSmbTarget(gid);
@@ -357,17 +280,7 @@ public final class SmbDirectDownloader {
         foreground.stopIfIdle(ledger.isIdle(), appContext);
     }
 
-    /**
-     * Stops everything SMB and holds it, without touching the share.
-     *
-     * <p>Nothing is published — the switch being off, or the share being unreachable, is exactly
-     * the situation in which this device cannot say anything. Its file simply stops being
-     * refreshed, and after {@link SmbDownloadStateStore#STALE_AFTER_MS} the other devices draw
-     * their own conclusion, which is the correct one.
-     *
-     * <p>The work is held rather than cancelled: the pages already on the share stay, and the
-     * tasks come back paused when SMB does.
-     */
+    /** Holds everything without publishing (we cannot say anything); tasks return paused. */
     private void suspendAllOnMainThread() {
         List<SmbTaskLedger.ActiveJob> released = ledger.suspendAll();
         for (SmbTaskLedger.ActiveJob j : released) {
@@ -402,16 +315,7 @@ public final class SmbDirectDownloader {
         SimpleHandler.getInstance().post(this::pumpOnMainThread);
     }
 
-    /**
-     * Removes the phone's copy of a gallery that has just finished moving to the share.
-     *
-     * <p>Last, and only after the pages are on the share, so a move that fails part way leaves the
-     * phone copy where it was rather than nothing anywhere.
-     *
-     * <p>The download record goes on the main thread because that is where the download list and
-     * its listeners live; the files go on this one, because deleting a folder of images through
-     * the storage-access framework is slow enough to be felt.
-     */
+    /** Drops the phone copy after a move — last, so a failed move fails toward "copied". */
     private void dropPhoneCopy(@NonNull Context appContext, @NonNull GalleryInfo info) {
         final UniFile dir = SpiderDen.getExistingGalleryDownloadDir(info);
         SimpleHandler.getInstance().post(() -> {
@@ -444,11 +348,8 @@ public final class SmbDirectDownloader {
         if (appContext == null) {
             appContext = svc.getApplicationContext();
         }
-        // The service coming up is the one signal that does not depend on a screen being open --
-        // including when Android restarts it after killing the process, which it does precisely
-        // because there was work in flight. That work is on the share; this is what goes and gets
-        // it. Idempotent, so the ordinary case of the service starting for a fresh enqueue costs
-        // one no-op.
+        // The service coming up is the one screen-independent restore signal (Android restarts
+        // it after killing a process with work in flight).
         ensureRestored();
         SimpleHandler.getInstance().post(this::pumpOnMainThread);
     }
@@ -467,12 +368,7 @@ public final class SmbDirectDownloader {
         SmbDownloadBoard.getInstance().publish();
     }
 
-    /**
-     * This device's queue as the share should see it.
-     *
-     * <p>Package-private so a test can read what would have been published without a share to
-     * publish to.
-     */
+    /** Package-private so tests read what would have been published. */
     @NonNull
     SmbDownloadState.ClientState snapshotClientState() {
         return ledger.clientState();

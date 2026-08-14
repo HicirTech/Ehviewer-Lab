@@ -74,13 +74,7 @@ public class GalleryListParserTest {
     this.file = file;
   }
 
-  /**
-   * {@link GalleryListParser} reads the thumbnail resolution out of {@link Settings} and looks up
-   * local favourites in {@link EhDB}, both of which are process-wide singletons the application
-   * normally wires up on start-up. Without them the parser swallows the resulting
-   * NullPointerException and hands back an empty result, so give it a real Robolectric-backed
-   * context instead.
-   */
+  /** GalleryListParser reads the thumbnail resolution out of Settings and looks up local favourites in EhDB, both of which are process-wide singletons the */
   @Before
   public void setUp() {
     Settings.initialize(RuntimeEnvironment.getApplication());
