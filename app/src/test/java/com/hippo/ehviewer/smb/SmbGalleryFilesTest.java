@@ -63,10 +63,17 @@ public class SmbGalleryFilesTest {
         protected static void invalidateListing(long gid) {
             events.add("invalidate:" + gid);
         }
+
+        @Implementation
+        protected static void noteWritten(long gid, String name) {
+            events.add("note:" + gid + ":" + name);
+        }
     }
 
     @Implements(SmbFile.class)
     public static class ShadowSmbFile {
+        static boolean renameFails;
+
         @RealObject SmbFile real;
 
         @Implementation
@@ -77,7 +84,10 @@ public class SmbGalleryFilesTest {
         }
 
         @Implementation
-        protected void renameTo(jcifs.SmbResource dest, boolean replace) {
+        protected void renameTo(jcifs.SmbResource dest, boolean replace) throws jcifs.smb.SmbException {
+            if (renameFails) {
+                throw new jcifs.smb.SmbException(0xC0000022, false);
+            }
             events.add("rename:" + real.getName() + "->" + dest.getName() + ":replace=" + replace);
         }
 
@@ -99,6 +109,7 @@ public class SmbGalleryFilesTest {
         filenames.clear();
         events.clear();
         written.clear();
+        ShadowSmbFile.renameFails = false;
     }
 
     /** "Is page N saved" is a set lookup over the listing, across every supported extension. */
@@ -148,7 +159,26 @@ public class SmbGalleryFilesTest {
         assertEquals(2, events.size());
         assertTrue(events.get(0).startsWith("rename:"));
         assertTrue("the rename must overwrite", events.get(0).endsWith("replace=true"));
-        assertEquals("invalidate:42", events.get(1));
+        // Incremental (#102): the confirmed name is added; the listing is NOT re-fetched per page.
+        assertEquals("note:42:00000001.jpg", events.get(1));
+    }
+
+    /** A failed publish leaves the folder's contents uncertain — forget, do not guess (#35). */
+    @Test
+    public void aFailedPublishInvalidatesInsteadOfNoting() throws Exception {
+        SmbFile dir = new SmbFile(SmbConnection.galleryRootUrl() + "42-Answer/",
+                SmbConnection.buildContext());
+        OutputStream out = SmbGalleryFiles.openAtomicOutputStream(dir, "00000001.jpg", 42L);
+        out.write("bytes".getBytes(StandardCharsets.UTF_8));
+        ShadowSmbFile.renameFails = true;
+        try {
+            out.close();
+            assertTrue("close should have thrown", false);
+        } catch (java.io.IOException expected) {
+        }
+        assertEquals("invalidate:42", events.get(0));
+        assertTrue("the temporary must be cleaned up",
+                events.contains("delete:" + SmbTempFiles.nameFor("00000001.jpg")));
     }
 
     /** Close is idempotent — a double close must not rename (and so re-invalidate) twice. */
