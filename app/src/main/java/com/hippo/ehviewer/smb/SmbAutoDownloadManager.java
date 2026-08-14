@@ -32,7 +32,7 @@ import com.hippo.util.IoThreadPoolExecutor;
  *   <li>Skip galleries whose on-share copy already has all images present
  *       ({@link SmbStorage#isGalleryComplete}).</li>
  *   <li>Skip galleries another live device has already claimed
- *       ({@code SmbDirectDownloader.isClaimedElsewhere}).</li>
+ *       ({@code SmbDownloadBoard.isClaimedElsewhere}).</li>
  *   <li>Write a skeleton {@code metadata.json} immediately so Local Inventory lists the
  *       gallery before/even without a finished download.</li>
  *   <li>Hand the gallery off to {@link SmbDirectDownloader} for the actual download.</li>
@@ -80,7 +80,7 @@ public final class SmbAutoDownloadManager {
                 // Another device may already be on it. Checked here rather than in the downloader
                 // because this is the one place a gallery enters the queue from outside, and
                 // because there is already an SMB round trip on this thread to share.
-                if (SmbDirectDownloader.getInstance().isClaimedElsewhere(galleryInfo.gid)) {
+                if (SmbDownloadBoard.getInstance().isClaimedElsewhere(galleryInfo.gid)) {
                     toast(appContext, appContext.getString(R.string.smb_save_claimed_elsewhere));
                     return;
                 }

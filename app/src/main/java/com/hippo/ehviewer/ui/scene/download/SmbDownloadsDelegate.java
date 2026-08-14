@@ -18,6 +18,7 @@ import com.hippo.ehviewer.R;
 import com.hippo.ehviewer.Settings;
 import com.hippo.ehviewer.dao.DownloadInfo;
 import com.hippo.ehviewer.smb.SmbDirectDownloader;
+import com.hippo.ehviewer.smb.SmbDownloadBoard;
 import com.hippo.ehviewer.smb.SmbConnection;
 import com.hippo.ehviewer.smb.SmbTaskInfo;
 import com.hippo.lib.yorozuya.SimpleHandler;
@@ -142,7 +143,7 @@ public final class SmbDownloadsDelegate {
         SmbDirectDownloader.getInstance().onSmbAvailabilityChanged();
         IoThreadPoolExecutor.Companion.getInstance().execute(() -> {
             final List<SmbTaskInfo> fresh =
-                    SmbDirectDownloader.getInstance().snapshotSharedTasks();
+                    SmbDownloadBoard.getInstance().snapshotSharedTasks();
             SimpleHandler.getInstance().post(() -> {
                 mTasks = fresh;
                 mHost.onTasksChanged();
@@ -197,12 +198,12 @@ public final class SmbDownloadsDelegate {
                         task.deviceName, title))
                 .setNegativeButton(android.R.string.cancel, null)
                 .setPositiveButton(R.string.smb_take_over_confirm, (dialog, which) ->
-                        SmbDirectDownloader.getInstance()
+                        SmbDownloadBoard.getInstance()
                                 .takeOver(context, task, this::onTakeOverFinished))
                 .show();
     }
 
-    private void onTakeOverFinished(@NonNull SmbDirectDownloader.TakeOverResult result) {
+    private void onTakeOverFinished(@NonNull SmbDownloadBoard.TakeOverResult result) {
         Context context = mHost.context();
         if (context == null) {
             return;

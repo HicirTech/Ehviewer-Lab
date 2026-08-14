@@ -48,6 +48,7 @@ import com.hippo.ehviewer.smb.SmbPaths;
 import com.hippo.ehviewer.smb.SmbPreviewCache;
 import com.hippo.ehviewer.smb.SmbSortMode;
 import com.hippo.ehviewer.smb.SmbConnection;
+import com.hippo.ehviewer.smb.SmbDownloadBoard;
 import com.hippo.ehviewer.smb.SmbGalleryLifecycle;
 import com.hippo.ehviewer.smb.SmbInventory;
 import com.hippo.ehviewer.smb.SmbTaskInfo;
@@ -245,7 +246,7 @@ public class LocalInventoryScene extends ToolbarScene
             final Map<Long, DownloadMark> marks = new HashMap<>();
             // Reads the share. Never throws: an unreachable share comes back as an empty list, and
             // the cards simply show no badges rather than the screen failing over a decoration.
-            for (SmbTaskInfo t : SmbDirectDownloader.getInstance().snapshotSharedTasks()) {
+            for (SmbTaskInfo t : SmbDownloadBoard.getInstance().snapshotSharedTasks()) {
                 marks.put(t.gid, new DownloadMark(t.ownerClientId, fractionOf(t)));
             }
             SimpleHandler.getInstance().post(() -> applyDownloadMarks(marks));
