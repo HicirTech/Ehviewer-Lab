@@ -11,20 +11,20 @@
      the fork MODIFIES stay in strings.xml — only additions live here, so that upstream merges of
      strings.xml stop colliding with fork copy. Add new fork strings here, not there. -->
 <resources>
-    <string name="local_inventory">Local Inventory</string>
-    <string name="local_inventory_empty">No galleries on the SMB share yet</string>
-    <string name="local_inventory_disabled">Enable "Save Galleries To SMB" in Settings and configure the share</string>
-    <string name="local_inventory_timeout">SMB share did not respond within 7 seconds</string>
+    <string name="local_inventory">%1$s Library</string>
+    <string name="local_inventory_empty">No galleries on the %1$s share yet</string>
+    <string name="local_inventory_disabled">Enable "Save Galleries To Network Storage" in Settings and configure it</string>
+    <string name="local_inventory_timeout">%1$s share did not respond within 7 seconds</string>
     <string name="local_inventory_sort_title">Sort by</string>
     <string name="local_inventory_sort_download_date">Download date (newest first)</string>
     <string name="local_inventory_sort_posted_date">Posted date (newest first)</string>
     <string name="local_inventory_sort_title_az">Title (A–Z)</string>
     <string name="local_inventory_sort_category">Category</string>
-    <string name="local_inventory_delete">Delete from SMB share</string>
+    <string name="local_inventory_delete">Delete from %1$s share</string>
     <string name="local_inventory_delete_confirm_title">Delete this gallery?</string>
     <string name="local_inventory_delete_confirm_title_many">Delete %1$d galleries?</string>
-    <string name="local_inventory_delete_confirm_message">“%s” will be erased from the SMB share. This cannot be undone.</string>
-    <string name="local_inventory_delete_failed">Could not delete it from the SMB share</string>
+    <string name="local_inventory_delete_confirm_message">“%1$s” will be erased from the %2$s share. This cannot be undone.</string>
+    <string name="local_inventory_delete_failed">Could not delete it from the %1$s share</string>
     <string name="local_inventory_resync_title">Re-sync this gallery</string>
     <string name="local_inventory_resync_metadata">Gallery info</string>
     <string name="local_inventory_resync_pages">Missing pages only</string>
@@ -33,23 +33,23 @@
     <string name="local_inventory_resync_done">Gallery info updated</string>
     <string name="local_inventory_resync_failed">Could not reach e-hentai. Nothing was changed.</string>
     <string name="local_inventory_resync_queued">Queued. Missing pages will be downloaded.</string>
-    <string name="local_inventory_delete_confirm_many">%1$d galleries will be erased from the SMB share. This cannot be undone.</string>
+    <string name="local_inventory_delete_confirm_many">%1$d galleries will be erased from the %2$s share. This cannot be undone.</string>
     <string name="local_inventory_delete_many_done">Deleted %1$d of %2$d</string>
     <string name="local_inventory_resync_many_done">Updated %1$d of %2$d</string>
-    <string name="smb_page_repair_failed">The page was reloaded, but it could not be written back to the SMB share</string>
-    <string name="smb_download_channel_name">SMB Save</string>
-    <string name="smb_download_notif_title">Saving to SMB</string>
+    <string name="smb_page_repair_failed">The page was reloaded, but it could not be written back to the %1$s share</string>
+    <string name="smb_download_channel_name">%1$s Save</string>
+    <string name="smb_download_notif_title">Saving to %1$s</string>
     <string name="smb_download_notif_preparing">Preparing…</string>
-    <string name="smb_notif_queue_title">SMB save</string>
+    <string name="smb_notif_queue_title">%1$s save</string>
     <string name="smb_notif_queue_waiting">%d waiting</string>
     <string name="smb_notif_extra_waiting">  (+%d waiting)</string>
     <string name="smb_notif_progress_starting">Starting…%s</string>
     <string name="smb_notif_progress_count">%1$d/%2$d%3$s</string>
     <string name="smb_test_error_unconfigured">Host and share name must be configured</string>
     <string name="smb_test_error_share_not_accessible">Share not accessible</string>
-    <string name="smb_save_started">SMB save started: %s</string>
-    <string name="smb_save_already_complete">Already saved to SMB, skipping</string>
-    <string name="smb_save_claimed_elsewhere">Another device is already downloading this to the SMB share</string>
+    <string name="smb_save_started">%1$s save started: %2$s</string>
+    <string name="smb_save_already_complete">Already saved to %1$s, skipping</string>
+    <string name="smb_save_claimed_elsewhere">Another device is already downloading this to the %1$s share</string>
     <string name="smb_task_action_cancel">Cancel download</string>
     <string name="smb_task_cancel_message">Take “%1$s” out of the queue? Any pages already saved to the share will be deleted.</string>
     <string name="smb_task_owner_offline">Device offline</string>
@@ -59,20 +59,15 @@
     <string name="smb_take_over_confirm">Take over</string>
     <string name="smb_take_over_owner_returned">That device is back online, so its download was left alone</string>
     <string name="smb_take_over_failed">Could not take over the download</string>
-    <string name="smb_save_failed">Could not start the SMB save — the share may be unreachable</string>
-    <string name="smb_save_not_configured">SMB is not configured</string>
+    <string name="smb_save_failed">Could not start the %1$s save — the share may be unreachable</string>
+    <string name="smb_save_not_configured">%1$s is not configured</string>
     <string name="gallery_download_target_title">Where to save?</string>
     <string name="gallery_download_target_local">To phone</string>
-    <string name="gallery_download_target_smb">To SMB share</string>
-    <string name="download_move_to_smb">Move to SMB share</string>
-    <string name="download_moving_to_smb">Copying to SMB share…</string>
-    <string name="settings_smb">SMB Settings</string>
-    <string name="settings_smb_category_share">Share Configuration</string>
-    <string name="settings_smb_category_credentials">Credentials</string>
-    <string name="settings_smb_enable_save">Save Galleries To SMB</string>
-    <string name="settings_smb_enable_save_summary">Master switch for SMB save. When off, all SMB features are disabled.</string>
-    <string name="settings_smb_enable_auto_download">Auto Download To SMB</string>
-    <string name="settings_smb_enable_auto_download_summary">When enabled, opening the first page of a gallery automatically queues a background SMB download. When off, the Download button asks each time.</string>
+    <string name="gallery_download_target_smb">To %1$s share</string>
+    <string name="download_move_to_smb">Move to %1$s share</string>
+    <string name="download_moving_to_smb">Copying to %1$s share…</string>
+    <string name="settings_smb_enable_auto_download">Auto Download To Network Storage</string>
+    <string name="settings_smb_enable_auto_download_summary">When enabled, opening the first page of a gallery automatically queues a background download to network storage. When off, the Download button asks each time.</string>
     <string name="settings_smb_share_path">SMB Share Path</string>
     <string name="settings_smb_share_path_summary">Path on share like: /ehviewer/ (starts with /)</string>
     <string name="settings_smb_host">SMB Host</string>
@@ -86,12 +81,11 @@
     <string name="settings_smb_password">SMB Password</string>
     <string name="settings_smb_password_summary">Optional, leave empty for guest access</string>
     <string name="settings_smb_test">Test Connection</string>
-    <string name="settings_smb_test_success">SMB connection successful!</string>
+    <string name="settings_smb_test_success">%1$s connection successful!</string>
     <string name="settings_smb_device_name">This device\'s name</string>
     <string name="settings_smb_device_name_summary">Shown to your other devices next to the galleries this one is downloading. Defaults to the model name.</string>
     <string name="smb_test_warn_gallery_dir">Connected, but the “%1$s” folder could not be created — the share may be read-only.</string>
-    <string name="settings_smb_test_failed">SMB connection failed: %s</string>
-    <string name="settings_smb_category_advanced">Advanced</string>
+    <string name="settings_smb_test_failed">%1$s connection failed: %2$s</string>
     <string name="settings_smb_disable_signing">Disable SMB Signing</string>
     <string name="settings_smb_disable_signing_summary">Skip per-packet signing for faster transfers on slow CPUs (e.g. some MediaTek SoCs). Leave off (auto) unless transfers feel slow; applies on the next connection.</string>
     <string name="settings_smb_field_unset">Tap to set</string>
@@ -120,4 +114,16 @@
     <string name="settings_smb_autotune_meta_header">Gallery records (%1$d on share):</string>
     <string name="settings_smb_autotune_image_header">Page images (%1$d sampled):</string>
     <string name="settings_smb_autotune_collecting">Collecting sample pages…</string>
+    <string name="settings_storage">Network Storage</string>
+    <string name="settings_storage_enable_save">Save Galleries To Network Storage</string>
+    <string name="settings_storage_enable_save_summary">Master switch for network storage. When off, all network-storage features are disabled.</string>
+    <string name="settings_storage_protocol">Protocol</string>
+    <string name="settings_storage_category_generic">General</string>
+    <string name="settings_storage_category_smb" translatable="false">SMB</string>
+    <string-array name="storage_protocol_entries" translatable="false">
+        <item>SMB</item>
+    </string-array>
+    <string-array name="storage_protocol_values" translatable="false">
+        <item>smb</item>
+    </string-array>
 </resources>

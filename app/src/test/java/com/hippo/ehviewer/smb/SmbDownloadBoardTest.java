@@ -124,7 +124,7 @@ public class SmbDownloadBoardTest {
         Settings.initialize(RuntimeEnvironment.getApplication());
         Settings.putString(Settings.KEY_SMB_HOST, "192.0.2.7");
         Settings.putString(Settings.KEY_SMB_SHARE_NAME, "share");
-        Settings.putBoolean(Settings.KEY_SMB_SAVE_ENABLED, true);
+        Settings.putBoolean(Settings.KEY_NETWORK_STORAGE_ENABLED, true);
         onShare.clear();
         storeWrites.clear();
         device = new FakeDevice();

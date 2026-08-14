@@ -788,7 +788,7 @@ public class GalleryActivity extends EhActivity implements SeekBar.OnSeekBarChan
                 && index == 0
                 && ACTION_EH.equals(mAction)
                 && mGalleryInfo != null
-                && Settings.getSmbSaveEnabled()) {
+                && Settings.getNetworkStorageEnabled()) {
             mSmbAutoTriggered = true;
             SmbAutoDownloadManager.getInstance().enqueueFromFirstPage(this, mGalleryInfo);
         }

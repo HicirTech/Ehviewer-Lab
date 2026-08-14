@@ -131,7 +131,7 @@ public final class SmbSavedGalleries {
     }
 
     private static boolean enabled() {
-        return NetworkStorage.active().isConfigured() && Settings.getSmbSaveEnabled();
+        return NetworkStorage.active().isConfigured() && Settings.getNetworkStorageEnabled();
     }
 
     /** Reads the share; null on failure so the caller keeps the previous answer. */

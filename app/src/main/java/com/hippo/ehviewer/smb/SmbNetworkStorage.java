@@ -46,6 +46,12 @@ public final class SmbNetworkStorage implements NetworkStorage {
 
     private SmbNetworkStorage() {}
 
+    @NonNull
+    @Override
+    public String displayName() {
+        return "SMB";
+    }
+
     @Override
     public boolean isConfigured() {
         return SmbConnection.isConfigured();

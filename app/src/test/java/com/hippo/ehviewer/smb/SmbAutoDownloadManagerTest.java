@@ -183,7 +183,7 @@ public class SmbAutoDownloadManagerTest {
     public void setUp() {
         context = RuntimeEnvironment.getApplication();
         Settings.initialize(context);
-        Settings.putBoolean(Settings.KEY_SMB_SAVE_ENABLED, true);
+        Settings.putBoolean(Settings.KEY_NETWORK_STORAGE_ENABLED, true);
         Settings.putBoolean(Settings.KEY_SMB_AUTO_DOWNLOAD_ENABLED, true);
         configured = true;
         alreadyComplete = false;
@@ -211,12 +211,12 @@ public class SmbAutoDownloadManagerTest {
         assertTrue("auto-download is off, nothing should have been enqueued", accepted.isEmpty());
 
         Settings.putBoolean(Settings.KEY_SMB_AUTO_DOWNLOAD_ENABLED, true);
-        Settings.putBoolean(Settings.KEY_SMB_SAVE_ENABLED, false);
+        Settings.putBoolean(Settings.KEY_NETWORK_STORAGE_ENABLED, false);
         SmbAutoDownloadManager.getInstance().enqueueFromFirstPage(context, gallery());
         pump();
         assertTrue("the master save switch is off", accepted.isEmpty());
 
-        Settings.putBoolean(Settings.KEY_SMB_SAVE_ENABLED, true);
+        Settings.putBoolean(Settings.KEY_NETWORK_STORAGE_ENABLED, true);
         SmbAutoDownloadManager.getInstance().enqueueFromFirstPage(context, gallery());
         pump();
         assertEquals(1, accepted.size());

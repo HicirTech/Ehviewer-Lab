@@ -31,7 +31,7 @@ public final class SmbAutoDownloadManager {
 
     /** Called from the reader on first page open. Auto-download must be explicitly enabled. */
     public void enqueueFromFirstPage(@NonNull Context context, @NonNull GalleryInfo galleryInfo) {
-        if (!Settings.getSmbSaveEnabled() || !Settings.getSmbAutoDownloadEnabled()
+        if (!Settings.getNetworkStorageEnabled() || !Settings.getSmbAutoDownloadEnabled()
                 || !NetworkStorage.active().isConfigured()) {
             return;
         }
@@ -40,9 +40,10 @@ public final class SmbAutoDownloadManager {
 
     /** Called from the detail screen "Save to SMB" choice. Bypasses the auto-download toggle. */
     public void enqueueManual(@NonNull Context context, @NonNull GalleryInfo galleryInfo) {
-        if (!Settings.getSmbSaveEnabled() || !NetworkStorage.active().isConfigured()) {
+        if (!Settings.getNetworkStorageEnabled() || !NetworkStorage.active().isConfigured()) {
             Toast.makeText(context.getApplicationContext(),
-                    R.string.smb_save_not_configured, Toast.LENGTH_SHORT).show();
+                    context.getString(R.string.smb_save_not_configured, NetworkStorage.active().displayName()),
+                    Toast.LENGTH_SHORT).show();
             return;
         }
         enqueueInternal(context, galleryInfo);
@@ -54,14 +55,14 @@ public final class SmbAutoDownloadManager {
         IoThreadPoolExecutor.Companion.getInstance().execute(() -> {
             try {
                 if (NetworkStorage.active().lifecycle().isGalleryComplete(galleryInfo)) {
-                    toast(appContext, appContext.getString(R.string.smb_save_already_complete));
+                    toast(appContext, appContext.getString(R.string.smb_save_already_complete, NetworkStorage.active().displayName()));
                     return;
                 }
                 // Another device may already be on it. Checked here rather than in the downloader
                 // because this is the one place a gallery enters the queue from outside, and
                 // because there is already an SMB round trip on this thread to share.
                 if (SmbDownloadBoard.getInstance().isClaimedElsewhere(galleryInfo.gid)) {
-                    toast(appContext, appContext.getString(R.string.smb_save_claimed_elsewhere));
+                    toast(appContext, appContext.getString(R.string.smb_save_claimed_elsewhere, NetworkStorage.active().displayName()));
                     return;
                 }
                 try {
@@ -75,6 +76,7 @@ public final class SmbAutoDownloadManager {
                 // its mind. The cost is that nothing is said for a round trip or two; the dialog
                 // closing already acknowledges the tap.
                 toast(appContext, appContext.getString(R.string.smb_save_started,
+                        NetworkStorage.active().displayName(),
                         galleryInfo.title != null ? galleryInfo.title
                                 : ("gid " + galleryInfo.gid)));
                 SimpleHandler.getInstance().post(() ->
@@ -83,7 +85,7 @@ public final class SmbAutoDownloadManager {
                 Log.e(TAG, "enqueueInternal failed gid=" + galleryInfo.gid, e);
                 // Previously this said nothing at all, so an unreachable share left the user with
                 // a "save started" and then silence forever.
-                toast(appContext, appContext.getString(R.string.smb_save_failed));
+                toast(appContext, appContext.getString(R.string.smb_save_failed, NetworkStorage.active().displayName()));
             }
         });
     }

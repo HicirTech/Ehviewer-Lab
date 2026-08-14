@@ -104,7 +104,7 @@ final class InventoryBadges {
         }
         lastRefreshAt = now;
 
-        if (!NetworkStorage.active().isConfigured() || !Settings.getSmbSaveEnabled()) {
+        if (!NetworkStorage.active().isConfigured() || !Settings.getNetworkStorageEnabled()) {
             deliver(Collections.emptyMap());
             return;
         }

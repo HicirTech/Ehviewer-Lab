@@ -22,10 +22,28 @@ import java.io.IOException;
  */
 public interface NetworkStorage {
 
-    /** The configured backend. Always SMB until a second protocol lands (#125). */
+    /** The protocol value naming SMB; the only one until a second protocol lands. */
+    String PROTOCOL_SMB = "smb";
+
+    /** The configured backend. Always SMB until a second protocol has an implementation. */
     @NonNull
     static NetworkStorage active() {
         return SmbNetworkStorage.instance();
+    }
+
+    /**
+     * Which protocol the stored settings mean. Users from before the selector existed have no
+     * protocol key; a configured SMB host identifies them. Empty string = never configured.
+     */
+    @NonNull
+    static String resolveProtocol(@Nullable String storedProtocol, @Nullable String smbHost) {
+        if (storedProtocol != null && !storedProtocol.isEmpty()) {
+            return storedProtocol;
+        }
+        if (smbHost != null && !smbHost.isEmpty()) {
+            return PROTOCOL_SMB;
+        }
+        return "";
     }
 
     /** A minimal GalleryInfo (gid + title), enough to name the gallery's folder. */
@@ -36,6 +54,10 @@ public interface NetworkStorage {
         info.title = title;
         return info;
     }
+
+    /** The protocol's user-facing name ("SMB"); every "%s" in protocol-mentioning copy. */
+    @NonNull
+    String displayName();
 
     boolean isConfigured();
 

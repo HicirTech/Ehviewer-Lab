@@ -96,7 +96,7 @@ public final class SmbDownloadsDelegate {
     }
 
     private void refreshNow() {
-        final boolean enabled = Settings.getSmbSaveEnabled() && NetworkStorage.active().isConfigured();
+        final boolean enabled = Settings.getNetworkStorageEnabled() && NetworkStorage.active().isConfigured();
         if (!enabled) {
             // Off means the downloads stop too, not just the list.
             SmbDirectDownloader.getInstance().onSmbAvailabilityChanged();
@@ -231,6 +231,7 @@ public final class SmbDownloadsDelegate {
         for (DownloadInfo info : downloads) {
             SmbDirectDownloader.getInstance().startMove(appContext, info);
         }
-        Toast.makeText(appContext, R.string.download_moving_to_smb, Toast.LENGTH_SHORT).show();
+        Toast.makeText(appContext, appContext.getString(R.string.download_moving_to_smb,
+                NetworkStorage.active().displayName()), Toast.LENGTH_SHORT).show();
     }
 }

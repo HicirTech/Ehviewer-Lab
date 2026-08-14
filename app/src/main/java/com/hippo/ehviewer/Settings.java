@@ -867,11 +867,21 @@ public class Settings {
         putBoolean(KEY_DOWNLOAD_ORIGIN_IMAGE, value);
     }
 
-    public static final String KEY_SMB_SAVE_ENABLED = "smb_save_enabled";
-    private static final boolean DEFAULT_SMB_SAVE_ENABLED = false;
+    // Key string predates the umbrella semantics; changing it would cost every user a migration.
+    public static final String KEY_NETWORK_STORAGE_ENABLED = "smb_save_enabled";
+    private static final boolean DEFAULT_NETWORK_STORAGE_ENABLED = false;
 
-    public static boolean getSmbSaveEnabled() {
-        return getBoolean(KEY_SMB_SAVE_ENABLED, DEFAULT_SMB_SAVE_ENABLED);
+    public static boolean getNetworkStorageEnabled() {
+        return getBoolean(KEY_NETWORK_STORAGE_ENABLED, DEFAULT_NETWORK_STORAGE_ENABLED);
+    }
+
+    /** Selected protocol; absent for users from before the selector — resolved, never read raw. */
+    public static final String KEY_STORAGE_PROTOCOL = "storage_protocol";
+
+    @NonNull
+    public static String getStorageProtocol() {
+        return com.hippo.ehviewer.storage.NetworkStorage.resolveProtocol(
+                getString(KEY_STORAGE_PROTOCOL, null), getSmbHost());
     }
 
     public static final String KEY_SMB_AUTO_DOWNLOAD_ENABLED = "smb_auto_download_enabled";

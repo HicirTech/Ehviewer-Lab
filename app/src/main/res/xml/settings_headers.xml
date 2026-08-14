@@ -37,9 +37,9 @@
 
     <com.hippo.ehviewer.ui.fragment.BasePreference
         android:icon="@drawable/v_folder_share_primary_x24"
-        android:title="@string/settings_smb"
+        android:title="@string/settings_storage"
         app:allowDividerAbove="true"
-        app:fragment="com.hippo.ehviewer.ui.fragment.SmbSettingsFragment" />
+        app:fragment="com.hippo.ehviewer.ui.fragment.NetworkStorageSettingsFragment" />
 
     <com.hippo.ehviewer.ui.fragment.BasePreference
         android:icon="@drawable/v_sec_primary_x24"

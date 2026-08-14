@@ -57,7 +57,7 @@ public class InventoryBadgesTest {
         Settings.initialize(RuntimeEnvironment.getApplication());
         Settings.putString(Settings.KEY_SMB_HOST, "192.0.2.7");
         Settings.putString(Settings.KEY_SMB_SHARE_NAME, "share");
-        Settings.putBoolean(Settings.KEY_SMB_SAVE_ENABLED, true);
+        Settings.putBoolean(Settings.KEY_NETWORK_STORAGE_ENABLED, true);
         tasksOnShare.clear();
         heard.clear();
         badges = new InventoryBadges(Runnable::run, heard::add);
@@ -112,7 +112,7 @@ public class InventoryBadgesTest {
     public void disabledSmbClearsTheMarks() throws Exception {
         tasksOnShare.add(task(42L, 5, 10));
         refreshNow();
-        Settings.putBoolean(Settings.KEY_SMB_SAVE_ENABLED, false);
+        Settings.putBoolean(Settings.KEY_NETWORK_STORAGE_ENABLED, false);
         refreshNow();
         assertEquals(2, heard.size());
         assertTrue(heard.get(1).isEmpty());

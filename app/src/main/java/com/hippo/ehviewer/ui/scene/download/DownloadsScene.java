@@ -1254,10 +1254,10 @@ public class DownloadsScene extends ToolbarScene
                         break;
                     }
                     List<DownloadLabel> labelRawList = EhApplication.getDownloadManager(context).getLabelList();
-                    boolean smbAvailable = Settings.getSmbSaveEnabled() && NetworkStorage.active().isConfigured();
+                    boolean smbAvailable = Settings.getNetworkStorageEnabled() && NetworkStorage.active().isConfigured();
                     List<String> labelList = new ArrayList<>(labelRawList.size() + 2);
                     if (smbAvailable) {
-                        labelList.add(getString(R.string.download_move_to_smb));
+                        labelList.add(getString(R.string.download_move_to_smb, NetworkStorage.active().displayName()));
                     }
                     labelList.add(getString(R.string.default_download_label_name));
                     for (int i = 0, n = labelRawList.size(); i < n; i++) {

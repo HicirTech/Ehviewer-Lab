@@ -88,7 +88,7 @@ final class InventoryPager {
         } catch (TimeoutException te) {
             fut.cancel(true);
             throw new IOException(EhApplication.getInstance()
-                    .getString(R.string.local_inventory_timeout));
+                    .getString(R.string.local_inventory_timeout, NetworkStorage.active().displayName()));
         } finally {
             pool.shutdownNow();
         }

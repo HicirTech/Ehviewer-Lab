@@ -16,6 +16,7 @@
 
 package com.hippo.ehviewer.ui;
 
+import com.hippo.ehviewer.storage.NetworkStorage;
 import static android.provider.Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION;
 import static android.provider.Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION;
 
@@ -677,7 +678,8 @@ public final class MainActivity extends StageActivity
         }
         MenuItem item = mNavView.getMenu().findItem(R.id.nav_local_inventory);
         if (item != null) {
-            item.setVisible(Settings.getSmbSaveEnabled());
+            item.setVisible(Settings.getNetworkStorageEnabled());
+            item.setTitle(getString(R.string.local_inventory, NetworkStorage.active().displayName()));
         }
     }
 

@@ -7,6 +7,7 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
 import com.hippo.ehviewer.R;
+import com.hippo.ehviewer.storage.NetworkStorage;
 
 /**
  * The foreground service handle and the words in its notification. Reads the queue only through
@@ -60,7 +61,7 @@ final class SmbDownloadForeground {
         int prog;
         boolean indeterminate;
         if (content.active == null) {
-            title = ctx.getString(R.string.smb_notif_queue_title);
+            title = ctx.getString(R.string.smb_notif_queue_title, NetworkStorage.active().displayName());
             text = ctx.getString(R.string.smb_notif_queue_waiting, content.queued);
             max = 0;
             prog = 0;
