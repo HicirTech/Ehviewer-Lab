@@ -191,6 +191,13 @@ public class SmbWorkflowTest {
                         mDevice.wait(Until.hasObject(By.res(mPkg, "title")), SHARE_MS)));
         assertFalse("inventory arrived empty",
                 mDevice.findObjects(By.res(mPkg, "title")).isEmpty());
+        // "SMB" hard-coded on purpose: a call site that stops passing the protocol name would
+        // render the raw placeholder, which this would catch and a displayName() round trip
+        // would not.
+        assertTrue("scene title does not carry the protocol name",
+                mDevice.hasObject(By.text(androidx.test.platform.app.InstrumentationRegistry
+                        .getInstrumentation().getTargetContext()
+                        .getString(R.string.local_inventory, "SMB"))));
     }
 
     private void openFirstGalleryDetail() {
