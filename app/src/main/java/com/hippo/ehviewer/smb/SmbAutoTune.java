@@ -124,10 +124,10 @@ public final class SmbAutoTune {
     /** Blocking and share-bound; call from a worker thread. */
     @NonNull
     public static Result run(@Nullable Progress progress) {
-        if (!SmbStorage.isConfigured()) {
+        if (!SmbConnection.isConfigured()) {
             return Result.unavailable("unconfigured");
         }
-        List<SmbStorage.GalleryRef> refs = SmbStorage.listGalleryRefs();
+        List<SmbInventory.GalleryRef> refs = SmbInventory.listGalleryRefs();
         if (refs.isEmpty()) {
             return Result.unavailable("empty");
         }
@@ -139,14 +139,14 @@ public final class SmbAutoTune {
                     return t;
                 });
         try {
-            List<SmbStorage.GalleryRef> metaSample =
+            List<SmbInventory.GalleryRef> metaSample =
                     refs.subList(0, Math.min(METADATA_SAMPLE, refs.size()));
 
             // Warm-up, outside every timing: the first operations on a fresh process also pay for
             // the SMB session, and that cost belongs to nobody's concurrency level.
             List<GalleryInfo> warm = new ArrayList<>();
             for (int i = 0; i < Math.min(4, metaSample.size()); i++) {
-                GalleryInfo gi = SmbStorage.readGalleryInfo(metaSample.get(i));
+                GalleryInfo gi = SmbInventory.readGalleryInfo(metaSample.get(i));
                 if (gi != null) {
                     warm.add(gi);
                 }
@@ -163,8 +163,8 @@ public final class SmbAutoTune {
                 SmbConcurrency.resize(pool, conc);
                 long t0 = SystemClock.elapsedRealtime();
                 List<Future<?>> pending = new ArrayList<>(metaSample.size());
-                for (SmbStorage.GalleryRef ref : metaSample) {
-                    pending.add(pool.submit(() -> SmbStorage.readGalleryInfo(ref)));
+                for (SmbInventory.GalleryRef ref : metaSample) {
+                    pending.add(pool.submit(() -> SmbInventory.readGalleryInfo(ref)));
                 }
                 for (Future<?> f : pending) {
                     try {
@@ -185,7 +185,7 @@ public final class SmbAutoTune {
                 progress.on("collect", 0);
             }
             List<SmbFile> images = new ArrayList<>();
-            for (SmbStorage.GalleryRef ref : refs) {
+            for (SmbInventory.GalleryRef ref : refs) {
                 if (images.size() >= IMAGE_SAMPLE) {
                     break;
                 }
@@ -198,13 +198,13 @@ public final class SmbAutoTune {
                     }
                 }
                 if (info == null) {
-                    info = SmbStorage.readGalleryInfo(ref);
+                    info = SmbInventory.readGalleryInfo(ref);
                 }
                 if (info == null) {
                     continue;
                 }
-                SmbFile page = SmbStorage.findSmbImageFileForPreview(
-                        SmbStorage.lookupKey(info.gid, info.title), 0);
+                SmbFile page = SmbGalleryFiles.findSmbImageFileForPreview(
+                        SmbGalleryDirectory.lookupKey(info.gid, info.title), 0);
                 if (page != null) {
                     images.add(page);
                 }
@@ -281,7 +281,7 @@ public final class SmbAutoTune {
         byte[] scratch = new byte[64 * 1024];
         long total = 0;
         try (InputStream in = new java.io.BufferedInputStream(
-                page.getInputStream(), SmbStorage.SMB_IO_BUFFER)) {
+                page.getInputStream(), SmbGalleryFiles.SMB_IO_BUFFER)) {
             int n;
             while ((n = in.read(scratch)) > 0) {
                 total += n;

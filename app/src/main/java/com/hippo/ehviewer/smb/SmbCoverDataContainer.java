@@ -16,7 +16,7 @@ import java.io.InputStream;
  * e-hentai for thumbnails that are already saved next to the gallery.
  *
  * <p>The actual on-share file is named {@code cover.<ext>} and was written at SMB-save
- * time by {@code SmbStorage.downloadAndWriteCover}. We probe every supported image
+ * time by {@code SmbGalleryLifecycle.finalizeDownloadedGallery}. We probe every supported image
  * extension via {@link SmbStorage#openSmbCoverInputStreamPipe} since the upstream
  * Content-Type may have produced any of jpg/png/gif/webp.
  *
@@ -35,7 +35,7 @@ public class SmbCoverDataContainer implements DataContainer {
 
     @Override
     public boolean isEnabled() {
-        return SmbStorage.isConfigured();
+        return SmbConnection.isConfigured();
     }
 
     @Override
@@ -61,7 +61,7 @@ public class SmbCoverDataContainer implements DataContainer {
         if (buffered != null) {
             return buffered;
         }
-        return SmbStorage.openSmbCoverInputStreamPipe(SmbStorage.lookupKey(mGid, mTitle));
+        return SmbGalleryFiles.openSmbCoverInputStreamPipe(SmbGalleryDirectory.lookupKey(mGid, mTitle));
     }
 
     @Override

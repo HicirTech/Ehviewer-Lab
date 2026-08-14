@@ -11,7 +11,6 @@ import com.hippo.ehviewer.Settings;
 import com.hippo.ehviewer.client.EhCacheKeyFactory;
 import com.hippo.ehviewer.client.data.GalleryInfo;
 import com.hippo.ehviewer.smb.SmbSpiderStorage;
-import com.hippo.ehviewer.smb.SmbStorage;
 import com.hippo.streampipe.InputStreamPipe;
 import com.hippo.streampipe.OutputStreamPipe;
 
@@ -45,7 +44,7 @@ import org.robolectric.annotation.Resetter;
  *
  * <p>No production code is modified to make this testable: the SMB backend is replaced by
  * {@link ShadowSmbSpiderStorage}, and whether a backend exists at all is driven by the real
- * {@code SmbStorage} target mark. The cache is a real on-disk one under Robolectric's temp dir.
+ * {@code SmbSpiderStorage} target mark. The cache is a real on-disk one under Robolectric's temp dir.
  * No share, no network.
  */
 @RunWith(RobolectricTestRunner.class)
@@ -230,12 +229,12 @@ public class SpiderDenRoutingTest {
         com.hippo.ehviewer.EhDB.initialize(RuntimeEnvironment.getApplication());
 
         // A backend exists only while the gallery is marked; this is the real gate.
-        SmbStorage.markGidAsSmbTarget(GID);
+        SmbSpiderStorage.markGidAsSmbTarget(GID);
     }
 
     @After
     public void tearDown() {
-        SmbStorage.unmarkGidAsSmbTarget(GID);
+        SmbSpiderStorage.unmarkGidAsSmbTarget(GID);
         ShadowSmbSpiderStorage.reset();
     }
 
@@ -372,7 +371,7 @@ public class SpiderDenRoutingTest {
      */
     @Test
     public void invariant4_unmarkedGalleryNeverReachesTheBackend() {
-        SmbStorage.unmarkGidAsSmbTarget(GID);
+        SmbSpiderStorage.unmarkGidAsSmbTarget(GID);
         seedCache();
 
         SpiderDen den = den(SpiderQueen.MODE_READ);

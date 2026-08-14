@@ -16,6 +16,7 @@
 
 package com.hippo.ehviewer.gallery;
 
+import com.hippo.ehviewer.smb.SmbSpiderStorage;
 import android.content.Context;
 import java.util.Set;
 import java.util.HashSet;
@@ -23,7 +24,6 @@ import java.util.Collections;
 import com.hippo.util.IoThreadPoolExecutor;
 import com.hippo.ehviewer.spider.RemotePageBridge;
 import com.hippo.ehviewer.spider.SpiderDen;
-import com.hippo.ehviewer.smb.SmbStorage;
 import com.hippo.ehviewer.R;
 import android.widget.Toast;
 import androidx.annotation.NonNull;
@@ -147,7 +147,7 @@ public class EhGalleryProvider extends GalleryProvider2 implements SpiderQueen.O
 
     @Override
     protected void onForceRequest(int index) {
-        if (SmbStorage.isGidMarkedSmbTarget(mGalleryInfo.gid)) {
+        if (SmbSpiderStorage.isGidMarkedSmbTarget(mGalleryInfo.gid)) {
             mRepairOnShare.add(index);
         }
         if (mSpiderQueen != null) {

@@ -144,22 +144,22 @@ public class SmbReadWorkflowTest {
     public void metadataReadsOffEveryTarget() throws Exception {
         forEachTarget(target -> {
             long t0 = SystemClock.elapsedRealtime();
-            List<SmbStorage.GalleryRef> refs = SmbStorage.listGalleryRefs();
+            List<SmbInventory.GalleryRef> refs = SmbInventory.listGalleryRefs();
             long enumMs = SystemClock.elapsedRealtime() - t0;
             assertTrue(target.label + ": expected a library of at least " + mMinGalleries
                             + " galleries, found " + refs.size()
                             + " — is this the right share?",
                     refs.size() >= mMinGalleries);
 
-            List<SmbStorage.GalleryRef> sample =
+            List<SmbInventory.GalleryRef> sample =
                     refs.subList(0, Math.min(METADATA_SAMPLE, refs.size()));
             long t1 = SystemClock.elapsedRealtime();
             int ok = 0;
             List<String> missing = new ArrayList<>();
-            ExecutorService pool = SmbStorage.inventoryExecutor();
+            ExecutorService pool = SmbInventory.inventoryExecutor();
             List<Future<GalleryInfo>> pending = new ArrayList<>(sample.size());
-            for (SmbStorage.GalleryRef ref : sample) {
-                pending.add(pool.submit(() -> SmbStorage.readGalleryInfo(ref)));
+            for (SmbInventory.GalleryRef ref : sample) {
+                pending.add(pool.submit(() -> SmbInventory.readGalleryInfo(ref)));
             }
             for (int i = 0; i < pending.size(); i++) {
                 if (pending.get(i).get() != null) {
@@ -191,7 +191,7 @@ public class SmbReadWorkflowTest {
             long t0 = SystemClock.elapsedRealtime();
             long bytes = 0;
             for (GalleryInfo info : infos) {
-                byte[] cover = SmbStorage.readCoverBytes(info);
+                byte[] cover = SmbGalleryFiles.readCoverBytes(info);
                 assertNotNull(target.label + ": no cover bytes for gid=" + info.gid, cover);
                 assertTrue(target.label + ": empty cover for gid=" + info.gid, cover.length > 0);
                 bytes += cover.length;
@@ -209,7 +209,7 @@ public class SmbReadWorkflowTest {
             long t0 = SystemClock.elapsedRealtime();
             long bytes = 0;
             for (GalleryInfo info : infos) {
-                SmbFile page = SmbStorage.findSmbImageFileForPreview(info, 0);
+                SmbFile page = SmbGalleryFiles.findSmbImageFileForPreview(info, 0);
                 assertNotNull(target.label + ": no first page for gid=" + info.gid, page);
                 long got = drain(page);
                 assertTrue(target.label + ": empty first page for gid=" + info.gid, got > 0);
@@ -240,15 +240,15 @@ public class SmbReadWorkflowTest {
 
     /** Metadata for the first {@code count} galleries of the currently configured target. */
     private List<GalleryInfo> firstInfos(int count, String label) {
-        List<SmbStorage.GalleryRef> refs = SmbStorage.listGalleryRefs();
+        List<SmbInventory.GalleryRef> refs = SmbInventory.listGalleryRefs();
         assertTrue(label + ": expected a library of at least " + mMinGalleries
                 + " galleries, found " + refs.size(), refs.size() >= mMinGalleries);
         List<GalleryInfo> infos = new ArrayList<>();
-        for (SmbStorage.GalleryRef ref : refs) {
+        for (SmbInventory.GalleryRef ref : refs) {
             if (infos.size() >= count) {
                 break;
             }
-            GalleryInfo info = SmbStorage.readGalleryInfo(ref);
+            GalleryInfo info = SmbInventory.readGalleryInfo(ref);
             if (info != null) {
                 infos.add(info);
             }
@@ -263,7 +263,7 @@ public class SmbReadWorkflowTest {
         byte[] scratch = new byte[64 * 1024];
         long total = 0;
         try (InputStream in = new java.io.BufferedInputStream(
-                page.getInputStream(), SmbStorage.SMB_IO_BUFFER)) {
+                page.getInputStream(), SmbGalleryFiles.SMB_IO_BUFFER)) {
             int n;
             while ((n = in.read(scratch)) > 0) {
                 total += n;
@@ -273,7 +273,7 @@ public class SmbReadWorkflowTest {
     }
 
     private static void clearListingCache() throws Exception {
-        Field cacheField = SmbStorage.class.getDeclaredField("LISTING_CACHE");
+        Field cacheField = SmbGalleryDirectory.class.getDeclaredField("LISTING_CACHE");
         cacheField.setAccessible(true);
         Object cache = cacheField.get(null);
         Field entries = cache.getClass().getDeclaredField("entries");

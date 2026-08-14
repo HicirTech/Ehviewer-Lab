@@ -36,6 +36,10 @@ import java.util.List;
  */
 public final class SmbMetadata {
 
+    /** The per-gallery record every reader of the share agrees on. */
+    static final String METADATA_FILE = "metadata.json";
+
+
     private static final String TAG = "SmbMetadata";
 
     /**
@@ -154,7 +158,7 @@ public final class SmbMetadata {
      */
     public static boolean writeMetadataSkeleton(@NonNull GalleryInfo info) {
         try {
-            SmbFile galleryDir = SmbStorage.getGalleryDir(info);
+            SmbFile galleryDir = SmbGalleryDirectory.getGalleryDir(info);
             writeMetadata(galleryDir, info);
             return true;
         } catch (Throwable e) {
@@ -172,13 +176,13 @@ public final class SmbMetadata {
         if (info.tgList != null && !info.tgList.isEmpty()) {
             return;
         }
-        if (!SmbStorage.isConfigured()) {
+        if (!SmbConnection.isConfigured()) {
             return;
         }
         final Context appContext = context.getApplicationContext();
         IoThreadPoolExecutor.Companion.getInstance().execute(() -> {
             try {
-                SmbFile galleryDir = SmbStorage.getGalleryDir(info);
+                SmbFile galleryDir = SmbGalleryDirectory.getGalleryDir(info);
                 if (!galleryDir.exists()) {
                     return;
                 }
@@ -194,8 +198,8 @@ public final class SmbMetadata {
         // Atomic, like everything else written to the share: Local Inventory decides a gallery
         // exists by reading this file, and a half-written one reads as a gallery with no title.
         try (OutputStream os =
-                     SmbStorage.openAtomicOutputStream(
-                             galleryDir, SmbStorage.METADATA_FILE, info.gid)) {
+                     SmbGalleryFiles.openAtomicOutputStream(
+                             galleryDir, SmbMetadata.METADATA_FILE, info.gid)) {
             os.write(json.getBytes(StandardCharsets.UTF_8));
         }
     }
@@ -233,7 +237,7 @@ public final class SmbMetadata {
      */
     @Nullable
     public static GalleryInfo resyncMetadata(@NonNull Context context, @NonNull GalleryInfo info) {
-        if (!SmbStorage.isConfigured()) {
+        if (!SmbConnection.isConfigured()) {
             return null;
         }
         if (TextUtils.isEmpty(info.token)) {
@@ -242,7 +246,7 @@ public final class SmbMetadata {
             return null;
         }
         try {
-            SmbFile galleryDir = SmbStorage.resolveGalleryDir(info);
+            SmbFile galleryDir = SmbGalleryDirectory.resolveGalleryDir(info);
             if (!galleryDir.exists()) {
                 Log.w(TAG, "Cannot resync gid=" + info.gid + ": not on the share");
                 return null;
@@ -255,7 +259,7 @@ public final class SmbMetadata {
                 keepPathFields(fresh, info);
             }
             // Resolved again: a successful rename moved the folder out from under the handle above.
-            writeMetadata(SmbStorage.resolveGalleryDir(fresh), fresh);
+            writeMetadata(SmbGalleryDirectory.resolveGalleryDir(fresh), fresh);
             return fresh;
         } catch (Throwable e) {
             Log.w(TAG, "Failed to resync gid=" + info.gid, e);
@@ -283,7 +287,7 @@ public final class SmbMetadata {
             Log.i(TAG, "Not renaming gid=" + local.gid + ": it is being downloaded");
             return false;
         }
-        return SmbStorage.renameGalleryFolder(local, fresh.title);
+        return SmbGalleryLifecycle.renameGalleryFolder(local, fresh.title);
     }
 
     private static boolean isDownloadingHere(long gid) {
@@ -300,7 +304,7 @@ public final class SmbMetadata {
      *
      * <p>The title is the only field that is also a path — the folder is named
      * {@code <gid>-<title>} by {@link SmbPaths#buildGalleryFolderName} and
-     * {@code SmbStorage.resolveGalleryDir} builds the path back out of the record. A record may
+     * {@code SmbGalleryDirectory.resolveGalleryDir} builds the path back out of the record. A record may
      * carry a new title only once the folder carries it too. Let one through otherwise and every
      * later lookup goes to a directory that does not exist, {@code getGalleryDir} creates it, and
      * the gallery is replaced in the inventory by an empty one.

@@ -33,7 +33,7 @@ public class SmbSpiderStorageTest {
 
     @After
     public void tearDown() {
-        SmbStorage.unmarkGidAsSmbTarget(GID);
+        SmbSpiderStorage.unmarkGidAsSmbTarget(GID);
     }
 
     /**
@@ -47,7 +47,7 @@ public class SmbSpiderStorageTest {
 
     @Test
     public void markedGalleryResolvesToABackend() {
-        SmbStorage.markGidAsSmbTarget(GID);
+        SmbSpiderStorage.markGidAsSmbTarget(GID);
 
         assertNotNull(SmbSpiderStorage.createIfTarget(info(), GID));
     }
@@ -58,15 +58,15 @@ public class SmbSpiderStorageTest {
      */
     @Test
     public void unmarkingRemovesTheBackendAgain() {
-        SmbStorage.markGidAsSmbTarget(GID);
-        SmbStorage.unmarkGidAsSmbTarget(GID);
+        SmbSpiderStorage.markGidAsSmbTarget(GID);
+        SmbSpiderStorage.unmarkGidAsSmbTarget(GID);
 
         assertNull(SmbSpiderStorage.createIfTarget(info(), GID));
     }
 
     @Test
     public void theMarkIsPerGallery() {
-        SmbStorage.markGidAsSmbTarget(GID);
+        SmbSpiderStorage.markGidAsSmbTarget(GID);
 
         GalleryInfo other = new GalleryInfo();
         other.gid = GID + 1;

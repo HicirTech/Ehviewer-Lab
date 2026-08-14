@@ -97,7 +97,7 @@ public final class SmbCoverPrefetch {
      * make the first twelve slower.
      */
     public static void prefetch(@NonNull List<GalleryInfo> infos) {
-        if (!SmbStorage.isConfigured()) {
+        if (!SmbConnection.isConfigured()) {
             return;
         }
         sweepLegacyOnce();
@@ -105,9 +105,9 @@ public final class SmbCoverPrefetch {
             if (info == null || !REQUESTED.add(info.gid)) {
                 continue;
             }
-            final GalleryInfo lookup = SmbStorage.lookupKey(info.gid, info.title);
+            final GalleryInfo lookup = SmbGalleryDirectory.lookupKey(info.gid, info.title);
             SmbPreviewCache.prefetchExecutor().submit(() -> {
-                byte[] bytes = SmbStorage.readCoverBytes(lookup);
+                byte[] bytes = SmbGalleryFiles.readCoverBytes(lookup);
                 if (bytes == null) {
                     // Nothing there, or the read failed; let a later scroll try again.
                     REQUESTED.remove(lookup.gid);

@@ -39,7 +39,7 @@ import org.robolectric.shadow.api.Shadow;
  * rules it produced still have to hold, so they are pinned through behaviour rather than through
  * whatever currently implements them.
  *
- * <p>{@code SmbStorage.isGalleryComplete} runs only inside the enqueue's IO task, which makes it
+ * <p>{@code SmbGalleryLifecycle.isGalleryComplete} runs only inside the enqueue's IO task, which makes it
  * an exact probe for "this enqueue got past the gates"; obtaining a SpiderQueen is the probe for
  * "a download actually began".
  *
@@ -49,7 +49,9 @@ import org.robolectric.shadow.api.Shadow;
 @RunWith(RobolectricTestRunner.class)
 @Config(application = android.app.Application.class,
         shadows = {
-                SmbAutoDownloadManagerTest.ShadowSmbStorage.class,
+                SmbAutoDownloadManagerTest.ShadowSmbConnection.class,
+                SmbAutoDownloadManagerTest.ShadowSmbGalleryLifecycle.class,
+                SmbAutoDownloadManagerTest.ShadowSmbInventory.class,
                 SmbAutoDownloadManagerTest.ShadowSmbMetadata.class,
                 SmbAutoDownloadManagerTest.ShadowSpiderQueen.class,
                 SmbAutoDownloadManagerTest.ShadowSmbDownloadService.class,
@@ -69,19 +71,30 @@ public class SmbAutoDownloadManagerTest {
 
     private Context context;
 
-    @Implements(SmbStorage.class)
-    public static class ShadowSmbStorage {
+    @Implements(SmbConnection.class)
+    public static class ShadowSmbConnection {
         @Implementation
         protected static boolean isConfigured() {
             return configured;
         }
+    }
 
+    @Implements(SmbGalleryLifecycle.class)
+    public static class ShadowSmbGalleryLifecycle {
         @Implementation
         protected static boolean isGalleryComplete(GalleryInfo info) {
             accepted.add(info.gid);
             return alreadyComplete;
         }
 
+        @Implementation
+        protected static boolean deleteGalleryFolder(GalleryInfo info) {
+            return true;
+        }
+    }
+
+    @Implements(SmbInventory.class)
+    public static class ShadowSmbInventory {
         /**
          * Starting a job now checks whether the gallery already has metadata on the share, so
          * that a download restored or adopted rather than enqueued still gets a skeleton (#59).
@@ -91,11 +104,6 @@ public class SmbAutoDownloadManagerTest {
         @Implementation
         protected static GalleryInfo readGalleryMetadata(GalleryInfo hint) {
             return hint;   // already there; nothing for startJob to write
-        }
-
-        @Implementation
-        protected static boolean deleteGalleryFolder(GalleryInfo info) {
-            return true;
         }
     }
 
@@ -225,7 +233,7 @@ public class SmbAutoDownloadManagerTest {
         // Both are process-wide singletons; leave nothing for the next test.
         SmbDirectDownloader.getInstance().cancel(GID);
         pump();
-        SmbStorage.unmarkGidAsSmbTarget(GID);
+        SmbSpiderStorage.unmarkGidAsSmbTarget(GID);
         accepted.clear();
         started.clear();
     }

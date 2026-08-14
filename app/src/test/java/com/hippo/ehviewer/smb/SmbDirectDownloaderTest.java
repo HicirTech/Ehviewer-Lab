@@ -46,7 +46,7 @@ import org.robolectric.shadow.api.Shadow;
         shadows = {
                 SmbDirectDownloaderTest.ShadowSpiderQueen.class,
                 SmbDirectDownloaderTest.ShadowSmbDownloadService.class,
-                SmbDirectDownloaderTest.ShadowSmbStorage.class,
+                SmbDirectDownloaderTest.ShadowSmbGalleryLifecycle.class,
         },
         instrumentedPackages = {"com.hippo.ehviewer.spider", "com.hippo.ehviewer.smb"})
 public class SmbDirectDownloaderTest {
@@ -108,12 +108,12 @@ public class SmbDirectDownloaderTest {
     }
 
     /**
-     * Only the folder delete is stood in for. Everything else on {@code SmbStorage} — notably
+     * Only the folder delete is stood in for. Everything else in the SMB layer — notably
      * the SMB target mark — keeps running for real, since it is plain in-memory state and the
      * marking rules are part of what this test pins.
      */
-    @Implements(SmbStorage.class)
-    public static class ShadowSmbStorage {
+    @Implements(SmbGalleryLifecycle.class)
+    public static class ShadowSmbGalleryLifecycle {
 
         @Implementation
         protected static boolean deleteGalleryFolder(GalleryInfo info) {
@@ -273,12 +273,12 @@ public class SmbDirectDownloaderTest {
     public void cancel_clearsTheSmbTargetMark() {
         SmbDirectDownloader.getInstance().start(context, gallery(1));
         drain();
-        assertTrue(SmbStorage.isGidMarkedSmbTarget(1));
+        assertTrue(SmbSpiderStorage.isGidMarkedSmbTarget(1));
 
         SmbDirectDownloader.getInstance().cancel(1);
         drain();
 
-        assertFalse(SmbStorage.isGidMarkedSmbTarget(1));
+        assertFalse(SmbSpiderStorage.isGidMarkedSmbTarget(1));
     }
 
     /**
@@ -292,12 +292,12 @@ public class SmbDirectDownloaderTest {
 
         SmbDirectDownloader.getInstance().cancel(1);
         drain();
-        assertFalse(SmbStorage.isGidMarkedSmbTarget(1));
+        assertFalse(SmbSpiderStorage.isGidMarkedSmbTarget(1));
 
-        SmbStorage.markGidAsSmbTarget(1);
+        SmbSpiderStorage.markGidAsSmbTarget(1);
         assertTrue("a finished download must stay routed to the share",
-                SmbStorage.isGidMarkedSmbTarget(1));
-        SmbStorage.unmarkGidAsSmbTarget(1);
+                SmbSpiderStorage.isGidMarkedSmbTarget(1));
+        SmbSpiderStorage.unmarkGidAsSmbTarget(1);
     }
 
     /**
@@ -311,7 +311,7 @@ public class SmbDirectDownloaderTest {
         SmbDirectDownloader.getInstance().start(context, gallery(1));
         drain();
 
-        assertFalse(SmbStorage.isGidMarkedSmbTarget(1));
+        assertFalse(SmbSpiderStorage.isGidMarkedSmbTarget(1));
         assertTrue("a job that never started must not be listed as active", tasks().isEmpty());
     }
 

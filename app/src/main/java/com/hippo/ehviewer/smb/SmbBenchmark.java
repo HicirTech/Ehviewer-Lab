@@ -113,30 +113,30 @@ public final class SmbBenchmark {
      */
     @NonNull
     public static Result run() {
-        if (!SmbStorage.isConfigured()) {
+        if (!SmbConnection.isConfigured()) {
             return Result.unavailable("unconfigured");
         }
         int metaConcurrency = SmbConcurrency.metadata();
         int imageConcurrency = SmbConcurrency.image();
 
         long t0 = SystemClock.elapsedRealtime();
-        List<SmbStorage.GalleryRef> refs = SmbStorage.listGalleryRefs();
+        List<SmbInventory.GalleryRef> refs = SmbInventory.listGalleryRefs();
         long listMillis = SystemClock.elapsedRealtime() - t0;
 
         if (refs.isEmpty()) {
             return Result.unavailable("empty");
         }
 
-        List<SmbStorage.GalleryRef> sample =
+        List<SmbInventory.GalleryRef> sample =
                 refs.subList(0, Math.min(METADATA_SAMPLE, refs.size()));
 
         // Metadata, through the same pool the inventory uses, so the number means something about
         // the app rather than about this class.
-        ThreadPoolExecutor pool = SmbStorage.inventoryExecutor();
+        ThreadPoolExecutor pool = SmbInventory.inventoryExecutor();
         long tMeta = SystemClock.elapsedRealtime();
         List<Future<Boolean>> pending = new ArrayList<>(sample.size());
-        for (SmbStorage.GalleryRef ref : sample) {
-            pending.add(pool.submit(() -> SmbStorage.readGalleryInfo(ref) != null));
+        for (SmbInventory.GalleryRef ref : sample) {
+            pending.add(pool.submit(() -> SmbInventory.readGalleryInfo(ref) != null));
         }
         int metadataRead = 0;
         for (Future<Boolean> f : pending) {
@@ -182,13 +182,13 @@ public final class SmbBenchmark {
      * unusually small or large book does not decide the answer.
      */
     @NonNull
-    private static Images readImages(@NonNull List<SmbStorage.GalleryRef> refs, int concurrency) {
+    private static Images readImages(@NonNull List<SmbInventory.GalleryRef> refs, int concurrency) {
         List<Callable> jobs = new ArrayList<>();
-        for (SmbStorage.GalleryRef ref : refs) {
+        for (SmbInventory.GalleryRef ref : refs) {
             if (jobs.size() >= IMAGE_SAMPLE) {
                 break;
             }
-            com.hippo.ehviewer.client.data.GalleryInfo info = SmbStorage.readGalleryInfo(ref);
+            com.hippo.ehviewer.client.data.GalleryInfo info = SmbInventory.readGalleryInfo(ref);
             if (info == null) {
                 continue;
             }
@@ -231,14 +231,14 @@ public final class SmbBenchmark {
         long read() {
             try {
                 com.hippo.streampipe.InputStreamPipe pipe =
-                        SmbStorage.openSmbInputStreamPipe(info, 0);
+                        SmbGalleryFiles.openSmbInputStreamPipe(info, 0);
                 if (pipe == null) {
                     return 0L;
                 }
                 try {
                     pipe.obtain();
                     InputStream is = pipe.open();
-                    byte[] buffer = new byte[SmbStorage.SMB_IO_BUFFER];
+                    byte[] buffer = new byte[SmbGalleryFiles.SMB_IO_BUFFER];
                     long total = 0;
                     int n;
                     while ((n = is.read(buffer)) > 0) {

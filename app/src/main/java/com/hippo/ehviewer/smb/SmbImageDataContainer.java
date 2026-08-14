@@ -40,7 +40,7 @@ public class SmbImageDataContainer implements DataContainer {
 
     @Override
     public boolean isEnabled() {
-        return SmbStorage.isConfigured();
+        return SmbConnection.isConfigured();
     }
 
     @Override
@@ -82,7 +82,7 @@ public class SmbImageDataContainer implements DataContainer {
             };
         }
         // Fallback: prefetch hasn't reached this page yet, fetch from SMB on this thread.
-        return SmbStorage.openSmbInputStreamPipe(SmbStorage.lookupKey(mGid, mTitle), mIndex);
+        return SmbGalleryFiles.openSmbInputStreamPipe(SmbGalleryDirectory.lookupKey(mGid, mTitle), mIndex);
     }
 
     @Override
