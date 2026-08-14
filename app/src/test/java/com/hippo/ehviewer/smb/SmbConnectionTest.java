@@ -66,11 +66,14 @@ public class SmbConnectionTest {
     }
 
     /**
-     * With no username the pooled base context is handed out as-is — same instance every time, so
-     * jcifs' connection pool stays shared. That identity is the whole point of the cache.
+     * One base context per setting, not per call — the cache is what keeps jcifs' connection pool
+     * shared. Pinned on the signing-disabled path deliberately: the default path hands out jcifs'
+     * own JVM singleton, which is identical with or without a cache, so only this path can tell a
+     * working cache from a missing one.
      */
     @Test
     public void theBaseContextIsOneInstanceWhileTheSettingHoldsStill() {
+        Settings.putBoolean(Settings.KEY_SMB_SIGNING_DISABLED, true);
         assertSame(SmbConnection.buildContext(), SmbConnection.buildContext());
     }
 
