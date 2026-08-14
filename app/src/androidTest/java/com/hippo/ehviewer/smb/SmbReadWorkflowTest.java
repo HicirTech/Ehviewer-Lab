@@ -121,10 +121,20 @@ public class SmbReadWorkflowTest {
         if (mTargets.isEmpty()) {
             return;     // skipped before the snapshot; nothing to restore
         }
-        Settings.putString(Settings.KEY_SMB_SHARE_NAME, mOrigShare);
-        Settings.putString(Settings.KEY_SMB_SHARE_PATH, mOrigPath);
-        Settings.putString(Settings.KEY_SMB_USERNAME, mOrigUser);
-        Settings.putString(Settings.KEY_SMB_PASSWORD, mOrigPass);
+        // commit(), not Settings.putString(): that goes through apply(), whose disk write is
+        // asynchronous — and `am instrument` kills this process the moment the run ends, which
+        // is exactly soon enough to drop it. The first version of this restore "worked" all
+        // run long and left the device pointed at the HDD target anyway.
+        boolean written = androidx.preference.PreferenceManager
+                .getDefaultSharedPreferences(InstrumentationRegistry.getInstrumentation()
+                        .getTargetContext())
+                .edit()
+                .putString(Settings.KEY_SMB_SHARE_NAME, mOrigShare)
+                .putString(Settings.KEY_SMB_SHARE_PATH, mOrigPath)
+                .putString(Settings.KEY_SMB_USERNAME, mOrigUser)
+                .putString(Settings.KEY_SMB_PASSWORD, mOrigPass)
+                .commit();
+        assertTrue("restoring the device's SMB configuration failed", written);
         clearListingCache();
     }
 
