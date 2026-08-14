@@ -18,15 +18,7 @@ import java.util.List;
 
 import org.junit.Test;
 
-/**
- * Unit tests for the Local Inventory ordering policy. These exercise the comparators in isolation
- * — no SMB connection required — which is the whole point of pulling {@link SmbSortMode} out of
- * {@code SmbStorage}.
- *
- * <p>Plain JUnit (no Robolectric): {@link SmbSortMode} only touches {@link GalleryInfo}'s public
- * fields, and constructing a {@code GalleryInfo} runs no Android framework code, so the test needs
- * no emulated SDK.
- */
+/** Unit tests for the Local Inventory ordering policy. */
 public class SmbSortModeTest {
 
     @Test

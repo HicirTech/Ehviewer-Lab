@@ -29,16 +29,7 @@ import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.nio.file.Files;
 
-/**
- * What makes the cover prefetch acceptable in an architecture whose only durable store is the
- * share: <b>bytes live in memory, and the one disk file involved is a decode shim that does not
- * outlive its decode.</b> The first version staged covers as named files and trusted them across
- * restarts; the second kept the files but wiped them per process; both are gone, and these tests
- * are here so the disk residence cannot quietly come back.
- *
- * <p>Private state is reached by reflection, the way {@code SmbPreviewCacheEvictTest} does it,
- * because {@code EhApplication.getInstance()} does not exist under Robolectric.
- */
+/** What makes the cover prefetch acceptable in an architecture whose only durable store is the share: <b>bytes live in memory, and the one disk file invo */
 @RunWith(RobolectricTestRunner.class)
 @Config(application = android.app.Application.class)
 public class SmbCoverPrefetchTest {
@@ -121,11 +112,7 @@ public class SmbCoverPrefetchTest {
 
     // --- the disk boundary -------------------------------------------------------------------
 
-    /**
-     * The property this class exists to hold: serving a cover writes one shim, the decode reads
-     * it, and by the time the pipe is closed the disk is exactly as it was. A shim that survived
-     * would be a file some later code could find and trust, which is the mistake twice removed.
-     */
+    /** The property this class exists to hold: serving a cover writes one shim, the decode reads it, and by the time the pipe is closed the disk is exactly a */
     @Test
     public void theDecodeShimDoesNotOutliveTheDecode() throws Exception {
         put(1L, new byte[]{1, 2, 3});
@@ -177,12 +164,7 @@ public class SmbCoverPrefetchTest {
 
     // --- the hl.8 leftovers ------------------------------------------------------------------
 
-    /**
-     * hl.8 shipped covers as named files under {@code cache/smb_cover}. An upgraded device still
-     * has them, and a directory of plausible-looking covers is exactly the thing some future
-     * change might start trusting again — so the first prefetch of each process deletes the
-     * directory outright.
-     */
+    /** hl.8 shipped covers as named files under cache/smb_cover. */
     @Test
     public void theLegacyNamedFileCacheIsSweptAway() throws Exception {
         File stale = new File(legacyDir, "123");

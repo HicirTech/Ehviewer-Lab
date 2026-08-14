@@ -39,28 +39,7 @@ import java.util.concurrent.Future;
 
 import jcifs.smb.SmbFile;
 
-/**
- * Read-workflow coverage over every share the runner points it at — in practice the HDD and the
- * SSD NAS targets — through the exact production read path: folder enumeration, metadata,
- * covers, first pages. Each stage is timed and the numbers go to logcat as
- * {@code SmbPerf: workflow.read ...} lines for the runner to tabulate, so every future SMB
- * ticket gets a before/after on both disk classes for free.
- *
- * <p>Coverage asserts correctness — every sampled read must produce real bytes, and the library
- * must be the size the runner says it is (a run that quietly measures the wrong share dies here
- * instead of producing a plausible table). It deliberately asserts nothing about speed: those
- * numbers are noise-bound and belong in the report, not in a pass/fail.
- *
- * <p>Targets and credentials arrive as instrumentation arguments and never live in this
- * repository. Without {@code eh.targets} the whole class is skipped — CI and NAS-less checkouts
- * lose nothing. The device's own SMB configuration is snapshotted in {@code @Before} and
- * restored in {@code @After}, pass or fail.
- *
- * <p>The per-gid listing cache is cleared between targets by reflection — the HDD and SSD
- * libraries are copies of each other, so their gids collide, and a cached HDD listing answering
- * for the SSD would poison both the measurement and the correctness claim. Reflection rather
- * than a cache-clearing production method: the cache's API stays owned by production needs.
- */
+/** Read-workflow coverage over every share the runner points it at — in practice the HDD and the SSD NAS targets — through the exact production read path */
 @RunWith(AndroidJUnit4.class)
 @LargeTest
 public class SmbReadWorkflowTest {

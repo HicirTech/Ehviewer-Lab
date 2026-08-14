@@ -26,14 +26,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 
-/**
- * Turns the locally-stored gallery info (read from {@code metadata.json}) into the in-memory
- * objects the UI needs to render a gallery fully offline.
- *
- * <p>Pulled out of {@code SmbStorage} so the metadata-to-model assembly lives apart from the SMB
- * I/O. Everything here is an in-memory transform — no share access, no network — so {@code
- * SmbStorage} stays responsible for the actual reads/writes and hands the parsed info in.
- */
+/** metadata.json in and out: the records on the share, and the offline UI models built from them. */
 public final class SmbMetadata {
 
     /** The per-gallery record every reader of the share agrees on. */
@@ -42,22 +35,12 @@ public final class SmbMetadata {
 
     private static final String TAG = "SmbMetadata";
 
-    /**
-     * How many previews to render in the offline detail page. Capped on purpose: a large gallery
-     * would otherwise put one grid cell — and one SMB prefetch — per page, freezing the detail
-     * scene and blowing up memory on open. The remaining pages stay reachable through the reader
-     * (tapping a preview). Browsing every preview offline is a separate follow-up.
-     */
+    // Capped: one grid cell + one prefetch per page froze the detail scene on large galleries.
     private static final int DETAIL_PREVIEW_LIMIT = 20;
 
     private SmbMetadata() {}
 
-    /**
-     * Builds a {@link GalleryDetail} populated from the locally-stored info, so the gallery
-     * detail screen can render without making a network call. Tag groups are reconstructed
-     * from {@link GalleryInfo#tgList}. Detail-only fields (comments, previews, language…)
-     * are filled with safe empty defaults to avoid NPEs in {@code GalleryDetailScene}.
-     */
+    /** A GalleryDetail from local info alone; detail-only fields get safe empty defaults. */
     @NonNull
     public static GalleryDetail buildOfflineDetail(@NonNull GalleryInfo info) {
         GalleryDetail gd;
@@ -167,11 +150,7 @@ public final class SmbMetadata {
         }
     }
 
-    /**
-     * If the locally-stored info lacks tags, fetch the gallery detail in the background and
-     * rewrite metadata.json so subsequent opens are fully offline. No-op if tags are already
-     * present or SMB is not configured.
-     */
+    /** Backfills tags into metadata.json once, in the background; no-op when already present. */
     public static void enrichLocalMetadataIfMissing(@NonNull Context context, @NonNull GalleryInfo info) {
         if (info.tgList != null && !info.tgList.isEmpty()) {
             return;
@@ -215,23 +194,8 @@ public final class SmbMetadata {
     }
 
     /**
-     * Re-reads this gallery's record from e-hentai and overwrites the one on the share (#16).
-     *
-     * <p>The passive path ({@link #enrichLocalMetadataIfMissing}) only runs when the local record
-     * has no tags and quietly leaves it alone when the fetch fails — right for something nobody
-     * asked for. This is the opposite: the user asked, so a fetch that came back with nothing has
-     * to be reported rather than written over the top as if it were an update.
-     *
-     * <p>A new title moves the folder with it (#86). The title is the one field that is also a
-     * path — the folder is named {@code <gid>-<title>} and the path is built back out of the record
-     * — so the two are changed together or not at all. The folder goes first: a record naming a
-     * folder that does not exist is the state where {@code getGalleryDir} creates an empty one and
-     * the gallery vanishes behind it.
-     *
-     * <p>When the folder cannot be renamed the sync still happens, keeping the old title. Tags and
-     * a rating that are out of date should not stay out of date because a directory was busy.
-     *
-     * <p>Performs network and SMB I/O; call from a worker thread.
+     * User-requested re-sync from e-hentai (#16): a failed fetch is reported, never papered over.
+     * A new title renames the folder first or keeps the old title (#86). Worker thread.
      *
      * @return the record now on the share, or null if nothing was written
      */
@@ -267,17 +231,7 @@ public final class SmbMetadata {
         }
     }
 
-    /**
-     * Moves the folder to match a new title, and says whether the record may now carry it.
-     *
-     * <p>False for the ordinary case of a title that has not changed at all, which costs nothing:
-     * the caller then keeps the title it had, which is the same title.
-     *
-     * <p>A gallery somebody is downloading is left alone. Its folder is being written into, and
-     * renaming it out from under the writer would leave the pages arriving after the rename in a
-     * folder of the old name — one gallery in two places. The claim in {@code state/} is the same
-     * evidence every other decision about who is working on what uses.
-     */
+    /** Renames to match a new title; refuses while any device's claim says it is downloading. */
     private static boolean renamedToMatch(@NonNull GalleryInfo local, @NonNull GalleryInfo fresh) {
         if (fresh.title == null || fresh.title.equals(local.title)) {
             return false;
@@ -300,16 +254,8 @@ public final class SmbMetadata {
     }
 
     /**
-     * Puts back the title when the folder could not follow it, and returns the record to write.
-     *
-     * <p>The title is the only field that is also a path — the folder is named
-     * {@code <gid>-<title>} by {@link SmbPaths#buildGalleryFolderName} and
-     * {@code SmbGalleryDirectory.resolveGalleryDir} builds the path back out of the record. A record may
-     * carry a new title only once the folder carries it too. Let one through otherwise and every
-     * later lookup goes to a directory that does not exist, {@code getGalleryDir} creates it, and
-     * the gallery is replaced in the inventory by an empty one.
-     *
-     * <p>Its own method, and tested, because it looks like a line worth deleting.
+     * Reverts the title when the folder could not follow — a record may only name a folder that
+     * exists. Its own method, and tested, because it looks like a line worth deleting.
      */
     @NonNull
     static GalleryInfo keepPathFields(@NonNull GalleryInfo fresh, @NonNull GalleryInfo local) {
@@ -317,25 +263,14 @@ public final class SmbMetadata {
         return fresh;
     }
 
-    /**
-     * The detail-backed record, or the one we already had when the fetch does not produce one.
-     *
-     * <p>For the write paths that must produce a record either way: a download finishing cannot be
-     * held up by e-hentai being unreachable.
-     */
+    /** The fetched record, or the one in hand — write paths cannot wait on e-hentai. */
     @NonNull
     private static GalleryInfo enrichWithGalleryTags(@NonNull Context context, @NonNull GalleryInfo info, int fallbackPages) {
         GalleryInfo enriched = fetchEnriched(context, info, fallbackPages);
         return enriched != null ? enriched : info;
     }
 
-    /**
-     * Fetches the gallery detail and folds it into a record, or null if it could not be fetched.
-     *
-     * <p>Null rather than the original, because "we could not reach e-hentai" and "e-hentai says
-     * this is unchanged" are different answers. Only a caller with a user waiting on it needs to
-     * tell them apart, and it cannot if this hands back its own input either way.
-     */
+    /** Fetches and folds, or null — "unreachable" and "unchanged" are different answers. */
     @Nullable
     private static GalleryInfo fetchEnriched(@NonNull Context context, @NonNull GalleryInfo info, int fallbackPages) {
         try {

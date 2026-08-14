@@ -82,15 +82,8 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
 /**
- * Browses galleries that were saved to the SMB share. Completely independent of
- * {@code FavoritesScene} — this scene only renders content read from the share and never touches Eh
- * favorites state.
- *
- * <p>Paginates exactly like the online gallery list: it drives a {@link ContentLayout} through a
- * {@link ContentLayout.ContentHelper}, so it gets the same page-by-page navigation (pull for
- * next/prev page, "go to page" jump) and the same data/scroll retention on return from a detail.
- * Each page reads only its own slice of {@code metadata.json} files, so a big share never blocks on
- * a full up-front sweep.
+ * Browses the share's galleries, paginated like the online list (ContentHelper); each page reads
+ * only its own slice of metadata, so a big share never blocks on a full sweep.
  */
 public class LocalInventoryScene extends ToolbarScene
         implements EasyRecyclerView.OnItemClickListener, EasyRecyclerView.OnItemLongClickListener,
@@ -157,29 +150,14 @@ public class LocalInventoryScene extends ToolbarScene
         }
     }
 
-    /**
-     * Which device has claimed each gallery and how far it has got, by gid. Empty when nothing is
-     * being downloaded, which is the ordinary case — a card asks this map and finds nothing.
-     *
-     * <p>Everything currently claimed on the share, not only what is actively transferring: a
-     * gallery queued or paused is on disk half-written just the same, and a card that looked
-     * complete while its download waited its turn would be the same lie this exists to stop. Those
-     * show an empty ring, which is the honest picture of a download that has not started.
-     */
+    /** Claims by gid (queued/paused included — half-written is half-written), for the badges. */
     @NonNull
     private Map<Long, DownloadMark> mDownloadMarks = Collections.emptyMap();
 
     /** Tells the adapter to redraw a card's badge and leave the rest of it alone. */
     private static final Object PAYLOAD_BADGE = new Object();
 
-    /**
-     * How often {@code state/} may be re-read, however often something asks.
-     *
-     * <p>The downloader announces every finished page and this screen listens, so during a download
-     * the asking is constant. Two seconds is finer than the answer can actually move for another
-     * device — its progress only reaches the share on a twenty-second heartbeat — and about right
-     * for this device's own, which changes with every page.
-     */
+    // 2s: others' progress only moves on a 20s heartbeat; own moves per page.
     private static final long BADGE_REFRESH_INTERVAL_MS = 2_000L;
 
     private long mLastBadgeRefreshAt;
@@ -216,13 +194,7 @@ public class LocalInventoryScene extends ToolbarScene
         refreshDownloadingBadges();
     }
 
-    /**
-     * Re-reads who is downloading what, at most every {@link #BADGE_REFRESH_INTERVAL_MS}.
-     *
-     * <p>Rate-limited rather than dropped: the last call of a burst is honoured late instead of
-     * thrown away, or a download that finished just as the limit closed would keep its badge until
-     * something else happened to ask.
-     */
+    /** Re-reads claims, rate-limited; the last call of a burst is honoured late, not dropped. */
     private void refreshDownloadingBadges() {
         long now = System.currentTimeMillis();
         long since = now - mLastBadgeRefreshAt;
@@ -258,12 +230,7 @@ public class LocalInventoryScene extends ToolbarScene
         }
     }
 
-    /**
-     * How much of a task is done, 0 to 1.
-     *
-     * <p>Zero when the total is not known yet. That is a real state — a gallery is claimed before
-     * anyone has counted its pages — and an empty ring says it better than a full one would.
-     */
+    /** Progress 0-1; zero while the total is unknown (claimed before counted). */
     private static float fractionOf(@NonNull SmbTaskInfo t) {
         if (t.total <= 0) {
             return 0f;
@@ -271,15 +238,7 @@ public class LocalInventoryScene extends ToolbarScene
         return (float) t.finished / (float) t.total;
     }
 
-    /**
-     * Main thread. Redraws only the cards whose answer actually changed.
-     *
-     * <p>This is called every couple of seconds while anything is downloading, and now the value
-     * moves each time rather than staying put, so a blanket {@code notifyDataSetChanged} would
-     * rebuild the whole list on a timer. A list rebuilding under a finger loses the gesture, which
-     * is how a long press comes to be swallowed. The payload keeps the rebind to the badge, so a
-     * card's cover is not asked for again either.
-     */
+    /** Main thread. Payload-rebinds only changed cards — a full rebuild swallows long-presses. */
     private void applyDownloadMarks(@NonNull Map<Long, DownloadMark> marks) {
         if (mDownloadMarks.equals(marks)) {
             return;
@@ -508,13 +467,7 @@ public class LocalInventoryScene extends ToolbarScene
         return true;
     }
 
-    /**
-     * Long press starts selecting, the same as the download list and favourites.
-     *
-     * <p>It used to open a menu for the one gallery. Selection replaces it rather than joining it:
-     * every action the menu offered works on a set just as well, and one gesture that means
-     * different things on different screens is worse than one extra tap.
-     */
+    /** Long press selects, same as every other list. */
     @Override
     public boolean onItemLongClick(EasyRecyclerView parent, View view, int position, long id) {
         if (mRecyclerView == null || mHelper == null) {
@@ -637,16 +590,8 @@ public class LocalInventoryScene extends ToolbarScene
     private static final int RESYNC_BOTH = 2;
 
     /**
-     * Asks what to bring back down: the record, the pages, or both.
-     *
-     * <p>The caveat about the title rides on the two items it applies to rather than sitting in a
-     * message above them: an AlertDialog shows a message or a list, never both, and setting one
-     * silently drops the other.
-     *
-     * <p>Two separate things wear the same word. The record is a single fetch that rewrites
-     * {@code metadata.json}; the pages are a download that may run for minutes. Someone whose tags
-     * are out of date does not want to re-download anything, and someone with a gallery full of
-     * holes does not care about tags — so they are offered apart rather than bundled.
+     * Record, pages, or both — offered apart (a metadata fetch and a minutes-long download are
+     * different asks). AlertDialog shows message OR list, so the caveat rides on the items.
      */
     private void showResyncDialog(@NonNull List<GalleryInfo> galleries) {
         Context context = getEHContext();
@@ -668,13 +613,7 @@ public class LocalInventoryScene extends ToolbarScene
                 .show();
     }
 
-    /**
-     * One fetch and one write per gallery, one after another.
-     *
-     * <p>Serial rather than parallel because the other end is e-hentai and a fan-out of detail
-     * requests is how an account meets a rate limit. Each row is swapped in as it lands, so a long
-     * run visibly progresses instead of sitting still and then jumping.
-     */
+    /** Serial (a fan-out at e-hentai meets a rate limit); rows swap in as they land. */
     private void resyncMetadata(@NonNull List<GalleryInfo> galleries) {
         Context context = getEHContext();
         if (context == null || galleries.isEmpty()) {
@@ -718,13 +657,7 @@ public class LocalInventoryScene extends ToolbarScene
         }
     }
 
-    /**
-     * Puts the gallery back in the download queue, which fetches only what is missing.
-     *
-     * <p>No separate repair path and no completeness check: in download mode {@code contain()} asks
-     * the share, so every page already there is skipped. A gallery that turns out to be complete
-     * finishes immediately.
-     */
+    /** Re-enqueues; contain() skips what is already on the share, so only the holes download. */
     private void repairMissingPages(@NonNull List<GalleryInfo> galleries) {
         Context context = getEHContext();
         if (context == null || galleries.isEmpty()) {
@@ -737,13 +670,7 @@ public class LocalInventoryScene extends ToolbarScene
                 Toast.LENGTH_SHORT).show();
     }
 
-    /**
-     * Main thread. Swaps a re-synced record into the row it came from, by gid.
-     *
-     * <p>A re-sync that changed the title also moved the folder (#86), and the paging cache holds
-     * folder names. Left alone, the next fetch of that page would look for a directory that is no
-     * longer there and quietly drop the row.
-     */
+    /** Main thread. Swaps the fresh record in by gid; the paging cache follows the rename (#86). */
     private void replaceRow(@NonNull GalleryInfo fresh) {
         if (mHelper == null) {
             return;
@@ -787,13 +714,7 @@ public class LocalInventoryScene extends ToolbarScene
                 .show();
     }
 
-    /**
-     * Erases each gallery's folder, one after another, and drops the rows that really went.
-     *
-     * <p>Serial, and each result is honoured separately: a folder that could not be deleted keeps
-     * its row, because dropping it would claim a deletion that did not happen and the gallery
-     * would simply be back on the next refresh.
-     */
+    /** Deletes serially; a folder that would not delete keeps its row. */
     private void deleteGalleries(@NonNull List<GalleryInfo> galleries) {
         Context context = getEHContext();
         if (context == null || galleries.isEmpty()) {
@@ -1040,14 +961,7 @@ public class LocalInventoryScene extends ToolbarScene
         bindDownloadingBadge(holder, gi.gid);
     }
 
-    /**
-     * Marks a gallery still being written to the share: how far along, in the colour of the device
-     * writing it (#77). Without it a half-downloaded gallery is indistinguishable from a complete
-     * one, and the user only finds out by opening it and hitting missing pages.
-     *
-     * <p>This device's own downloads are marked too, in this device's own colour: one rule, and the
-     * colour is what says whose it is.
-     */
+    /** Progress ring in the writing device's colour (#77); own downloads too, one rule. */
     private void bindDownloadingBadge(@NonNull InventoryHolder holder, long gid) {
         DownloadMark mark = mDownloadMarks.get(gid);
         if (mark == null) {
@@ -1187,18 +1101,7 @@ public class LocalInventoryScene extends ToolbarScene
             return new PageResult(data, pages);
         }
 
-        /**
-         * Drops one folder from the cached ordering after it has been deleted from the share.
-         *
-         * <p>Replaces the {@link Ordering} rather than mutating it: {@link #mOrdering} is read from
-         * the load executor, and a page fetch may be walking the very list this is called on.
-         */
-        /**
-         * Points the cached ordering at a folder that has been renamed (#86).
-         *
-         * <p>Same reasoning as {@link #forgetRef}: the ordering is read from the load executor, so
-         * it is replaced rather than mutated.
-         */
+        /** Re-points the ordering after a rename (#86); replaced, not mutated (concurrent readers). */
         void renameRef(@NonNull String from, @NonNull String to) {
             Ordering current = mOrdering;
             if (current == null) {

@@ -18,44 +18,19 @@ import jcifs.CIFSContext;
 import jcifs.smb.SmbFile;
 
 /**
- * Reads and writes the {@code state/} directory where devices publish their SMB downloads (#59).
- *
- * <p>Kept apart from {@link SmbStorage} for the same reason {@link SmbPaths} and {@link SmbMetadata}
- * are: that class is already long, and the rules this one implements are worth being able to read
- * on their own.
- *
- * <p><b>There is no lock anywhere here, and that is deliberate.</b> Each device writes exactly one
- * file — its own — so the only concurrency left is readers, which cannot conflict with each other.
- * The spike measured a lock-read-modify-write cycle at 129 ms against 64 ms for a plain write, and
- * a design where every heartbeat took a lock would have made frequent progress updates unaffordable.
- *
- * <p>What does remain is that an open read handle blocks a rename with {@code STATUS_ACCESS_DENIED}
- * until it closes. So writes retry with backoff, and reads open, read and close as fast as they can.
+ * File IO for state/ (#59). Deliberately lock-free: each device writes only its own file (a
+ * locked cycle measured 129ms vs 64ms). Open read handles block renames, so writes retry with
+ * backoff and reads close fast.
  */
 public final class SmbDownloadStateStore {
 
     private static final String TAG = "SmbDownloadState";
     private static final String SUFFIX = ".json";
 
-    /**
-     * How long a client's file may go untouched before other devices treat its tasks as orphaned
-     * and offer to take them over.
-     *
-     * <p>Its mtime is the heartbeat, and a downloading device rewrites it every few seconds, so
-     * this is many missed beats rather than a couple — long enough that a lock-screen pause or a
-     * WiFi blip does not hand someone else's download away, short enough that a device that really
-     * did crash releases its work in about the time it takes to notice.
-     */
+    /** Silent this long = orphaned. Several missed 20s beats, so a WiFi blip does not orphan. */
     public static final long STALE_AFTER_MS = 90_000L;
 
-    /**
-     * How long to keep trying to publish before giving up.
-     *
-     * <p>The failure being retried is another device reading this file at the moment of the rename.
-     * The spike had a writer through in 13 attempts over 1918 ms against a reader that held on for
-     * 1.5 s, so this leaves room for a considerably slower one. Giving up is not serious: the next
-     * heartbeat will carry the same state.
-     */
+    // Retrying readers' open handles; measured through in ~2s. Giving up is fine: next beat retries.
     private static final long WRITE_DEADLINE_MS = 8_000L;
     private static final long WRITE_BACKOFF_START_MS = 100L;
     private static final long WRITE_BACKOFF_MAX_MS = 800L;
@@ -70,18 +45,8 @@ public final class SmbDownloadStateStore {
     // ------------------------------------------------------------------ read
 
     /**
-     * Reads every device's published state.
-     *
-     * <p>Liveness is decided here, against this device's clock, because mtime is the only evidence
-     * of it and only the reader of the directory can see it. A file dated in the future is taken as
-     * alive rather than as impossibly stale: that means the server and this device disagree about
-     * the time, and treating a running device's work as abandoned is far worse than being slow to
-     * reclaim a dead one's.
-     *
-     * <p>Unreadable files are skipped rather than fatal — one device writing garbage, or caught
-     * mid-write, must not blind this one to all the others.
-     *
-     * <p>Performs SMB I/O; call from a worker thread.
+     * Every device's state; liveness decided here from mtime (future-dated = alive, clock skew).
+     * Unreadable files are skipped. SMB I/O; worker thread.
      */
     @NonNull
     public static List<Published> readAll() {
@@ -130,19 +95,7 @@ public final class SmbDownloadStateStore {
         return out;
     }
 
-    /**
-     * Clears one leftover of an interrupted publish, if it has been there long enough to be one.
-     *
-     * <p>The temporary belongs to another device as often as not, which everywhere else in this
-     * class would be forbidden — a device's file is its own. The exception holds because of what
-     * the age means: a publish gives up on its rename after {@link #WRITE_DEADLINE_MS} and deletes
-     * its own temporary, so one that has sat for {@link SmbTempFiles#ABANDONED_AFTER_MS} is not a
-     * write in progress. Its writer is gone, and it is the one thing on the share nobody will ever
-     * read.
-     *
-     * <p>Done from the read because that is where the directory is already listed. Nobody makes a
-     * trip for this.
-     */
+    /** Sweeps an abandoned publish temporary (age proves its writer is gone); free, off the read. */
     private static void sweepIfAbandoned(@NonNull SmbFile child, long nowMillis) {
         try {
             if (SmbTempFiles.isAbandoned(child.getName(), child.lastModified(), nowMillis)) {
@@ -172,13 +125,7 @@ public final class SmbDownloadStateStore {
 
     // ------------------------------------------------------------------ write
 
-    /**
-     * Publishes this device's state, replacing whatever it last wrote.
-     *
-     * <p>Retries because another device holding the file open blocks the rename until it lets go.
-     *
-     * @return whether the state reached the share.
-     */
+    /** Publishes this device's state; retries around readers' open handles. */
     public static boolean writeSelf(@NonNull ClientState state) {
         if (!SmbConnection.isConfigured()) {
             return false;
@@ -195,13 +142,7 @@ public final class SmbDownloadStateStore {
         }
     }
 
-    /**
-     * Puts {@code json} at {@code <clientId>.json}, atomically as far as any reader can tell.
-     *
-     * <p>Written to a temporary name and renamed over the target, so a device reading at the wrong
-     * moment sees either the old file or the new one and never a half-written one. The two-argument
-     * rename is required: the single-argument form refuses an existing target.
-     */
+    /** Atomic write of <clientId>.json (temp + two-arg rename). */
     private static boolean writeTo(@NonNull SmbFile dir, @NonNull String clientId,
                                    @NonNull String json) throws Exception {
         String target = clientId + SUFFIX;
@@ -240,22 +181,8 @@ public final class SmbDownloadStateStore {
     }
 
     /**
-     * Takes one gallery out of another device's published queue, for a takeover.
-     *
-     * <p><b>The single exception to "only its owner writes a file", and it is narrow.</b> The
-     * caller must have established that the owner's heartbeat has been stale for
-     * {@link #STALE_AFTER_MS} — which is exactly the condition that says nobody else is writing
-     * this file. Leaving the entry instead was the alternative, and it is worse: the abandoned copy
-     * would resurface the moment the device that rescued the gallery stopped claiming it, and if
-     * the original never came back it would sit there for good.
-     *
-     * <p>Read-modify-write, so a device that woke up between the two and queued something new could
-     * lose that entry. It is a narrow window against a device that has said nothing for a minute
-     * and a half, and the cost of losing is one queue entry rather than any downloaded pages.
-     *
-     * <p>Performs SMB I/O; call from a worker thread.
-     *
-     * @return whether the file is now free of the gallery — including when it never had it.
+     * Removes a gallery from another device's file — the single, narrow exception to "only the
+     * owner writes", valid only against an owner stale past STALE_AFTER_MS. Worker thread.
      */
     public static boolean removeTask(@NonNull String ownerClientId, long gid) {
         if (!SmbConnection.isConfigured()) {

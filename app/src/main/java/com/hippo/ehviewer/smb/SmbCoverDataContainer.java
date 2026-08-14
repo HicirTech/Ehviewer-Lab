@@ -10,18 +10,8 @@ import java.io.IOException;
 import java.io.InputStream;
 
 /**
- * Conaco {@link DataContainer} that reads the gallery cover directly from the SMB share
- * instead of fetching {@link com.hippo.ehviewer.client.data.GalleryInfo#thumb} over the
- * network. Used by Local Inventory list cells so an offline SMB-only browse never hits
- * e-hentai for thumbnails that are already saved next to the gallery.
- *
- * <p>The actual on-share file is named {@code cover.<ext>} and was written at SMB-save
- * time by {@code SmbGalleryLifecycle.finalizeDownloadedGallery}. We probe every supported image
- * extension via {@link SmbStorage#openSmbCoverInputStreamPipe} since the upstream
- * Content-Type may have produced any of jpg/png/gif/webp.
- *
- * <p>Holds only primitives ({@code gid} + {@code title}) so the container can sit on a
- * parcelled GalleryInfo without creating a back-reference cycle.
+ * Conaco container reading the cover off the share instead of the network. Holds gid+title only
+ * (parcel cycle).
  */
 public class SmbCoverDataContainer implements DataContainer {
 

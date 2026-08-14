@@ -27,20 +27,8 @@ import com.hippo.unifile.UniFile;
 import java.io.InputStream;
 
 /**
- * Puts pages the device already holds onto the remote backend (#16, #88, #95).
- *
- * <p>Two hands can be holding a page before the share does: the image cache (a page just viewed)
- * and phone storage (a gallery downloaded before it was moved). Fetching such a page from
- * e-hentai again is the thing this class exists to avoid — whichever hand it is in, the copy is
- * lifted from there. {@code SpiderDen.contain} calls both in order, and "move a download to the
- * share" is nothing more than an ordinary SMB download whose every page happens to be found by
- * this bridge.
- *
- * <p>Fork-owned: this logic lived as static and instance blocks inside upstream's
- * {@code SpiderDen}, where every upstream merge had to route around it. The den keeps the mode
- * decisions and the call sites; the bridge keeps the copying. It talks to the backend through
- * {@link GallerySpiderStorage}, not to SMB directly — the one SMB mention is the factory that
- * resolves the backend, the same seam {@code SpiderDen.remoteStorage()} uses.
+ * Puts pages the device already holds (image cache, phone storage) onto the remote backend, so
+ * they are never fetched from e-hentai twice (#16, #88).
  */
 public final class RemotePageBridge {
 
@@ -60,24 +48,8 @@ public final class RemotePageBridge {
     }
 
     /**
-     * Puts the cached copy of one page onto the SMB share, replacing whatever is there (#16).
-     *
-     * <p>For the reader's "refresh this page": a page whose file on the share is corrupt reads back
-     * corrupt no matter how often it is re-requested, because the re-download lands in the cache
-     * and {@code SpiderDen.openOutputStreamPipe} deliberately refuses to write to the share while
-     * reading — otherwise every page anyone looked at would start an SMB write. This is the narrow
-     * exception: one page, asked for by hand, copied over once the good bytes are already in hand.
-     *
-     * <p>Copied rather than downloaded straight to the share, and copied only after the fetch has
-     * succeeded, so the file on the share is only ever replaced by something that exists. Deleting
-     * it first and re-fetching would be simpler and would leave the gallery worse than it started
-     * whenever the network is down.
-     *
-     * <p>The write itself is atomic (temp name, then rename), so no reader ever sees a half-written
-     * page either.
-     *
-     * <p>Performs SMB I/O; call from a worker thread. Static because one caller — the reader's
-     * refresh in {@code EhGalleryProvider} — has a gallery in hand but no den.
+     * The reader's "refresh this page": copies the just-fetched cached page over the share's
+     * corrupt one, atomically, only after the fetch succeeded. Worker thread.
      */
     public static boolean copyFromCacheToRemote(@NonNull GalleryInfo info, int index) {
         if (SpiderDen.sCache == null) {
@@ -94,8 +66,7 @@ public final class RemotePageBridge {
         }
         OutputStreamPipe osPipe = null;
         try {
-            // The extension has to come from the bytes: the share names pages by it, and a
-            // re-download can legitimately come back in a different format from the one there now.
+            // Extension from the bytes: a re-download may come back in a different format.
             BitmapFactory.Options options = new BitmapFactory.Options();
             options.inJustDecodeBounds = true;
             pipe.obtain();
@@ -136,16 +107,7 @@ public final class RemotePageBridge {
         return GalleryProvider2.SUPPORT_IMAGE_EXTENSIONS[0];
     }
 
-    /**
-     * This gallery's folder in phone storage, if it has one.
-     *
-     * <p>Resolved once per bridge and remembered, including the answer "there is none". The lookup
-     * lists the download directory when the database has no name for the gallery, and asking that
-     * once per page would put a storage-access-framework listing between every page of a download.
-     *
-     * <p>{@code getExistingGalleryDownloadDir} never creates anything: a gallery that was never
-     * downloaded to the phone leaves no trace in the download database from being asked about.
-     */
+    /** The phone-storage folder, memoized (a SAF listing per page would crawl). Never creates. */
     @Nullable
     private UniFile phoneCopyDir() {
         synchronized (mPhoneCopyLock) {
@@ -157,14 +119,7 @@ public final class RemotePageBridge {
         }
     }
 
-    /**
-     * Puts a page the phone already holds onto the share, and says whether it managed to.
-     *
-     * <p>The other half of "move a download to the share": with this, moving is an ordinary SMB
-     * download whose pages happen to be found locally instead of fetched. It is not limited to
-     * moves, because there is no reason to re-download a page from e-hentai when the same page is
-     * sitting in phone storage.
-     */
+    /** Copies a page the phone holds onto the share — the other half of move-to-share (#88). */
     public boolean copyFromPhone(int index, @NonNull GallerySpiderStorage remote) {
         UniFile dir = phoneCopyDir();
         if (dir == null) {

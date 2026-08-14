@@ -34,21 +34,13 @@ public class SmbAutoTuneTest {
                 1, 6095, 2, 3780, 4, 2113, 6, 1402, 8, 1051, 16, 484)));
     }
 
-    /**
-     * The tie-break, and the reason it exists: run-to-run noise is bigger than a few percent, and
-     * of two levels that close, the one holding fewer sockets open against the NAS should win.
-     * Six at 166 ms against eight at 160 ms is the measured case that motivated it.
-     */
+    /** The tie-break, and the reason it exists: run-to-run noise is bigger than a few percent, and of two levels that close, the one holding fewer sockets op */
     @Test
     public void aLowerLevelWithinTheMarginBeatsTheNominalWinner() {
         assertEquals(6, SmbAutoTune.pickBest(times(1, 612, 2, 409, 4, 245, 6, 166, 8, 160)));
     }
 
-    /**
-     * The margin is inclusive: a level exactly on the boundary counts. ceil(100 * 1.08) = 108,
-     * and the level sitting at precisely 108 ms must still take the crown from the one at 100.
-     * Pinned because an off-by-one here (&lt; for &le;) survived every other test.
-     */
+    /** The margin is inclusive: a level exactly on the boundary counts. */
     @Test
     public void aLevelExactlyOnTheMarginStillCounts() {
         assertEquals(4, SmbAutoTune.pickBest(times(4, 108, 8, 100)));

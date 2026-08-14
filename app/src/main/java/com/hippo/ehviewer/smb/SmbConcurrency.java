@@ -14,58 +14,25 @@ import com.hippo.ehviewer.Settings;
 import java.util.concurrent.ThreadPoolExecutor;
 
 /**
- * How many things this app asks a share for at once.
- *
- * <p>Reading a share is bound by round trips, not by bandwidth: a gallery's {@code metadata.json}
- * is a couple of kilobytes, and reading twelve of them one after another took 612 ms against a real
- * NAS while the sort that followed took 1 ms. Asking for several at once is what makes that time
- * disappear, and the only question is how many.
- *
- * <p><b>There is no right answer to carry in the source.</b> The figure depends on the NAS, the
- * link, and what else is using both, so it is a setting with a measured default rather than a
- * constant. What the defaults were measured to be is recorded on each one below; the settings
- * screen can re-measure any particular share.
- *
- * <p>Two settings and not one, because the two workloads are not the same shape. Metadata is many
- * tiny files where the cost is almost entirely the round trip. Page images are megabytes each,
- * where enough concurrent readers eventually saturate the link and more of them only adds
- * contention. A single number would have to be wrong for one of them.
+ * Concurrency settings for share reads — round-trip-bound work, so parallelism is the whole
+ * game and the right number is a property of the NAS/link, not the source. Two settings because
+ * tiny-metadata and megabyte-image workloads have different shapes.
  */
 public final class SmbConcurrency {
 
     /**
-     * Reading small files: {@code metadata.json} for the inventory.
-     *
-     * <p>Six is a conservative default, not a measured optimum — the optimum depends on the
-     * library. On twelve galleries the curve flattens by six, but that is the sample running out,
-     * not the share: on a hundred and forty galleries the same share kept scaling almost linearly
-     * to sixteen and beyond (serial 6.1 s, six 1.4 s, sixteen 0.48 s). The per-operation cost is
-     * the round trip (~44 ms on WiFi against a NAS that answers wired clients in ~8 ms), which is
-     * why more workers keep helping for as long as there is work to hand them.
-     *
-     * <p>The settings screen's auto-tune measures the actual share and applies what it finds;
-     * this constant only matters until somebody runs it.
+     * Conservative default, not an optimum — 140 galleries kept scaling past 16 (6.1s serial →
+     * 0.48s at 16); auto-tune measures the real share and this only matters until it runs.
      */
     public static final int DEFAULT_METADATA = 6;
 
-    /**
-     * Reading large files: page images for the preview grid and the reader.
-     *
-     * <p>Six as well, but for a different reason and from a different place: it is the value the
-     * preview prefetch has used since it was written, on the reasoning that a local share has
-     * effectively unlimited bandwidth. That has never been measured the way the metadata figure
-     * has, which is one of the things the settings screen's benchmark exists to check.
-     */
+    /** Historical prefetch value, never measured like the metadata one — auto-tune checks it. */
     public static final int DEFAULT_IMAGE = 6;
 
     /**
-     * One is meaningful — it means "serial", and it is the right answer for a share that misbehaves
-     * under concurrency. The ceiling exists so a runaway stored value cannot queue unbounded work;
-     * it has been raised twice by measurements, sixteen to sixty-four and then to a hundred and
-     * twenty-eight, because each time the auto-tune's winner landed exactly on the lid — and a
-     * winner on the lid is a censored answer, not an optimum. Workers here are not sockets:
-     * jcifs-ng multiplexes requests over its pooled transport under SMB2 credits, which is why a
-     * hundred-odd outstanding reads of tiny files keep paying on a ~44 ms round-trip link.
+     * 1 = serial (meaningful). The ceiling was raised twice (16→64→128) because auto-tune winners
+     * kept landing on the lid — a winner on the lid is censored, not optimal. Workers are not
+     * sockets: jcifs-ng multiplexes over SMB2 credits.
      */
     public static final int MIN = 1;
     public static final int MAX = 128;
@@ -92,14 +59,8 @@ public final class SmbConcurrency {
     }
 
     /**
-     * Resizes a pool to match the current setting, so a change takes effect without a restart.
-     *
-     * <p>The order matters and is not symmetric: growing means raising the maximum before the core,
-     * shrinking means lowering the core before the maximum. Done the other way round,
-     * {@link ThreadPoolExecutor} rejects the intermediate state where core exceeds maximum.
-     *
-     * <p>Cheap enough to call before every batch — it compares first and does nothing in the
-     * ordinary case where the setting has not moved.
+     * Resizes without restart. Order is asymmetric on purpose: grow max-then-core, shrink
+     * core-then-max, or ThreadPoolExecutor rejects the intermediate state.
      */
     public static void resize(@NonNull ThreadPoolExecutor pool, int size) {
         if (pool.getCorePoolSize() == size && pool.getMaximumPoolSize() == size) {

@@ -18,18 +18,7 @@ import org.junit.runner.RunWith;
 import org.robolectric.RobolectricTestRunner;
 import org.robolectric.annotation.Config;
 
-/**
- * Unit tests for the share-URL construction extracted into {@link SmbPaths}. The whole reason this
- * logic was pulled out of {@code SmbStorage} is so the share-name encoding (issue #2) can be checked
- * without a live share or Settings — plain JUnit, no Android.
- *
- * <p>Runs under Robolectric only because {@link SmbPaths#buildGalleryFolderName} reaches
- * {@code android.text.TextUtils} through {@code FileUtils.sanitizeFilename}. That used to be a
- * reason to leave it untested — the note here said Robolectric could not pick an SDK for
- * targetSdk 30 — but the project is on 35 and Robolectric 4.14.1 now, and the rest of the suite
- * already runs this way. Covering it matters: {@link SmbPaths#isGalleryFolderName} has to accept
- * whatever that builder emits, and nothing else would catch the two drifting apart.
- */
+/** Unit tests for the share-URL construction extracted into SmbPaths. */
 @RunWith(RobolectricTestRunner.class)
 @Config(application = android.app.Application.class)
 public class SmbPathsTest {
@@ -220,11 +209,7 @@ public class SmbPathsTest {
         }
     }
 
-    /**
-     * A run of digits too long for a long must be refused rather than wrapped. Silently wrapping
-     * would hand back a real-looking gid belonging to some other gallery, and mark that one as
-     * saved — a wrong mark on a stranger's card is worse than no mark at all.
-     */
+    /** A run of digits too long for a long must be refused rather than wrapped. */
     @Test
     public void parseGid_refusesANumberTooLargeToBeAGid() {
         String huge = "99999999999999999999999-title";

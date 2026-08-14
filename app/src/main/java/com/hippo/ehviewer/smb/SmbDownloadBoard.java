@@ -21,25 +21,10 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
- * What the share knows about everyone's downloads, and how this device keeps it true (#59, #98).
- *
- * <p>The download queue has two lives. One is in this process — {@link SmbDirectDownloader}'s
- * maps, the SpiderQueen, the foreground service. The other is on the share, under {@code state/},
- * where every device posts what it holds and reads what the others do. This class is the second
- * life, whole: the heartbeat and the publish, the merged all-devices task list, the
- * claimed-elsewhere check, adopting an orphan, and bringing this device's own queue back after a
- * process death or a silence. {@link SmbDownloadState} stays the vocabulary (pure) and
- * {@link SmbDownloadStateStore} the file IO; this is the behaviour composed from them.
- *
- * <p>It talks to the device side only through {@link Device} — a handful of questions, no
- * reaching into queue maps — which is what makes the two lives separately testable, and is the
- * seam #100 would lift into a capability interface (a backend with no second client has no board
- * at all).
- *
- * <p>The class itself is an imperative shell and not much more: <em>when</em> to publish is
- * {@link SmbHeartbeat}'s, and the reconcile/takeover arithmetic is pure functions on
- * {@link SmbDownloadState} ({@code planReconcile}, {@code assessTakeOver}). What remains here is
- * reading, applying decisions, and answering the screens.
+ * The download queue's life on the share (#59): heartbeat/publish, the merged all-devices task
+ * list, the claimed-elsewhere check, takeover, restore. Talks to the device side only through
+ * {@link Device}; the decisions are pure functions on {@link SmbDownloadState}, this class reads,
+ * decides via them, and applies.
  */
 public final class SmbDownloadBoard {
 
@@ -47,29 +32,28 @@ public final class SmbDownloadBoard {
 
     /** What the board may ask of the device side. Implemented by {@link SmbDirectDownloader}. */
     interface Device {
-        /** This device's queue as the share should see it, now. */
+        /** The queue as the share should see it, now. */
         @NonNull
         SmbDownloadState.ClientState snapshot();
 
-        /** Whether there is anything worth heartbeating about. */
         boolean hasWork();
 
-        /** Finished with this gid this process-lifetime; a stale read must not bring it back. */
+        /** Finished this process-lifetime; a stale read must not bring it back. */
         boolean isRetired(long gid);
 
-        /** Another device took this task over: drop it locally, silently, touching nothing shared. */
+        /** Taken over elsewhere: drop locally, touch nothing shared. */
         void yieldTask(long gid);
 
-        /** Tasks recovered from the share: hold them as paused, with their progress. */
+        /** Recovered tasks: hold as paused, with their progress. */
         void restore(@NonNull List<SmbDownloadState.Task> tasks);
 
-        /** A takeover succeeded: stamp the adoption (claim time, previous owner). */
+        /** Takeover succeeded: stamp claim time and previous owner... */
         void stampAdoption(@NonNull SmbTaskInfo task);
 
         /** ...and enqueue the adopted gallery like any other. */
         void enqueueAdopted(@NonNull Context context, @NonNull GalleryInfo info);
 
-        /** How this device would draw its own row for this gid (active/waiting/none). */
+        /** Own row state for this gid (active/waiting/none). */
         int localRowState(long gid);
     }
 
@@ -96,14 +80,7 @@ public final class SmbDownloadBoard {
         this.device = device;
     }
 
-    /**
-     * Whether SMB is a thing this app is doing at all right now.
-     *
-     * <p>The same pair every other SMB surface gates on — Local Inventory, the save option on a
-     * gallery, the drawer entry, the download list. The downloader was the one place that never
-     * asked, so turning the feature off hid the tasks from the list while their pages carried on
-     * being written to the share.
-     */
+    /** The gate every SMB surface shares: master switch on and a share configured. */
     static boolean smbAvailable() {
         return Settings.getSmbSaveEnabled() && SmbConnection.isConfigured();
     }
@@ -120,8 +97,7 @@ public final class SmbDownloadBoard {
             try {
                 return SmbDownloadStateStore.writeSelf(device.snapshot());
             } catch (Throwable e) {
-                // Failing to publish costs visibility to other devices, nothing local. The next
-                // beat carries the same state, so there is nothing to recover here.
+                // Costs visibility only; the next beat carries the same state.
                 Log.w(TAG, "Failed to publish download state", e);
                 return false;
             }
@@ -141,15 +117,7 @@ public final class SmbDownloadBoard {
     /** Restoring is a once-per-process affair, whichever entry point asks for it first. */
     private final AtomicBoolean restoreStarted = new AtomicBoolean();
 
-    /**
-     * Writes this device's queue to the share, and starts or stops the heartbeat to match whether
-     * there is anything left to beat about.
-     *
-     * <p>Called at every structural change — something queued, started, paused, resumed, cancelled
-     * or finished — because those are what another device needs to see promptly. An enqueue in
-     * particular has to land before the download does, since a claim nobody can see is a claim that
-     * does not prevent anyone downloading the same gallery twice.
-     */
+    /** Publishes the queue soon; called at every structural change (a claim must be visible). */
     public void publish() {
         pulse.publish();
     }
@@ -161,13 +129,7 @@ public final class SmbDownloadBoard {
 
     // ---------- Reading the share back (#59) ----------
 
-    /**
-     * Restores this device's queue from the share, once per process.
-     *
-     * <p>The queue outlives the process because it lives on the share, but nothing brings it back
-     * on its own — so the entry points that would want it ask for it, and it happens in the
-     * background with observers notified when it lands.
-     */
+    /** Brings the queue back from the share, once per process. */
     public void ensureRestored() {
         if (!restoreStarted.compareAndSet(false, true)) {
             return;
@@ -183,24 +145,7 @@ public final class SmbDownloadBoard {
         pulse.execute(this::reconcileWithShare);
     }
 
-    /**
-     * Makes this device's queue and the share agree, in both directions.
-     *
-     * <p>Used both when the queue first comes back and when this device has been out of touch, and
-     * it is the same job either way: whatever it thinks it is doing may be out of date, and the
-     * share is what everyone else is going by.
-     *
-     * <ul>
-     *   <li><b>Held here but not ours any more</b> — another device claimed it more recently while
-     *       we were away. Dropped without touching the share, since the pages already written
-     *       belong to whoever adopted it.</li>
-     *   <li><b>Published by us but not held here</b> — the process ended and took the queue with
-     *       it. Brought back, minus anything taken over in the meantime.</li>
-     * </ul>
-     *
-     * <p>Runs on the publisher thread; the device applies its own queue edits on the main one,
-     * where every other queue change happens.
-     */
+    /** Makes queue and share agree both ways; the plan itself is pure (planReconcile). */
     private void reconcileWithShare() {
         final SmbDownloadState.ReconcilePlan plan;
         try {
@@ -218,9 +163,7 @@ public final class SmbDownloadBoard {
             device.yieldTask(gid);
         }
         if (plan.shouldPublish) {
-            // Either nothing was lost, or everything we had is gone -- taken over, or finished
-            // elsewhere. Say where we are either way, so our file stops advertising claims we no
-            // longer hold.
+            // Our file must stop advertising claims we no longer hold.
             publish();
         }
         if (!plan.restores.isEmpty()) {
@@ -230,14 +173,7 @@ public final class SmbDownloadBoard {
 
     // ---------- The all-devices view ----------
 
-    /**
-     * Every device's SMB downloads as one list, ready for the download screen.
-     *
-     * <p>This is the view no single file holds: it is computed from what each device published
-     * under {@code state/}, with one entry per gallery even when two of them claim it.
-     *
-     * <p>Performs SMB I/O; call from a worker thread.
-     */
+    /** Every device's downloads as one merged list. SMB I/O; worker thread. */
     @NonNull
     public List<SmbTaskInfo> snapshotSharedTasks() {
         if (!SmbConnection.isConfigured()) {
@@ -251,12 +187,7 @@ public final class SmbDownloadBoard {
                     all.add(p);
                 }
             }
-            // This device's own rows come from its queue, not from what it last managed to publish.
-            // The file on the share is a broadcast to everyone else and lags every local action by
-            // a round trip -- pausing something and watching the row carry on downloading, because
-            // the read got there before the write, and a paused task then produces nothing further
-            // to trigger another refresh. Locally there is no such doubt: this is the process doing
-            // the work.
+            // Own rows come from the live queue, not the published file, which lags every action.
             all.add(new SmbDownloadState.Published(
                     device.snapshot(), true, System.currentTimeMillis()));
             List<SmbDownloadState.OwnedTask> merged = SmbDownloadState.merge(all);
@@ -266,24 +197,14 @@ public final class SmbDownloadBoard {
             }
             return out;
         } catch (Throwable e) {
-            // The share being unreachable means we cannot say what anyone is downloading. An empty
-            // list is the honest answer; the local list is unaffected either way.
+            // Unreachable share: an empty list is the honest answer.
             Log.w(TAG, "Could not read the shared task list", e);
             return new ArrayList<>();
         }
     }
 
-    /**
-     * What the share already knows about a queued gallery beyond its place in the queue.
-     *
-     * <p>Category, cover and the rest live in the gallery's own {@code metadata.json}, written the
-     * moment it is enqueued. Copying them into {@code state/} as well would mean two records of the
-     * same thing that can disagree, so the row reads the one that is authoritative.
-     *
-     * <p>Cached because the list refreshes on every finished page, and a gallery's metadata does
-     * not change while it downloads. A miss is not cached: it means the owner has not written the
-     * skeleton yet, which is a thing that stops being true.
-     */
+    // Row extras come from the gallery's own metadata.json (one authoritative record). Cached
+    // per gid; misses are not cached (the skeleton may land any moment).
     private final Map<Long, GalleryInfo> metadataCache =
             java.util.Collections.synchronizedMap(new HashMap<>());
 
@@ -303,14 +224,7 @@ public final class SmbDownloadBoard {
         return read;
     }
 
-    /**
-     * How a row should be drawn, which is a different question for our tasks and everyone else's.
-     *
-     * <p>For this device there is a real answer and it is in this process. For another device
-     * there is not: nothing it publishes about what it is doing can be trusted, because the moment
-     * it loses contact is the moment it can no longer correct what it said. All that is knowable
-     * from outside is whether it is still there — which is the file's mtime, not its contents.
-     */
+    /** Own rows answer from this process; others' only from liveness (mtime, not contents). */
     private int rowStateOf(@NonNull SmbDownloadState.OwnedTask owned, @NonNull String selfId) {
         if (!owned.ownerAlive) {
             return com.hippo.ehviewer.dao.DownloadInfo.STATE_FAILED;   // drawn as "device offline"
@@ -321,12 +235,7 @@ public final class SmbDownloadBoard {
         return device.localRowState(owned.task.gid);
     }
 
-    /**
-     * Whether some other device that is still alive has already claimed this gallery.
-     *
-     * <p>The check that stops two devices downloading the same thing. Performs SMB I/O; call from a
-     * worker thread.
-     */
+    /** Whether a live rival already claims this gid. SMB I/O; worker thread. */
     public boolean isClaimedElsewhere(long gid) {
         if (!SmbConnection.isConfigured()) {
             return false;
@@ -336,9 +245,7 @@ public final class SmbDownloadBoard {
                     SmbDownloadState.merge(SmbDownloadStateStore.readAll()),
                     gid, Settings.getSmbClientId());
         } catch (Throwable e) {
-            // Unreachable share, unreadable files: let the download proceed. Downloading something
-            // twice wastes bandwidth; refusing to download because the check failed loses the
-            // gallery, which is worse.
+            // On doubt, proceed: a duplicate download wastes bandwidth, a refusal loses the gallery.
             Log.w(TAG, "Could not check whether gid=" + gid + " is claimed elsewhere", e);
             return false;
         }
@@ -361,21 +268,8 @@ public final class SmbDownloadBoard {
     }
 
     /**
-     * Adopts a download whose owner has stopped beating.
-     *
-     * <p>Nothing is written to the other device's file — nobody ever writes another's. The claim
-     * goes in this one, stamped now so it is unambiguously the later of the two, and the pair is
-     * resolved by {@code SmbDownloadState.merge} preferring a live claimant over a dead one. The
-     * abandoned copy disappears when that device comes back and notices, or is overruled by the
-     * marker left behind when this device finishes.
-     *
-     * <p>Liveness is checked again here against a fresh read. The list a user tapped may be a
-     * refresh old, and the owner may have woken up in between — adopting a download somebody is
-     * actively doing would have two devices writing the same pages.
-     *
-     * <p>Performs SMB I/O; returns immediately and does the work on the publisher thread.
-     *
-     * @param onResult told what happened, on the main thread.
+     * Adopts an orphaned download: fresh liveness re-check, claim stamped now (later claim wins
+     * the merge), owner's stale entry cleared. Async; result posted to the main thread.
      */
     public void takeOver(@NonNull Context context, @NonNull SmbTaskInfo task,
                          @NonNull TakeOverCallback onResult) {
@@ -394,8 +288,7 @@ public final class SmbDownloadBoard {
                     SmbDownloadState.merge(SmbDownloadStateStore.readAll()),
                     task.gid, Settings.getSmbClientId());
         } catch (Throwable e) {
-            // Without a fresh read there is no way to know the owner is still gone, and adopting a
-            // download two devices then run at once is the worse outcome.
+            // No fresh read = no adoption; two devices running one download is the worse outcome.
             Log.w(TAG, "Could not confirm gid=" + task.gid + " is still orphaned", e);
             return TakeOverResult.FAILED;
         }
@@ -415,14 +308,10 @@ public final class SmbDownloadBoard {
         info.title = task.title;
         info.pages = task.total;
         device.stampAdoption(task);
-        // Take it out of the abandoned queue. The one write this app ever makes to another
-        // device's file, and only against one that has said nothing for STALE_AFTER_MS -- which is
-        // the condition that says no one else is writing it. Leaving it would have the stale copy
-        // resurface the moment this device finished and stopped claiming the gallery.
+        // The one write ever made to another device's file, and only to one silent past
+        // STALE_AFTER_MS; leaving the stale entry would resurface it after we finish.
         if (!SmbDownloadStateStore.removeTask(task.ownerClientId, task.gid)) {
-            // Not fatal: our claim is live and newer, so it wins the merge and the download goes
-            // ahead. The abandoned entry may reappear later as an orphan of a gallery already on
-            // the share, and taking that over again is harmless.
+            // Not fatal: our live, newer claim wins the merge anyway.
             Log.w(TAG, "Took over gid=" + task.gid + " but could not clear it from "
                     + task.ownerClientId);
         }

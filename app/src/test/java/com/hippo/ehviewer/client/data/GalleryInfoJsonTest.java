@@ -21,13 +21,7 @@ import java.util.List;
 
 import org.junit.Test;
 
-/**
- * Round-trips a {@link GalleryInfo} through {@code toJson()} -> JSON text -> {@code
- * galleryInfoFromJson()}. This is exactly what the SMB layer does when it writes/reads
- * {@code metadata.json}, so the test locks down that the persisted shape survives a save+reload —
- * and guards the fork's null-safety fixes in those two methods. Plain JUnit: fastjson is pure Java
- * and constructing a GalleryInfo runs no Android framework code.
- */
+/** Round-trips a GalleryInfo through toJson() -> JSON text -> galleryInfoFromJson(). */
 public class GalleryInfoJsonTest {
 
     private static GalleryInfo roundTrip(GalleryInfo in) {

@@ -13,18 +13,8 @@ import java.io.IOException;
 import java.io.InputStream;
 
 /**
- * Streams a single page image straight from the SMB share. Used as a Conaco
- * {@link DataContainer} for offline preview thumbnails.
- *
- * <p>{@link #get()} first checks the parallel {@link SmbPreviewCache} for a deterministic
- * local copy (populated by {@link SmbPreviewCache#prefetchGallery}); if present it returns
- * a {@link FileInputStream} pipe over that local file, which keeps Conaco's serial disk
- * thread free of SMB I/O. Falls back to {@link SmbStorage#openSmbInputStreamPipe} when
- * the prefetch hasn't completed the file yet.
- *
- * <p>Holds only the primitives needed to locate the file ({@code gid} and {@code title})
- * so it can sit on a GalleryDetail / preview-set object that is parcelled across scenes
- * without creating a back-reference cycle.
+ * Conaco container for one on-share page: prefers the SmbPreviewCache local copy, falls back to
+ * the share. Holds gid+title only (parcel cycle).
  */
 public class SmbImageDataContainer implements DataContainer {
 

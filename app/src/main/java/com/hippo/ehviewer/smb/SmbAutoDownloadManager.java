@@ -13,30 +13,9 @@ import com.hippo.lib.yorozuya.SimpleHandler;
 import com.hippo.util.IoThreadPoolExecutor;
 
 /**
- * Coordinates "Save to SMB" enqueues from both the gallery reader (auto) and the gallery
- * detail screen (manual).
- * <p>
- * There is no local record of what is already being saved. There used to be an in-memory set of
- * gids, and keeping it alongside the claims on the share would mean two answers to one question,
- * free to disagree — a gid stuck in the set no longer had any way out, and the enqueue would
- * silently do nothing until the app restarted. The share is now the only place that says who is
- * downloading what: another device's claim is checked here, and this device's own queue turns a
- * repeat enqueue into a no-op in {@code SmbDirectDownloader.start}.
- * <p>
- * The auto path runs only when both {@link Settings#getSmbSaveEnabled()} and
- * {@link Settings#getSmbAutoDownloadEnabled()} are true. The manual path only requires
- * the master save switch (so the user can opt-in per gallery from the Download button).
- * <p>
- * Common behaviour:
- * <ol>
- *   <li>Skip galleries whose on-share copy already has all images present
- *       ({@link SmbStorage#isGalleryComplete}).</li>
- *   <li>Skip galleries another live device has already claimed
- *       ({@code SmbDownloadBoard.isClaimedElsewhere}).</li>
- *   <li>Write a skeleton {@code metadata.json} immediately so Local Inventory lists the
- *       gallery before/even without a finished download.</li>
- *   <li>Hand the gallery off to {@link SmbDirectDownloader} for the actual download.</li>
- * </ol>
+ * "Save to SMB" enqueues, auto (reader) and manual (detail). No local already-saving record —
+ * the share's claims are the only answer (a shadow set once wedged silently). Skips complete or
+ * claimed galleries, writes the metadata skeleton, hands off to SmbDirectDownloader.
  */
 public final class SmbAutoDownloadManager {
 
@@ -108,11 +87,7 @@ public final class SmbAutoDownloadManager {
         });
     }
 
-    /**
-     * Both callers reach here off the main thread -- the auto path from
-     * {@code GalleryView.render()}, the manual one from an IO task -- and
-     * {@code Toast.makeText().show()} throws anywhere without a prepared Looper.
-     */
+    /** Callers are off the main thread; Toast needs a Looper. */
     private static void toast(@NonNull Context appContext, @NonNull String text) {
         SimpleHandler.getInstance().post(() ->
                 Toast.makeText(appContext, text, Toast.LENGTH_SHORT).show());

@@ -9,16 +9,7 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
 
-/**
- * When the remembered contents of a gallery folder may be trusted (#35).
- *
- * <p>Everything about a file on the share — is this page saved, is there a cover, is the gallery
- * complete — is answered by looking for its name in this set. So the cache being wrong is not a
- * performance question: a caller told a file is absent acts on that, and in the case that caused
- * #35 it acted by deleting the file and reporting a failure to the user.
- *
- * <p>Both clocks are arguments, so the rules are stated rather than waited out.
- */
+/** When the remembered contents of a gallery folder may be trusted (#35). */
 public class GalleryListingCacheTest {
 
     private static final long GID = 4110713L;
@@ -59,14 +50,7 @@ public class GalleryListingCacheTest {
         assertNull("past the window", c.get(GID, NOW + TTL));
     }
 
-    /**
-     * The rule this class exists for. A file this app has just written must not be reported
-     * missing, so anything that changes the folder throws the snapshot away — however fresh it is.
-     *
-     * <p>Without this, the downloader writes a page, reads it back to check it, is told it is not
-     * there, and deletes the page it just wrote. That is #35, and it survived two fixes that never
-     * came near this cache.
-     */
+    /** The rule this class exists for. */
     @Test
     public void invalidatingForgetsEvenAListingTakenThisInstant() {
         GalleryListingCache c = cache();

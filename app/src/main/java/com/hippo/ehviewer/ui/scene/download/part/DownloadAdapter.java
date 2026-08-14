@@ -278,10 +278,7 @@ public class DownloadAdapter extends RecyclerView.Adapter<DownloadAdapter.Downlo
                 break;
             case DownloadInfo.STATE_FAILED:
                 String text;
-                // An orphaned SMB save is not a download that failed -- nothing went wrong with
-                // it. The device holding it stopped answering, which is a different thing to tell
-                // someone: the download is intact and waiting, and the row's button offers to
-                // adopt it rather than to retry it.
+                // An orphan is not a failure: intact, waiting, adoptable — not retryable.
                 if (SmbTaskInfo.canTakeOver(info)) {
                     bindState(holder, info,
                             resources.getString(R.string.smb_task_owner_offline));

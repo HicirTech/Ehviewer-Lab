@@ -11,13 +11,7 @@ import org.junit.runner.RunWith;
 import org.robolectric.RobolectricTestRunner;
 import org.robolectric.annotation.Config;
 
-/**
- * The production half of invariant I4 in #41: a gallery only resolves to an SMB backend while it
- * is marked as an SMB target. SpiderDenRoutingTest pins what the routing does once a backend
- * exists; this pins when one exists at all.
- *
- * <p>The mark is process-global mutable state, so each test clears it again.
- */
+/** The production half of invariant I4 in #41: a gallery only resolves to an SMB backend while it is marked as an SMB target. */
 @RunWith(RobolectricTestRunner.class)
 @Config(application = android.app.Application.class)
 public class SmbSpiderStorageTest {

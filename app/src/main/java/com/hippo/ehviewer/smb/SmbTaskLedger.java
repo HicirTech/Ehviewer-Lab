@@ -17,19 +17,9 @@ import java.util.Map;
 import java.util.Set;
 
 /**
- * This device's download queue as data: every map, every transition, one lock (#98).
- *
- * <p>Everything in here is an in-memory state change and nothing else — no SpiderQueen calls, no
- * publishing, no notifications, no threads. A transition takes the queue from one consistent
- * state to the next under the lock and hands back whatever the caller now has to go and do
- * ({@link SmbDirectDownloader} releases queens, deletes folders, publishes, notifies). That
- * split is what makes the state machine readable in one sitting and the side effects auditable
- * at the call sites.
- *
- * <p>The invariant the maps keep between them: a gid lives in at most one of {@code queue},
- * {@code active}, {@code paused}; {@code progress}/{@code claimedAt}/{@code takenOverFrom} carry
- * bookkeeping for gids in any of the three; {@code retired} remembers what finished this
- * process-lifetime so a stale share read cannot resurrect it.
+ * The queue state machine as data: every map, every transition, one lock, zero side effects —
+ * transitions return what the caller must go and do. Invariant: a gid lives in at most one of
+ * queue/active/paused; progress/claimedAt/takenOverFrom are bookkeeping for any of the three.
  */
 final class SmbTaskLedger {
 
@@ -91,27 +81,13 @@ final class SmbTaskLedger {
     private final LinkedHashMap<Long, GalleryInfo> paused = new LinkedHashMap<>();
     /** Last seen progress per gid so notification updates survive listener churn. */
     private final Map<Long, int[]> progress = new HashMap<>();
-    /**
-     * When this device took each gallery on. Published so another device can tell whose claim on
-     * the same gallery is the more recent one; see {@code SmbDownloadState.merge}.
-     */
+    /** When this device took each gallery on; the later claim wins the merge. */
     private final Map<Long, Long> claimedAt = new HashMap<>();
     /** For a gallery taken over from a device that went away, who it was taken from. */
     private final Map<Long, String> takenOverFrom = new HashMap<>();
-    /**
-     * Galleries this process has finished with, so a reconcile cannot bring them back.
-     *
-     * <p>A task absent from memory usually means the process lost it. It can also mean it just
-     * completed, and a reconcile reading a file written before that completion cannot tell the
-     * difference. Per-process and small: the only thing it has to outlive is a stale read.
-     */
+    /** Finished this process-lifetime; a reconcile reading a stale file must not bring these back. */
     private final Set<Long> retired = Collections.synchronizedSet(new HashSet<>());
-    /**
-     * Galleries whose copy in phone storage should go once they are complete on the share.
-     *
-     * <p>All that separates a move from a download (#88). In this process only: killed mid-move,
-     * the gallery comes out copied rather than moved, which is the harmless direction to fail in.
-     */
+    /** Phone copies to drop once complete on the share — all that separates a move (#88). */
     private final Set<Long> movingFromPhone = Collections.synchronizedSet(new HashSet<>());
 
     // ---------- transitions -------------------------------------------------------------------
@@ -212,10 +188,7 @@ final class SmbTaskLedger {
         }
     }
 
-    /**
-     * Yield: another device owns this now. Like cancel without the retirement and without any
-     * claim to the folder — the pages already written belong to whoever adopted the download.
-     */
+    /** Yield: another device owns this now — like cancel, minus retirement and folder claims. */
     @Nullable
     ActiveJob yield(long gid) {
         synchronized (lock) {
@@ -243,12 +216,7 @@ final class SmbTaskLedger {
         }
     }
 
-    /**
-     * Tasks recovered from the share come back held, whatever they were doing when contact was
-     * lost — the same as an ordinary download after a restart, which waits to be started rather
-     * than picking itself up. Progress comes back with them: without it the next publish says 0
-     * of 181 for a gallery most of the way done, and every other device believes it.
-     */
+    /** Recovered tasks come back paused, with their progress (or the next publish lies to everyone). */
     void restore(@NonNull List<SmbDownloadState.Task> tasks) {
         synchronized (lock) {
             for (SmbDownloadState.Task t : tasks) {

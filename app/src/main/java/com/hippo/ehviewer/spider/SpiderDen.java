@@ -245,25 +245,13 @@ public final class SpiderDen {
         }
     }
 
-    /**
-     * The remote storage backend for this gallery, or null to use phone storage.
-     *
-     * <p>Single extension point replacing the old per-method {@code useSmbStorage()} checks:
-     * regular DownloadManager downloads are unmarked and resolve to null here (so they write to
-     * phone storage exactly as before), while galleries marked for SMB — by SmbDirectDownloader
-     * for writes, or LocalInventoryScene reader launches for reads — resolve to an SMB backend.
-     * A future protocol would be selected here without touching the call sites below.
-     */
+    /** The remote backend for this gallery, or null = phone storage. The one selection point. */
     @Nullable
     private GallerySpiderStorage remoteStorage() {
         return SmbSpiderStorage.createIfTarget(mGalleryInfo, mGid);
     }
 
-    /**
-     * Open an OutputStream for writing the per-gallery {@code .ehviewer} spider info file.
-     * Routes to SMB when the gallery is configured for SMB storage, otherwise writes to the
-     * local download directory.
-     */
+    /** Spider-info writer, routed to the active backend. */
     @Nullable
     public OutputStream openSpiderInfoOutputStream(String filename) {
         GallerySpiderStorage remote = remoteStorage();
@@ -285,20 +273,13 @@ public final class SpiderDen {
         }
     }
 
-    /**
-     * Open an InputStream for reading the per-gallery {@code .ehviewer} spider info file.
-     * Returns null if the file does not exist on the active storage backend.
-     */
+    /** Spider-info reader, routed; null when absent. */
     @Nullable
     public InputStream openSpiderInfoInputStream(String filename) {
         GallerySpiderStorage remote = remoteStorage();
         if (remote != null) {
-            // Never touch the remote backend from the main thread. GalleryActivity.onCreate calls
-            // getStartPage() -> readSpiderInfoFromLocal() on main; jcifs then dies mid-request with
-            // NetworkOnMainThreadException, which can leave the shared SMB transport with a
-            // dangling pending request — after which every SMB call from any thread blocks and the
-            // reader never shows a page. Returning null sends the caller to the spider-info cache,
-            // which is what the exception path degenerated to anyway, minus the poisoned transport.
+            // Main thread would die in jcifs mid-request and poison the shared transport; the
+            // null sends the caller to the spider-info cache, same as the exception path did.
             if (Looper.getMainLooper().getThread() == Thread.currentThread()) {
                 android.util.Log.w("SpiderDen", "skip remote spider-info read on main thread gid=" + mGid);
                 return null;
@@ -459,16 +440,8 @@ public final class SpiderDen {
     }
 
     /**
-     * Whether page {@code index} is available to this den, putting it where it belongs if it is
-     * somewhere else.
-     *
-     * <p>Reading only asks. Downloading also moves: a page already in hand must not be fetched from
-     * e-hentai a second time, whichever hand it is in. For a share-backed gallery there are two
-     * such hands, and until now neither was reachable — {@code copyFromCacheToDownloadDir} goes
-     * through {@code getDownloadDir()}, which returns null the moment a remote backend is active,
-     * so the bridge existed but could never fire. That is why reading a new gallery with
-     * auto-download on fetches the first pages twice: they land in the cache while the den is still
-     * in read mode, and the download that follows cannot see them there.
+     * Is page {@code index} available — and in download mode, a page already in hand (cache or
+     * phone) is bridged onto the backend rather than fetched from e-hentai again.
      */
     public boolean contain(int index) {
         if (mMode == SpiderQueen.MODE_READ) {
@@ -564,14 +537,10 @@ public final class SpiderDen {
     @Nullable
     public OutputStreamPipe openOutputStreamPipe(int index, @Nullable String extension) {
         if (mMode == SpiderQueen.MODE_READ) {
-            // In MODE_READ we must not write to the persistent SMB share: SmbDirectDownloader
-            // (running in MODE_DOWNLOAD on the same queen) owns SMB persistence end-to-end.
-            // Otherwise every viewed page would also kick off an SMB write, wasting bandwidth.
+            // Read mode never writes the share (or every viewed page would start an SMB write).
             if (remoteStorage() != null) {
                 return openCacheOutputStreamPipe(index);
             }
-            // Non-SMB mode: upstream gates writing to the download dir behind a setting,
-            // so browsing no longer downloads implicitly.
             if (shouldSyncDownloadWhileReading() && ensureDownloadDirExists()) {
                 OutputStreamPipe pipe = openDownloadOutputStreamPipe(index, extension);
                 if (pipe != null) {
@@ -605,14 +574,8 @@ public final class SpiderDen {
             if (pipe != null) {
                 return pipe;
             }
-            // Fall back to the cache, mirroring the copyFromCacheToDownloadDir bridge the
-            // phone-storage path below already has. Without this the remote branch is the
-            // only storage route with no cache fallback, and that gap is reachable from the
-            // reader: SpiderQueen is a per-gid singleton whose mode is shared, so when
-            // SmbDirectDownloader obtains the same queen in MODE_DOWNLOAD it flips the
-            // reader's den too. Every read then resolves to the share alone, and any page
-            // the download has not uploaded yet fails with error_reading_failed even though
-            // it is sitting in the cache.
+            // Cache fallback, like the phone path: a shared-mode queen flips the reader's den to
+            // download mode, and pages not yet uploaded are in the cache.
             return openCacheInputStreamPipe(index);
         }
         UniFile dir = getDownloadDir();
@@ -634,10 +597,7 @@ public final class SpiderDen {
 
     @Nullable
     private InputStreamPipe openDownloadInputStreamPipeReadOnly(int index) {
-        // Upstream added this read-only variant for "sync download while reading"; it must route
-        // through the remote backend like every other storage entry point, otherwise SMB galleries
-        // fall through to getDownloadDir() — which deliberately returns null when a remote backend
-        // is active — and every page read yields a null pipe.
+        // Must route like every other entry point, or SMB galleries read null pipes.
         GallerySpiderStorage remote = remoteStorage();
         if (remote != null) {
             return remote.openImageInputStreamPipe(index);

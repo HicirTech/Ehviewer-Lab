@@ -21,32 +21,14 @@ import java.util.concurrent.Future;
 import java.util.concurrent.ThreadPoolExecutor;
 
 /**
- * Measures what this share actually costs, at the settings this app is currently using.
- *
- * <p>The concurrency defaults were measured once, on one NAS over one WiFi link. Nothing about that
- * transfers to somebody else's setup, so rather than assert a number in a comment and hope, the
- * settings screen can ask the share directly.
- *
- * <p><b>It measures the configured values, it does not search for better ones.</b> A sweep would
- * have to run the whole thing several times over, and the two runs that matter — six and eight
- * against the NAS this was written on — differed by less than the run-to-run noise, so a sweep
- * would mostly report which run got lucky. Answering "how does my share behave the way I have set
- * it up" is a question with a stable answer, and changing a setting and asking again is a
- * comparison the user can trust.
- *
- * <p><b>Read-only.</b> It reads files the share already has and writes nothing, so it is safe on a
- * read-only mount and it cannot damage a collection. The cost is that it needs galleries to read:
- * an empty share can only be told that there is nothing to measure.
+ * Measures the share at the CONFIGURED settings (auto-tune is what searches). Read-only; needs
+ * galleries to read.
  */
 public final class SmbBenchmark {
 
     private static final String TAG = "SmbBenchmark";
 
-    /**
-     * Enough galleries for the concurrency to show, few enough that pressing the button is not an
-     * event. Below the metadata concurrency there is nothing to overlap and the figure would only
-     * measure one round trip.
-     */
+    // Enough to overlap at the configured concurrency, few enough to be instant.
     private static final int METADATA_SAMPLE = 12;
 
     /**
@@ -175,12 +157,7 @@ public final class SmbBenchmark {
         }
     }
 
-    /**
-     * Reads a handful of real page images, concurrently, counting bytes.
-     *
-     * <p>Takes them from whichever galleries have any rather than from one gallery, so a single
-     * unusually small or large book does not decide the answer.
-     */
+    /** Reads real pages concurrently, spread across galleries so one book cannot skew it. */
     @NonNull
     private static Images readImages(@NonNull List<SmbInventory.GalleryRef> refs, int concurrency) {
         List<Callable> jobs = new ArrayList<>();

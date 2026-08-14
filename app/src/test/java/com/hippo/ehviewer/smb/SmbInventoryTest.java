@@ -35,12 +35,7 @@ import java.util.Set;
 
 import jcifs.smb.SmbFile;
 
-/**
- * The share as a list (#97). What these pin is the gatekeeping and the ordering key, both of
- * which have bitten before: foreign folders used to be counted as galleries and inflated the
- * page count, and the sort key moved from mtime to createTime because persisting reading
- * progress bumped a folder to the top of "recently downloaded".
- */
+/** The share as a list (#97). */
 @RunWith(RobolectricTestRunner.class)
 @Config(application = android.app.Application.class,
         shadows = {SmbInventoryTest.ShadowSmbFile.class},
@@ -132,11 +127,7 @@ public class SmbInventoryTest {
                         .getBytes(StandardCharsets.UTF_8));
     }
 
-    /**
-     * Not every directory on the share is a gallery: {@code state/}, {@code download/} siblings
-     * and whatever else the NAS carries must not be counted — they inflate the page total and
-     * cost a wasted round trip each.
-     */
+    /** Not every directory on the share is a gallery: state/, download/ siblings and whatever else the NAS carries must not be counted — they inflate the pag */
     @Test
     public void foreignFoldersAreNotGalleries() {
         listings.put(rootPath, new String[]{"42-Answer/", "state/", "misc backups/"});

@@ -16,17 +16,8 @@ import java.io.InputStream;
 import java.io.OutputStream;
 
 /**
- * A storage backend for a single gallery's downloaded pages and spider-info file.
- *
- * <p>This is the seam {@link SpiderDen} routes through when a gallery is not stored on phone
- * storage. It exists so the "where do these bytes live" decision is a single extension point
- * rather than a {@code useSmbStorage()} branch sprinkled through every read/write method: today
- * the only implementation is SMB, but a future WebDAV/FTP backend would just be another
- * implementation selected in one place, with no further changes to {@code SpiderDen}.
- *
- * <p>All methods operate on the gallery the implementation was created for; index parameters are
- * zero-based page indices matching {@link SpiderDen#generateImageFilename}. Implementations do
- * blocking network/disk I/O and must be called from worker threads.
+ * Storage backend for one gallery's pages and spider info — the single extension point SpiderDen
+ * routes through. Blocking I/O; worker threads; zero-based page indices.
  */
 public interface GallerySpiderStorage {
 
