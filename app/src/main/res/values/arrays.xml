@@ -414,15 +414,4 @@
 
 
 
-    <!-- SMB concurrency. Values are what goes in Settings; the entries repeat them because a
-         number needs no translation and inventing words for "6" would only obscure it. 1 is
-         offered because "serial" is a real answer for a share that dislikes concurrency. -->
-    <string-array name="smb_concurrency_entries" translatable="false">
-        <item>1</item><item>2</item><item>4</item><item>6</item>
-        <item>8</item><item>12</item><item>16</item>
-    </string-array>
-    <string-array name="smb_concurrency_values" translatable="false">
-        <item>1</item><item>2</item><item>4</item><item>6</item>
-        <item>8</item><item>12</item><item>16</item>
-    </string-array>
 </resources>

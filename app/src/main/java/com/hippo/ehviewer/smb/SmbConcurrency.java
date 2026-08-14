@@ -36,9 +36,15 @@ public final class SmbConcurrency {
     /**
      * Reading small files: {@code metadata.json} for the inventory.
      *
-     * <p>Six. Measured on a real NAS over WiFi, twelve galleries, median of four runs: serial
-     * 612 ms, two 409 ms, four 245 ms, six 171 ms, eight 166 ms. Six and eight are the same answer
-     * inside the noise, so the curve is flat by six and going higher only opens more sockets.
+     * <p>Six is a conservative default, not a measured optimum — the optimum depends on the
+     * library. On twelve galleries the curve flattens by six, but that is the sample running out,
+     * not the share: on a hundred and forty galleries the same share kept scaling almost linearly
+     * to sixteen and beyond (serial 6.1 s, six 1.4 s, sixteen 0.48 s). The per-operation cost is
+     * the round trip (~44 ms on WiFi against a NAS that answers wired clients in ~8 ms), which is
+     * why more workers keep helping for as long as there is work to hand them.
+     *
+     * <p>The settings screen's auto-tune measures the actual share and applies what it finds;
+     * this constant only matters until somebody runs it.
      */
     public static final int DEFAULT_METADATA = 6;
 
@@ -54,11 +60,15 @@ public final class SmbConcurrency {
 
     /**
      * One is meaningful — it means "serial", and it is the right answer for a share that misbehaves
-     * under concurrency. The ceiling is there because past a point the threads are only queueing
-     * against each other and a runaway value would be a way to make the app worse by hand.
+     * under concurrency. The ceiling exists so a runaway stored value cannot queue unbounded work;
+     * it has been raised twice by measurements, sixteen to sixty-four and then to a hundred and
+     * twenty-eight, because each time the auto-tune's winner landed exactly on the lid — and a
+     * winner on the lid is a censored answer, not an optimum. Workers here are not sockets:
+     * jcifs-ng multiplexes requests over its pooled transport under SMB2 credits, which is why a
+     * hundred-odd outstanding reads of tiny files keep paying on a ~44 ms round-trip link.
      */
     public static final int MIN = 1;
-    public static final int MAX = 16;
+    public static final int MAX = 128;
 
     private SmbConcurrency() {}
 
