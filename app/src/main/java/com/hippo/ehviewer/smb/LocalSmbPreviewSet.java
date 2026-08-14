@@ -49,10 +49,10 @@ public class LocalSmbPreviewSet extends PreviewSet {
 
     @Override
     public void load(LoadImageView view, long gid, int index) {
-        // Kick off a parallel SMB → local-cache prefetch the first time any cell in this
+        // Kick off a parallel SMB → memory-buffer prefetch the first time any cell in this
         // gallery's preview grid asks to render. Conaco's per-cell loads still happen on
-        // its serial disk thread, but each one becomes a fast local file read instead of
-        // a sequential SMB round-trip.
+        // its serial disk thread, but each one becomes a buffer read instead of a
+        // sequential SMB round-trip.
         SmbPreviewCache.prefetchGallery(mGid, mTitle, mCount);
         view.resetClip();
         view.load(previewKey(gid, index), previewUrl(gid, index),

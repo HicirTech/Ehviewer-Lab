@@ -5,16 +5,12 @@ import androidx.annotation.Nullable;
 import com.hippo.conaco.DataContainer;
 import com.hippo.conaco.ProgressNotifier;
 import com.hippo.ehviewer.storage.NetworkStorage;
-import com.hippo.lib.yorozuya.IOUtils;
 import com.hippo.streampipe.InputStreamPipe;
 
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.IOException;
 import java.io.InputStream;
 
 /**
- * Conaco container for one on-share page: prefers the SmbPreviewCache local copy, falls back to
+ * Conaco container for one on-share page: prefers the in-memory preview buffer, falls back to
  * the share. Holds gid+title only (parcel cycle).
  */
 public class SmbImageDataContainer implements DataContainer {
@@ -48,29 +44,9 @@ public class SmbImageDataContainer implements DataContainer {
     @Nullable
     @Override
     public InputStreamPipe get() {
-        File cached = SmbPreviewCache.cacheFileFor(mGid, mIndex);
-        if (cached.isFile() && cached.length() > 0) {
-            return new InputStreamPipe() {
-                private FileInputStream fis;
-
-                @Override public void obtain() {}
-                @Override public void release() {}
-
-                @Override
-                public InputStream open() throws IOException {
-                    if (fis != null) {
-                        throw new IllegalStateException("Please close it first");
-                    }
-                    fis = new FileInputStream(cached);
-                    return fis;
-                }
-
-                @Override
-                public void close() {
-                    IOUtils.closeQuietly(fis);
-                    fis = null;
-                }
-            };
+        InputStreamPipe buffered = SmbPreviewCache.pipeFor(mGid, mIndex);
+        if (buffered != null) {
+            return buffered;
         }
         // Fallback: prefetch hasn't reached this page yet, fetch from SMB on this thread.
         return NetworkStorage.active().files().openImageInputStreamPipe(NetworkStorage.lookupKey(mGid, mTitle), mIndex);
