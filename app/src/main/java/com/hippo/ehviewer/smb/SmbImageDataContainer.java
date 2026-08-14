@@ -4,6 +4,7 @@ import androidx.annotation.Nullable;
 
 import com.hippo.conaco.DataContainer;
 import com.hippo.conaco.ProgressNotifier;
+import com.hippo.ehviewer.storage.NetworkStorage;
 import com.hippo.lib.yorozuya.IOUtils;
 import com.hippo.streampipe.InputStreamPipe;
 
@@ -30,7 +31,7 @@ public class SmbImageDataContainer implements DataContainer {
 
     @Override
     public boolean isEnabled() {
-        return SmbConnection.isConfigured();
+        return NetworkStorage.active().isConfigured();
     }
 
     @Override
@@ -72,7 +73,7 @@ public class SmbImageDataContainer implements DataContainer {
             };
         }
         // Fallback: prefetch hasn't reached this page yet, fetch from SMB on this thread.
-        return SmbGalleryFiles.openSmbInputStreamPipe(SmbGalleryDirectory.lookupKey(mGid, mTitle), mIndex);
+        return NetworkStorage.active().files().openImageInputStreamPipe(NetworkStorage.lookupKey(mGid, mTitle), mIndex);
     }
 
     @Override

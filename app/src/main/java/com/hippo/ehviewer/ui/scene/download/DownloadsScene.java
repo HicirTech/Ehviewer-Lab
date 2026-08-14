@@ -16,6 +16,7 @@
 
 package com.hippo.ehviewer.ui.scene.download;
 
+import com.hippo.ehviewer.storage.NetworkStorage;
 import static com.hippo.ehviewer.spider.SpiderDen.getExistingGalleryDownloadDir;
 import static com.hippo.ehviewer.spider.SpiderDen.getGalleryDownloadDir;
 import static com.hippo.ehviewer.spider.SpiderInfo.getSpiderInfo;
@@ -83,7 +84,6 @@ import com.hippo.ehviewer.EhApplication;
 import com.hippo.ehviewer.EhDB;
 import com.hippo.ehviewer.R;
 import com.hippo.ehviewer.Settings;
-import com.hippo.ehviewer.smb.SmbConnection;
 import com.hippo.ehviewer.smb.SmbTaskInfo;
 import com.hippo.ehviewer.callBack.DownloadSearchCallback;
 import com.hippo.ehviewer.client.EhConfig;
@@ -1254,7 +1254,7 @@ public class DownloadsScene extends ToolbarScene
                         break;
                     }
                     List<DownloadLabel> labelRawList = EhApplication.getDownloadManager(context).getLabelList();
-                    boolean smbAvailable = Settings.getSmbSaveEnabled() && SmbConnection.isConfigured();
+                    boolean smbAvailable = Settings.getSmbSaveEnabled() && NetworkStorage.active().isConfigured();
                     List<String> labelList = new ArrayList<>(labelRawList.size() + 2);
                     if (smbAvailable) {
                         labelList.add(getString(R.string.download_move_to_smb));

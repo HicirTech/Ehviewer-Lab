@@ -9,6 +9,7 @@ import androidx.annotation.NonNull;
 import com.hippo.ehviewer.R;
 import com.hippo.ehviewer.Settings;
 import com.hippo.ehviewer.client.data.GalleryInfo;
+import com.hippo.ehviewer.storage.NetworkStorage;
 import com.hippo.lib.yorozuya.SimpleHandler;
 import com.hippo.util.IoThreadPoolExecutor;
 
@@ -31,7 +32,7 @@ public final class SmbAutoDownloadManager {
     /** Called from the reader on first page open. Auto-download must be explicitly enabled. */
     public void enqueueFromFirstPage(@NonNull Context context, @NonNull GalleryInfo galleryInfo) {
         if (!Settings.getSmbSaveEnabled() || !Settings.getSmbAutoDownloadEnabled()
-                || !SmbConnection.isConfigured()) {
+                || !NetworkStorage.active().isConfigured()) {
             return;
         }
         enqueueInternal(context, galleryInfo);
@@ -39,7 +40,7 @@ public final class SmbAutoDownloadManager {
 
     /** Called from the detail screen "Save to SMB" choice. Bypasses the auto-download toggle. */
     public void enqueueManual(@NonNull Context context, @NonNull GalleryInfo galleryInfo) {
-        if (!Settings.getSmbSaveEnabled() || !SmbConnection.isConfigured()) {
+        if (!Settings.getSmbSaveEnabled() || !NetworkStorage.active().isConfigured()) {
             Toast.makeText(context.getApplicationContext(),
                     R.string.smb_save_not_configured, Toast.LENGTH_SHORT).show();
             return;
@@ -52,7 +53,7 @@ public final class SmbAutoDownloadManager {
 
         IoThreadPoolExecutor.Companion.getInstance().execute(() -> {
             try {
-                if (SmbGalleryLifecycle.isGalleryComplete(galleryInfo)) {
+                if (NetworkStorage.active().lifecycle().isGalleryComplete(galleryInfo)) {
                     toast(appContext, appContext.getString(R.string.smb_save_already_complete));
                     return;
                 }
@@ -64,7 +65,7 @@ public final class SmbAutoDownloadManager {
                     return;
                 }
                 try {
-                    SmbMetadata.writeMetadataSkeleton(galleryInfo);
+                    NetworkStorage.active().metadata().writeMetadataSkeleton(galleryInfo);
                 } catch (Throwable e) {
                     Log.w(TAG, "Failed to write skeleton metadata gid=" + galleryInfo.gid, e);
                 }

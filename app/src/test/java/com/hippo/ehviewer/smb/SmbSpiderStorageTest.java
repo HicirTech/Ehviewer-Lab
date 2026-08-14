@@ -1,5 +1,6 @@
 package com.hippo.ehviewer.smb;
 
+import com.hippo.ehviewer.storage.GalleryTargets;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 
@@ -27,7 +28,7 @@ public class SmbSpiderStorageTest {
 
     @After
     public void tearDown() {
-        SmbSpiderStorage.unmarkGidAsSmbTarget(GID);
+        GalleryTargets.unmark(GID);
     }
 
     /**
@@ -41,7 +42,7 @@ public class SmbSpiderStorageTest {
 
     @Test
     public void markedGalleryResolvesToABackend() {
-        SmbSpiderStorage.markGidAsSmbTarget(GID);
+        GalleryTargets.mark(GID);
 
         assertNotNull(SmbSpiderStorage.createIfTarget(info(), GID));
     }
@@ -52,15 +53,15 @@ public class SmbSpiderStorageTest {
      */
     @Test
     public void unmarkingRemovesTheBackendAgain() {
-        SmbSpiderStorage.markGidAsSmbTarget(GID);
-        SmbSpiderStorage.unmarkGidAsSmbTarget(GID);
+        GalleryTargets.mark(GID);
+        GalleryTargets.unmark(GID);
 
         assertNull(SmbSpiderStorage.createIfTarget(info(), GID));
     }
 
     @Test
     public void theMarkIsPerGallery() {
-        SmbSpiderStorage.markGidAsSmbTarget(GID);
+        GalleryTargets.mark(GID);
 
         GalleryInfo other = new GalleryInfo();
         other.gid = GID + 1;

@@ -1,5 +1,6 @@
 package com.hippo.ehviewer.smb;
 
+import com.hippo.ehviewer.storage.DownloadState;
 import android.util.Log;
 
 import androidx.annotation.NonNull;
@@ -95,7 +96,7 @@ final class SmbHeartbeat {
         long before = lastPublishedAtMillis;
         publishOnce();
         boolean wasAway = before > 0L
-                && System.currentTimeMillis() - before >= SmbDownloadStateStore.STALE_AFTER_MS;
+                && System.currentTimeMillis() - before >= DownloadState.STALE_AFTER_MS;
         if (wasAway) {
             Log.i(TAG, "Out of touch with the share for "
                     + (System.currentTimeMillis() - before) + "ms; re-reading the queue");

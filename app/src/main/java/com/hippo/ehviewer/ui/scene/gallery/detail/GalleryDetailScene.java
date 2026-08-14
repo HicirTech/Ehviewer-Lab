@@ -87,6 +87,7 @@ import com.hippo.ehviewer.client.parser.RateGalleryParser;
 import com.hippo.ehviewer.dao.DownloadInfo;
 import com.hippo.ehviewer.dao.Filter;
 import com.hippo.ehviewer.spider.SpiderQueen;
+import com.hippo.ehviewer.storage.NetworkStorage;
 import com.hippo.ehviewer.ui.CommonOperations;
 import com.hippo.ehviewer.ui.GalleryActivity;
 import com.hippo.ehviewer.ui.MainActivity;
@@ -105,7 +106,6 @@ import com.hippo.ehviewer.ui.scene.gallery.list.GalleryListSceneDialog;
 import com.hippo.ehviewer.ui.scene.history.HistoryScene;
 import com.hippo.ehviewer.smb.SmbAutoDownloadManager;
 import com.hippo.ehviewer.smb.SmbPreviewCache;
-import com.hippo.ehviewer.smb.SmbConnection;
 import com.hippo.ehviewer.util.ClipboardUtil;
 import com.hippo.ehviewer.widget.ArchiverDownloadProgress;
 import com.hippo.ehviewer.widget.GalleryRatingBar;
@@ -1748,7 +1748,7 @@ public class GalleryDetailScene extends BaseScene implements View.OnClickListene
                 // auto-download toggle only governs the implicit reader-triggered enqueue,
                 // not this explicit click. (Previously this also required auto-download
                 // OFF, which silently routed everything to phone when auto was on.)
-                if (Settings.getSmbSaveEnabled() && SmbConnection.isConfigured()) {
+                if (Settings.getSmbSaveEnabled() && NetworkStorage.active().isConfigured()) {
                     promptDownloadTarget(galleryInfo);
                 } else {
                     CommonOperations.startDownload(activity, galleryInfo, false);

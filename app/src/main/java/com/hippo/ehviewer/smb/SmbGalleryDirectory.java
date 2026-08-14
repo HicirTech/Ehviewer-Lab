@@ -26,15 +26,6 @@ public final class SmbGalleryDirectory {
 
     private SmbGalleryDirectory() {}
 
-    /** A minimal GalleryInfo (gid + title), enough to name the folder. */
-    @NonNull
-    public static GalleryInfo lookupKey(long gid, @Nullable String title) {
-        GalleryInfo info = new GalleryInfo();
-        info.gid = gid;
-        info.title = title;
-        return info;
-    }
-
     /** The gallery's folder, created if missing. Writers only. */
     @NonNull
     static SmbFile getGalleryDir(@NonNull GalleryInfo info) throws IOException {

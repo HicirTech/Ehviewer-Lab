@@ -13,10 +13,10 @@ import com.hippo.ehviewer.EhApplication;
 import com.hippo.ehviewer.R;
 import com.hippo.ehviewer.client.data.GalleryInfo;
 import com.hippo.ehviewer.smb.SmbCoverPrefetch;
-import com.hippo.ehviewer.smb.SmbInventory;
-import com.hippo.ehviewer.smb.SmbPaths;
-import com.hippo.ehviewer.smb.SmbSortMode;
 
+import com.hippo.ehviewer.storage.GalleryRef;
+import com.hippo.ehviewer.storage.NetworkStorage;
+import com.hippo.ehviewer.storage.SortMode;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -57,10 +57,10 @@ final class InventoryPager {
      * (metadata read lazily per page) and holds every record for sorts that had to read them all.
      */
     private static final class Ordering {
-        @NonNull final List<SmbInventory.GalleryRef> refs;
+        @NonNull final List<GalleryRef> refs;
         @Nullable final Map<String, GalleryInfo> infos;
 
-        Ordering(@NonNull List<SmbInventory.GalleryRef> refs,
+        Ordering(@NonNull List<GalleryRef> refs,
                  @Nullable Map<String, GalleryInfo> infos) {
             this.refs = refs;
             this.infos = infos;
@@ -76,7 +76,7 @@ final class InventoryPager {
      * rebuilding the global context, so the read runs on a throwaway thread and is abandoned.
      */
     @NonNull
-    Page loadPageBounded(@NonNull SmbSortMode mode, int page, boolean rebuild) throws Exception {
+    Page loadPageBounded(@NonNull SortMode mode, int page, boolean rebuild) throws Exception {
         ExecutorService pool = Executors.newSingleThreadExecutor(r -> {
             Thread t = new Thread(r, "smb-inventory-page");
             t.setDaemon(true);
@@ -95,23 +95,23 @@ final class InventoryPager {
     }
 
     @NonNull
-    Page loadPage(@NonNull SmbSortMode mode, int page, boolean rebuild) {
+    Page loadPage(@NonNull SortMode mode, int page, boolean rebuild) {
         Ordering ordering = mOrdering;
         if (rebuild || ordering == null) {
             ordering = buildOrdering(mode);
             mOrdering = ordering;
         }
-        List<SmbInventory.GalleryRef> refs = ordering.refs;
+        List<GalleryRef> refs = ordering.refs;
         int total = refs.size();
         int pages = Math.max(1, (total + PAGE_SIZE - 1) / PAGE_SIZE);
         List<GalleryInfo> data = new ArrayList<>();
         int from = page * PAGE_SIZE;
         int to = Math.min(from + PAGE_SIZE, total);
         for (int i = from; i < to; i++) {
-            SmbInventory.GalleryRef ref = refs.get(i);
+            GalleryRef ref = refs.get(i);
             GalleryInfo gi = ordering.infos != null
                     ? ordering.infos.get(ref.folderName)
-                    : SmbInventory.readGalleryInfo(ref);
+                    : NetworkStorage.active().inventory().readGalleryInfo(ref);
             if (gi != null) {
                 data.add(gi);
             }
@@ -122,20 +122,20 @@ final class InventoryPager {
     }
 
     @NonNull
-    private Ordering buildOrdering(@NonNull SmbSortMode mode) {
-        if (mode == SmbSortMode.DOWNLOAD_DATE_DESC) {
+    private Ordering buildOrdering(@NonNull SortMode mode) {
+        if (mode == SortMode.DOWNLOAD_DATE_DESC) {
             // Ordered by the mtime the listing already carries; no metadata read until a page needs it.
-            List<SmbInventory.GalleryRef> refs = SmbInventory.listGalleryRefs();
+            List<GalleryRef> refs = NetworkStorage.active().inventory().listGalleryRefs();
             Collections.sort(refs, (a, b) -> Long.compare(b.folderMtime, a.folderMtime));
             return new Ordering(refs, null);
         }
         // Other sorts need metadata fields, so the whole share is read and cached for the pages.
-        List<GalleryInfo> loaded = SmbInventory.loadInventory(mode);
-        List<SmbInventory.GalleryRef> refs = new ArrayList<>(loaded.size());
+        List<GalleryInfo> loaded = NetworkStorage.active().inventory().loadInventory(mode);
+        List<GalleryRef> refs = new ArrayList<>(loaded.size());
         Map<String, GalleryInfo> infos = new HashMap<>();
         for (GalleryInfo gi : loaded) {
-            String folderName = SmbPaths.buildGalleryFolderName(gi);
-            refs.add(new SmbInventory.GalleryRef(folderName, 0L));
+            String folderName = NetworkStorage.active().galleryFolderName(gi);
+            refs.add(new GalleryRef(folderName, 0L));
             infos.put(folderName, gi);
         }
         return new Ordering(refs, infos);
@@ -147,12 +147,12 @@ final class InventoryPager {
         if (current == null) {
             return;
         }
-        List<SmbInventory.GalleryRef> refs = new ArrayList<>(current.refs.size());
+        List<GalleryRef> refs = new ArrayList<>(current.refs.size());
         boolean found = false;
-        for (SmbInventory.GalleryRef ref : current.refs) {
+        for (GalleryRef ref : current.refs) {
             if (!found && ref.folderName.equals(from)) {
                 found = true;
-                refs.add(new SmbInventory.GalleryRef(to, ref.folderMtime));
+                refs.add(new GalleryRef(to, ref.folderMtime));
             } else {
                 refs.add(ref);
             }
@@ -177,9 +177,9 @@ final class InventoryPager {
         if (current == null) {
             return;
         }
-        List<SmbInventory.GalleryRef> refs = new ArrayList<>(current.refs.size());
+        List<GalleryRef> refs = new ArrayList<>(current.refs.size());
         boolean removed = false;
-        for (SmbInventory.GalleryRef ref : current.refs) {
+        for (GalleryRef ref : current.refs) {
             if (!removed && ref.folderName.equals(folderName)) {
                 removed = true;
                 continue;

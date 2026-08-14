@@ -4,9 +4,10 @@ import android.util.Log;
 
 import androidx.annotation.NonNull;
 
-import com.hippo.ehviewer.smb.SmbDownloadState.ClientState;
-import com.hippo.ehviewer.smb.SmbDownloadState.Published;
 
+import com.hippo.ehviewer.storage.DownloadState;
+import com.hippo.ehviewer.storage.DownloadState.ClientState;
+import com.hippo.ehviewer.storage.DownloadState.Published;
 import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -24,11 +25,9 @@ import jcifs.smb.SmbFile;
  */
 public final class SmbDownloadStateStore {
 
-    private static final String TAG = "SmbDownloadState";
+    private static final String TAG = "DownloadState";
     private static final String SUFFIX = ".json";
 
-    /** Silent this long = orphaned. Several missed 20s beats, so a WiFi blip does not orphan. */
-    public static final long STALE_AFTER_MS = 90_000L;
 
     // Retrying readers' open handles; measured through in ~2s. Giving up is fine: next beat retries.
     private static final long WRITE_DEADLINE_MS = 8_000L;
@@ -79,7 +78,7 @@ public final class SmbDownloadStateStore {
                 try {
                     long mtime = child.lastModified();
                     String json = readAll(child);
-                    ClientState state = SmbDownloadState.parse(json);
+                    ClientState state = DownloadState.parse(json);
                     if (state == null) {
                         Log.w(TAG, "Ignoring unreadable client state: " + name);
                         continue;
@@ -120,7 +119,7 @@ public final class SmbDownloadStateStore {
         // for it — an earlier draft had one and mutation testing showed it changed nothing — but
         // the behaviour is deliberate and a test holds it, so anything "tidied" into an absolute
         // difference here will fail.
-        return nowMillis - mtimeMillis < STALE_AFTER_MS;
+        return nowMillis - mtimeMillis < DownloadState.STALE_AFTER_MS;
     }
 
     // ------------------------------------------------------------------ write
@@ -135,7 +134,7 @@ public final class SmbDownloadStateStore {
             if (!dir.exists()) {
                 dir.mkdirs();
             }
-            return writeTo(dir, state.clientId, SmbDownloadState.serialize(state));
+            return writeTo(dir, state.clientId, DownloadState.serialize(state));
         } catch (Throwable e) {
             Log.e(TAG, "Failed to publish client state", e);
             return false;
@@ -195,15 +194,15 @@ public final class SmbDownloadStateStore {
             if (!file.exists()) {
                 return true;
             }
-            ClientState state = SmbDownloadState.parse(readAll(file));
+            ClientState state = DownloadState.parse(readAll(file));
             if (state == null || !state.isReadable()) {
                 // Unreadable, or written by a build that knows more than this one. Rewriting it
                 // from what we managed to understand would throw away whatever we did not.
                 Log.w(TAG, "Not editing a state file this build cannot read: " + ownerClientId);
                 return false;
             }
-            List<SmbDownloadState.Task> kept = new ArrayList<>(state.tasks.size());
-            for (SmbDownloadState.Task t : state.tasks) {
+            List<DownloadState.Task> kept = new ArrayList<>(state.tasks.size());
+            for (DownloadState.Task t : state.tasks) {
                 if (t.gid != gid) {
                     kept.add(t);
                 }
@@ -211,7 +210,7 @@ public final class SmbDownloadStateStore {
             if (kept.size() == state.tasks.size()) {
                 return true;   // already gone
             }
-            return writeTo(dir, ownerClientId, SmbDownloadState.serialize(
+            return writeTo(dir, ownerClientId, DownloadState.serialize(
                     new ClientState(state.schemaVersion, state.clientId, state.deviceName, kept)));
         } catch (Throwable e) {
             Log.w(TAG, "Could not remove gid=" + gid + " from " + ownerClientId, e);

@@ -1,15 +1,16 @@
-package com.hippo.ehviewer.smb;
+package com.hippo.ehviewer.storage;
 
+import com.hippo.ehviewer.storage.DownloadState.ClientState;
+import com.hippo.ehviewer.storage.DownloadState.OwnedTask;
+import com.hippo.ehviewer.storage.DownloadState.Published;
+import com.hippo.ehviewer.storage.DownloadState.Task;
+import com.hippo.ehviewer.storage.DownloadState;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
-import com.hippo.ehviewer.smb.SmbDownloadState.ClientState;
-import com.hippo.ehviewer.smb.SmbDownloadState.OwnedTask;
-import com.hippo.ehviewer.smb.SmbDownloadState.Published;
-import com.hippo.ehviewer.smb.SmbDownloadState.Task;
 
 import org.junit.Test;
 
@@ -18,7 +19,7 @@ import java.util.Collections;
 import java.util.List;
 
 /** The rules by which several devices' published download state becomes one list (#59). */
-public class SmbDownloadStateTest {
+public class DownloadStateTest {
 
     private static final String ME = "client-me";
     private static final String OTHER = "client-other";
@@ -59,7 +60,7 @@ public class SmbDownloadStateTest {
 
     @Test
     public void merge_combinesDistinctGalleriesFromEveryClient() {
-        List<OwnedTask> merged = SmbDownloadState.merge(Arrays.asList(
+        List<OwnedTask> merged = DownloadState.merge(Arrays.asList(
                 published(ME, true, task(1, 100)),
                 published(OTHER, true, task(2, 100))));
 
@@ -71,7 +72,7 @@ public class SmbDownloadStateTest {
     /** The state a takeover leaves behind, and the rule that makes takeover safe at all. */
     @Test
     public void merge_aLiveClaimBeatsADeadOneWhateverTheTimestampsSay() {
-        List<OwnedTask> merged = SmbDownloadState.merge(Arrays.asList(
+        List<OwnedTask> merged = DownloadState.merge(Arrays.asList(
                 published(OTHER, false, task(7, 9_000_000L)),
                 published(ME, true, task(7, 1L))));
 
@@ -82,7 +83,7 @@ public class SmbDownloadStateTest {
     /** Only once liveness cannot separate two claims does the timestamp decide. */
     @Test
     public void merge_betweenTwoLiveClaimsTheLaterOneWins() {
-        List<OwnedTask> merged = SmbDownloadState.merge(Arrays.asList(
+        List<OwnedTask> merged = DownloadState.merge(Arrays.asList(
                 published(OTHER, true, task(7, 500)),
                 published(ME, true, task(7, 900))));
 
@@ -93,10 +94,10 @@ public class SmbDownloadStateTest {
     @Test
     public void merge_skipsFilesWithAnUnknownSchema() {
         ClientState future = new ClientState(
-                SmbDownloadState.SCHEMA_VERSION + 1, OTHER, "future",
+                DownloadState.SCHEMA_VERSION + 1, OTHER, "future",
                 Collections.singletonList(task(7, 900)));
 
-        List<OwnedTask> merged = SmbDownloadState.merge(Arrays.asList(
+        List<OwnedTask> merged = DownloadState.merge(Arrays.asList(
                 new Published(future, true, 0L),
                 published(ME, true, task(7, 100))));
 
@@ -106,7 +107,7 @@ public class SmbDownloadStateTest {
 
     @Test
     public void merge_ofNothingIsEmpty() {
-        assertTrue(SmbDownloadState.merge(Collections.<Published>emptyList()).isEmpty());
+        assertTrue(DownloadState.merge(Collections.<Published>emptyList()).isEmpty());
     }
 
     // --- display order ---------------------------------------------------------------------------
@@ -114,7 +115,7 @@ public class SmbDownloadStateTest {
     /** One gallery per device first — the one that device is actually downloading — then everything queued behind, oldest claim first. */
     @Test
     public void order_whatEachDeviceIsOnComesFirst() {
-        List<OwnedTask> merged = SmbDownloadState.merge(Arrays.asList(
+        List<OwnedTask> merged = DownloadState.merge(Arrays.asList(
                 published("a", "Alpha", true, task(1, 1000), task(2, 3000)),
                 published("b", "Bravo", true, task(3, 2000), task(4, 4000))));
 
@@ -126,7 +127,7 @@ public class SmbDownloadStateTest {
     /** Heads sort by device name, so a heartbeat landing never reshuffles rows under a reader. */
     @Test
     public void order_headsSortByDeviceNameNotByClaimTime() {
-        List<OwnedTask> merged = SmbDownloadState.merge(Arrays.asList(
+        List<OwnedTask> merged = DownloadState.merge(Arrays.asList(
                 published("z", "Alpha", true, task(1, 5000)),
                 published("m", "Bravo", true, task(2, 1000)),
                 published("a", "Charlie", true, task(3, 9000))));
@@ -144,11 +145,11 @@ public class SmbDownloadStateTest {
     @Test
     public void selfClean_dropsWhatALiveClientHasSinceClaimed() {
         ClientState self = new ClientState(ME, "me", Arrays.asList(task(1, 100), task(2, 100)));
-        List<OwnedTask> merged = SmbDownloadState.merge(Arrays.asList(
+        List<OwnedTask> merged = DownloadState.merge(Arrays.asList(
                 new Published(self, true, 0L),
                 published(OTHER, true, task(2, 900))));
 
-        List<Task> kept = SmbDownloadState.withoutTakenOver(self, merged);
+        List<Task> kept = DownloadState.withoutTakenOver(self, merged);
 
         assertEquals(1, kept.size());
         assertEquals("gallery 2 was taken over and should be gone", 1, kept.get(0).gid);
@@ -158,41 +159,41 @@ public class SmbDownloadStateTest {
     @Test
     public void selfClean_keepsWhatAnotherClientClaimedEarlier() {
         ClientState self = new ClientState(ME, "me", Collections.singletonList(task(2, 900)));
-        List<OwnedTask> merged = SmbDownloadState.merge(Arrays.asList(
+        List<OwnedTask> merged = DownloadState.merge(Arrays.asList(
                 new Published(self, true, 0L),
                 published(OTHER, true, task(2, 100))));
 
-        assertEquals(1, SmbDownloadState.withoutTakenOver(self, merged).size());
+        assertEquals(1, DownloadState.withoutTakenOver(self, merged).size());
     }
 
     /** And a dead client's claim takes nothing from us, however new it looks. */
     @Test
     public void selfClean_keepsWhatOnlyADeadClientClaims() {
         ClientState self = new ClientState(ME, "me", Collections.singletonList(task(2, 100)));
-        List<OwnedTask> merged = SmbDownloadState.merge(Arrays.asList(
+        List<OwnedTask> merged = DownloadState.merge(Arrays.asList(
                 new Published(self, true, 0L),
                 published(OTHER, false, task(2, 900))));
 
-        assertEquals(1, SmbDownloadState.withoutTakenOver(self, merged).size());
+        assertEquals(1, DownloadState.withoutTakenOver(self, merged).size());
     }
 
     // --- not downloading the same gallery twice ---------------------------------------------------
 
     @Test
     public void claimed_byAnotherLiveClientBlocksEnqueue() {
-        List<OwnedTask> merged = SmbDownloadState.merge(Collections.singletonList(
+        List<OwnedTask> merged = DownloadState.merge(Collections.singletonList(
                 published(OTHER, true, task(5, 100))));
 
-        assertTrue(SmbDownloadState.isClaimedByAnotherLiveClient(merged, 5, ME));
+        assertTrue(DownloadState.isClaimedByAnotherLiveClient(merged, 5, ME));
     }
 
     /** Our own claim is not something to block ourselves on. */
     @Test
     public void claimed_ownTasksDoNotBlock() {
-        List<OwnedTask> merged = SmbDownloadState.merge(Collections.singletonList(
+        List<OwnedTask> merged = DownloadState.merge(Collections.singletonList(
                 published(ME, true, task(5, 100))));
 
-        assertFalse(SmbDownloadState.isClaimedByAnotherLiveClient(merged, 5, ME));
+        assertFalse(DownloadState.isClaimedByAnotherLiveClient(merged, 5, ME));
     }
 
     /**
@@ -201,16 +202,16 @@ public class SmbDownloadStateTest {
      */
     @Test
     public void claimed_anOrphanDoesNotBlock() {
-        List<OwnedTask> merged = SmbDownloadState.merge(Collections.singletonList(
+        List<OwnedTask> merged = DownloadState.merge(Collections.singletonList(
                 published(OTHER, false, task(5, 100))));
 
-        assertFalse(SmbDownloadState.isClaimedByAnotherLiveClient(merged, 5, ME));
+        assertFalse(DownloadState.isClaimedByAnotherLiveClient(merged, 5, ME));
     }
 
     @Test
     public void claimed_saysNothingAboutAGalleryNobodyHas() {
-        assertFalse(SmbDownloadState.isClaimedByAnotherLiveClient(
-                SmbDownloadState.merge(Collections.<Published>emptyList()), 5, ME));
+        assertFalse(DownloadState.isClaimedByAnotherLiveClient(
+                DownloadState.merge(Collections.<Published>emptyList()), 5, ME));
     }
 
     // --- who may do what --------------------------------------------------------------------------
@@ -221,9 +222,9 @@ public class SmbDownloadStateTest {
      */
     @Test
     public void actionable_ownTasksOnly() {
-        OwnedTask mine = find(SmbDownloadState.merge(Collections.singletonList(
+        OwnedTask mine = find(DownloadState.merge(Collections.singletonList(
                 published(ME, true, task(1, 100)))), 1);
-        OwnedTask theirs = find(SmbDownloadState.merge(Collections.singletonList(
+        OwnedTask theirs = find(DownloadState.merge(Collections.singletonList(
                 published(OTHER, true, task(2, 100)))), 2);
 
         assertTrue(mine.isActionableBy(ME));
@@ -233,11 +234,11 @@ public class SmbDownloadStateTest {
     /** An orphan is adopted, not operated on — and only an orphan, and never one's own. */
     @Test
     public void takeOver_onlySomebodyElsesAbandonedWork() {
-        OwnedTask orphan = find(SmbDownloadState.merge(Collections.singletonList(
+        OwnedTask orphan = find(DownloadState.merge(Collections.singletonList(
                 published(OTHER, false, task(1, 100)))), 1);
-        OwnedTask live = find(SmbDownloadState.merge(Collections.singletonList(
+        OwnedTask live = find(DownloadState.merge(Collections.singletonList(
                 published(OTHER, true, task(2, 100)))), 2);
-        OwnedTask ownAndQuiet = find(SmbDownloadState.merge(Collections.singletonList(
+        OwnedTask ownAndQuiet = find(DownloadState.merge(Collections.singletonList(
                 published(ME, false, task(3, 100)))), 3);
 
         assertTrue(orphan.isTakeOverableBy(ME));
@@ -254,7 +255,7 @@ public class SmbDownloadStateTest {
         ClientState written = new ClientState(ME, "Study phone", Collections.singletonList(
                 new Task(7, "tok7", "a title", 12, 36, 1700L, OTHER)));
 
-        ClientState read = SmbDownloadState.parse(SmbDownloadState.serialize(written));
+        ClientState read = DownloadState.parse(DownloadState.serialize(written));
 
         assertNotNull(read);
         assertEquals(ME, read.clientId);
@@ -273,10 +274,10 @@ public class SmbDownloadStateTest {
     /** One corrupt or half-written file must not take the whole list down with it. */
     @Test
     public void parse_returnsNullRatherThanThrowing() {
-        assertNull(SmbDownloadState.parse(null));
-        assertNull(SmbDownloadState.parse(""));
-        assertNull(SmbDownloadState.parse("not json at all"));
-        assertNull(SmbDownloadState.parse("{\"tasks\":[]}"));   // no clientId: not usable
+        assertNull(DownloadState.parse(null));
+        assertNull(DownloadState.parse(""));
+        assertNull(DownloadState.parse("not json at all"));
+        assertNull(DownloadState.parse("{\"tasks\":[]}"));   // no clientId: not usable
     }
 
     // ------------------------------------------------------------- planReconcile / assessTakeOver
@@ -288,7 +289,7 @@ public class SmbDownloadStateTest {
     @Test
     public void plan_yieldsWhatALiveRivalClaimedMoreRecently() {
         ClientState held = new ClientState(ME, "me", Arrays.asList(task(42, 1_000)));
-        SmbDownloadState.ReconcilePlan plan = SmbDownloadState.planReconcile(ME, held,
+        DownloadState.ReconcilePlan plan = DownloadState.planReconcile(ME, held,
                 Arrays.asList(published(ME, true, task(42, 1_000)),
                         published(OTHER, true, task(42, 2_000))),
                 gid -> false);
@@ -299,7 +300,7 @@ public class SmbDownloadStateTest {
     @Test
     public void plan_restoresWhatWasPublishedButIsNoLongerHeld() {
         ClientState held = new ClientState(ME, "me", Arrays.asList());
-        SmbDownloadState.ReconcilePlan plan = SmbDownloadState.planReconcile(ME, held,
+        DownloadState.ReconcilePlan plan = DownloadState.planReconcile(ME, held,
                 Arrays.asList(published(ME, true, task(7, 1_000))),
                 gid -> false);
         assertTrue(plan.yields.isEmpty());
@@ -312,7 +313,7 @@ public class SmbDownloadStateTest {
     @Test
     public void plan_leavesTheRetiredDownAndPublishesInstead() {
         ClientState held = new ClientState(ME, "me", Arrays.asList());
-        SmbDownloadState.ReconcilePlan plan = SmbDownloadState.planReconcile(ME, held,
+        DownloadState.ReconcilePlan plan = DownloadState.planReconcile(ME, held,
                 Arrays.asList(published(ME, true, task(7, 1_000))),
                 gid -> gid == 7L);
         assertTrue(plan.restores.isEmpty());
@@ -323,7 +324,7 @@ public class SmbDownloadStateTest {
     @Test
     public void plan_doesNothingWhenThisDeviceNeverPublished() {
         ClientState held = new ClientState(ME, "me", Arrays.asList());
-        SmbDownloadState.ReconcilePlan plan = SmbDownloadState.planReconcile(ME, held,
+        DownloadState.ReconcilePlan plan = DownloadState.planReconcile(ME, held,
                 Arrays.asList(published(OTHER, true, task(9, 1_000))),
                 gid -> false);
         assertTrue(plan.yields.isEmpty());
@@ -334,17 +335,17 @@ public class SmbDownloadStateTest {
     /** The three answers a fresh look can give a takeover, in one place. */
     @Test
     public void assess_ordersTheThreeTakeoverAnswers() {
-        assertEquals(SmbDownloadState.TakeOverAssessment.ALREADY_OURS,
-                SmbDownloadState.assessTakeOver(
-                        SmbDownloadState.merge(Arrays.asList(published(ME, true, task(1, 1_000)))),
+        assertEquals(DownloadState.TakeOverAssessment.ALREADY_OURS,
+                DownloadState.assessTakeOver(
+                        DownloadState.merge(Arrays.asList(published(ME, true, task(1, 1_000)))),
                         1, ME));
-        assertEquals(SmbDownloadState.TakeOverAssessment.OWNER_ALIVE,
-                SmbDownloadState.assessTakeOver(
-                        SmbDownloadState.merge(Arrays.asList(published(OTHER, true, task(1, 1_000)))),
+        assertEquals(DownloadState.TakeOverAssessment.OWNER_ALIVE,
+                DownloadState.assessTakeOver(
+                        DownloadState.merge(Arrays.asList(published(OTHER, true, task(1, 1_000)))),
                         1, ME));
-        assertEquals(SmbDownloadState.TakeOverAssessment.ORPHAN,
-                SmbDownloadState.assessTakeOver(
-                        SmbDownloadState.merge(Arrays.asList(published(OTHER, false, task(1, 1_000)))),
+        assertEquals(DownloadState.TakeOverAssessment.ORPHAN,
+                DownloadState.assessTakeOver(
+                        DownloadState.merge(Arrays.asList(published(OTHER, false, task(1, 1_000)))),
                         1, ME));
     }
 }

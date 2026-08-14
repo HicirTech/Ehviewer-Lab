@@ -1,4 +1,4 @@
-package com.hippo.ehviewer.smb;
+package com.hippo.ehviewer.storage;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -8,6 +8,7 @@ import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONObject;
 import com.alibaba.fastjson.serializer.SerializerFeature;
 
+import com.hippo.ehviewer.storage.DownloadState;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -21,13 +22,16 @@ import java.util.Map;
  * a locked cycle measured 129ms vs 64ms plain write), the file's mtime is the heartbeat.
  * Everything here is a pure function — no SMB, no Android, no clock.
  */
-public final class SmbDownloadState {
+public final class DownloadState {
 
     /**
      * Bumped when the on-share shape changes incompatibly. A client that meets a version it does
      * not understand ignores the file rather than guessing, and must not overwrite it.
      */
     public static final int SCHEMA_VERSION = 1;
+
+    /** Silent this long = orphaned. Several missed 20s beats, so a WiFi blip does not orphan. */
+    public static final long STALE_AFTER_MS = 90_000L;
 
     /** One gallery on one device's list. */
     public static final class Task {
@@ -113,10 +117,10 @@ public final class SmbDownloadState {
 
     /** A client's file plus the liveness the directory listing established for it. */
     public static final class Published {
-        @NonNull final ClientState state;
-        final boolean alive;
+        @NonNull public final ClientState state;
+        public final boolean alive;
         /** The file's mtime — the heartbeat, carried through for "last seen N ago". */
-        final long lastSeenMillis;
+        public final long lastSeenMillis;
 
         public Published(@NonNull ClientState state, boolean alive, long lastSeenMillis) {
             this.state = state;
@@ -125,7 +129,7 @@ public final class SmbDownloadState {
         }
     }
 
-    private SmbDownloadState() {}
+    private DownloadState() {}
 
     // ------------------------------------------------------------------ merge
 

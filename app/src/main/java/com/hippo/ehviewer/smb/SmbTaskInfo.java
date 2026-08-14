@@ -4,6 +4,7 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
 import com.hippo.ehviewer.dao.DownloadInfo;
+import com.hippo.ehviewer.storage.DownloadState;
 
 /**
  * An SMB download as a DownloadInfo, so the list treats it like any other row while actions
@@ -31,7 +32,7 @@ public final class SmbTaskInfo extends DownloadInfo {
     /** Owner's last heartbeat (share clock, 0 unknown) — what a takeover is judged by. */
     public final long lastSeenMillis;
 
-    private SmbTaskInfo(@NonNull SmbDownloadState.OwnedTask owned, @NonNull String selfClientId,
+    private SmbTaskInfo(@NonNull DownloadState.OwnedTask owned, @NonNull String selfClientId,
                         int state,
                         @Nullable com.hippo.ehviewer.client.data.GalleryInfo metadata) {
         this.gid = owned.task.gid;
@@ -72,7 +73,7 @@ public final class SmbTaskInfo extends DownloadInfo {
 
     /** Adapts one merged entry for the list; state resolved by the downloader. */
     @NonNull
-    public static SmbTaskInfo of(@NonNull SmbDownloadState.OwnedTask owned,
+    public static SmbTaskInfo of(@NonNull DownloadState.OwnedTask owned,
                                  @NonNull String selfClientId,
                                  @Nullable com.hippo.ehviewer.client.data.GalleryInfo metadata,
                                  int state) {

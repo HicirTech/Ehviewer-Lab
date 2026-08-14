@@ -19,8 +19,8 @@ import com.hippo.ehviewer.Settings;
 import com.hippo.ehviewer.dao.DownloadInfo;
 import com.hippo.ehviewer.smb.SmbDirectDownloader;
 import com.hippo.ehviewer.smb.SmbDownloadBoard;
-import com.hippo.ehviewer.smb.SmbConnection;
 import com.hippo.ehviewer.smb.SmbTaskInfo;
+import com.hippo.ehviewer.storage.NetworkStorage;
 import com.hippo.lib.yorozuya.SimpleHandler;
 import com.hippo.util.IoThreadPoolExecutor;
 
@@ -96,7 +96,7 @@ public final class SmbDownloadsDelegate {
     }
 
     private void refreshNow() {
-        final boolean enabled = Settings.getSmbSaveEnabled() && SmbConnection.isConfigured();
+        final boolean enabled = Settings.getSmbSaveEnabled() && NetworkStorage.active().isConfigured();
         if (!enabled) {
             // Off means the downloads stop too, not just the list.
             SmbDirectDownloader.getInstance().onSmbAvailabilityChanged();

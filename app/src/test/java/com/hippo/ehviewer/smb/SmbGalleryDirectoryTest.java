@@ -68,7 +68,7 @@ public class SmbGalleryDirectoryTest {
         }
     }
 
-    private final GalleryInfo gallery = SmbGalleryDirectory.lookupKey(42L, "Answer");
+    private final GalleryInfo gallery = com.hippo.ehviewer.storage.NetworkStorage.lookupKey(42L, "Answer");
 
     @Before
     public void setUp() throws Exception {
@@ -95,7 +95,7 @@ public class SmbGalleryDirectoryTest {
 
     @Test
     public void aLookupKeyCarriesOnlyGidAndTitle() {
-        GalleryInfo key = SmbGalleryDirectory.lookupKey(7L, "Seven");
+        GalleryInfo key = com.hippo.ehviewer.storage.NetworkStorage.lookupKey(7L, "Seven");
         assertEquals(7L, key.gid);
         assertEquals("Seven", key.title);
         assertNull(key.thumb);

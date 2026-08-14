@@ -1,5 +1,6 @@
 package com.hippo.ehviewer.spider;
 
+import com.hippo.ehviewer.storage.GalleryTargets;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
@@ -213,12 +214,12 @@ public class SpiderDenRoutingTest {
         com.hippo.ehviewer.EhDB.initialize(RuntimeEnvironment.getApplication());
 
         // A backend exists only while the gallery is marked; this is the real gate.
-        SmbSpiderStorage.markGidAsSmbTarget(GID);
+        GalleryTargets.mark(GID);
     }
 
     @After
     public void tearDown() {
-        SmbSpiderStorage.unmarkGidAsSmbTarget(GID);
+        GalleryTargets.unmark(GID);
         ShadowSmbSpiderStorage.reset();
     }
 
@@ -347,7 +348,7 @@ public class SpiderDenRoutingTest {
      */
     @Test
     public void invariant4_unmarkedGalleryNeverReachesTheBackend() {
-        SmbSpiderStorage.unmarkGidAsSmbTarget(GID);
+        GalleryTargets.unmark(GID);
         seedCache();
 
         SpiderDen den = den(SpiderQueen.MODE_READ);

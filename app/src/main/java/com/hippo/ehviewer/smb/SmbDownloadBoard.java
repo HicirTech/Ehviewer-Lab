@@ -8,6 +8,8 @@ import androidx.annotation.Nullable;
 
 import com.hippo.ehviewer.Settings;
 import com.hippo.ehviewer.client.data.GalleryInfo;
+import com.hippo.ehviewer.storage.DownloadState;
+import com.hippo.ehviewer.storage.NetworkStorage;
 import com.hippo.lib.yorozuya.SimpleHandler;
 
 import java.util.ArrayList;
@@ -23,7 +25,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 /**
  * The download queue's life on the share (#59): heartbeat/publish, the merged all-devices task
  * list, the claimed-elsewhere check, takeover, restore. Talks to the device side only through
- * {@link Device}; the decisions are pure functions on {@link SmbDownloadState}, this class reads,
+ * {@link Device}; the decisions are pure functions on {@link DownloadState}, this class reads,
  * decides via them, and applies.
  */
 public final class SmbDownloadBoard {
@@ -34,7 +36,7 @@ public final class SmbDownloadBoard {
     interface Device {
         /** The queue as the share should see it, now. */
         @NonNull
-        SmbDownloadState.ClientState snapshot();
+        DownloadState.ClientState snapshot();
 
         boolean hasWork();
 
@@ -45,7 +47,7 @@ public final class SmbDownloadBoard {
         void yieldTask(long gid);
 
         /** Recovered tasks: hold as paused, with their progress. */
-        void restore(@NonNull List<SmbDownloadState.Task> tasks);
+        void restore(@NonNull List<DownloadState.Task> tasks);
 
         /** Takeover succeeded: stamp claim time and previous owner... */
         void stampAdoption(@NonNull SmbTaskInfo task);
@@ -82,7 +84,7 @@ public final class SmbDownloadBoard {
 
     /** The gate every SMB surface shares: master switch on and a share configured. */
     static boolean smbAvailable() {
-        return Settings.getSmbSaveEnabled() && SmbConnection.isConfigured();
+        return Settings.getSmbSaveEnabled() && NetworkStorage.active().isConfigured();
     }
 
     // ---------- Publishing to the share (#59) ----------
@@ -95,7 +97,7 @@ public final class SmbDownloadBoard {
                 return false;
             }
             try {
-                return SmbDownloadStateStore.writeSelf(device.snapshot());
+                return NetworkStorage.active().stateStore().writeSelf(device.snapshot());
             } catch (Throwable e) {
                 // Costs visibility only; the next beat carries the same state.
                 Log.w(TAG, "Failed to publish download state", e);
@@ -134,7 +136,7 @@ public final class SmbDownloadBoard {
         if (!restoreStarted.compareAndSet(false, true)) {
             return;
         }
-        if (!SmbConnection.isConfigured()) {
+        if (!NetworkStorage.active().isConfigured()) {
             return;
         }
         scheduleReconcile();
@@ -147,12 +149,12 @@ public final class SmbDownloadBoard {
 
     /** Makes queue and share agree both ways; the plan itself is pure (planReconcile). */
     private void reconcileWithShare() {
-        final SmbDownloadState.ReconcilePlan plan;
+        final DownloadState.ReconcilePlan plan;
         try {
-            plan = SmbDownloadState.planReconcile(
+            plan = DownloadState.planReconcile(
                     Settings.getSmbClientId(),
                     device.snapshot(),
-                    SmbDownloadStateStore.readAll(),
+                    NetworkStorage.active().stateStore().readAll(),
                     device::isRetired);
         } catch (Throwable e) {
             Log.e(TAG, "Failed to reconcile with the share", e);
@@ -176,23 +178,23 @@ public final class SmbDownloadBoard {
     /** Every device's downloads as one merged list. SMB I/O; worker thread. */
     @NonNull
     public List<SmbTaskInfo> snapshotSharedTasks() {
-        if (!SmbConnection.isConfigured()) {
+        if (!NetworkStorage.active().isConfigured()) {
             return new ArrayList<>();
         }
         try {
             String selfId = Settings.getSmbClientId();
-            List<SmbDownloadState.Published> all = new ArrayList<>();
-            for (SmbDownloadState.Published p : SmbDownloadStateStore.readAll()) {
+            List<DownloadState.Published> all = new ArrayList<>();
+            for (DownloadState.Published p : NetworkStorage.active().stateStore().readAll()) {
                 if (!p.state.clientId.equals(selfId)) {
                     all.add(p);
                 }
             }
             // Own rows come from the live queue, not the published file, which lags every action.
-            all.add(new SmbDownloadState.Published(
+            all.add(new DownloadState.Published(
                     device.snapshot(), true, System.currentTimeMillis()));
-            List<SmbDownloadState.OwnedTask> merged = SmbDownloadState.merge(all);
+            List<DownloadState.OwnedTask> merged = DownloadState.merge(all);
             List<SmbTaskInfo> out = new ArrayList<>(merged.size());
-            for (SmbDownloadState.OwnedTask o : merged) {
+            for (DownloadState.OwnedTask o : merged) {
                 out.add(SmbTaskInfo.of(o, selfId, galleryMetadata(o.task), rowStateOf(o, selfId)));
             }
             return out;
@@ -209,7 +211,7 @@ public final class SmbDownloadBoard {
             java.util.Collections.synchronizedMap(new HashMap<>());
 
     @Nullable
-    private GalleryInfo galleryMetadata(@NonNull SmbDownloadState.Task task) {
+    private GalleryInfo galleryMetadata(@NonNull DownloadState.Task task) {
         GalleryInfo cached = metadataCache.get(task.gid);
         if (cached != null) {
             return cached;
@@ -217,7 +219,7 @@ public final class SmbDownloadBoard {
         GalleryInfo hint = new GalleryInfo();
         hint.gid = task.gid;
         hint.title = task.title;
-        GalleryInfo read = SmbInventory.readGalleryMetadata(hint);
+        GalleryInfo read = NetworkStorage.active().inventory().readGalleryMetadata(hint);
         if (read != null) {
             metadataCache.put(task.gid, read);
         }
@@ -225,7 +227,7 @@ public final class SmbDownloadBoard {
     }
 
     /** Own rows answer from this process; others' only from liveness (mtime, not contents). */
-    private int rowStateOf(@NonNull SmbDownloadState.OwnedTask owned, @NonNull String selfId) {
+    private int rowStateOf(@NonNull DownloadState.OwnedTask owned, @NonNull String selfId) {
         if (!owned.ownerAlive) {
             return com.hippo.ehviewer.dao.DownloadInfo.STATE_FAILED;   // drawn as "device offline"
         }
@@ -237,12 +239,12 @@ public final class SmbDownloadBoard {
 
     /** Whether a live rival already claims this gid. SMB I/O; worker thread. */
     public boolean isClaimedElsewhere(long gid) {
-        if (!SmbConnection.isConfigured()) {
+        if (!NetworkStorage.active().isConfigured()) {
             return false;
         }
         try {
-            return SmbDownloadState.isClaimedByAnotherLiveClient(
-                    SmbDownloadState.merge(SmbDownloadStateStore.readAll()),
+            return DownloadState.isClaimedByAnotherLiveClient(
+                    DownloadState.merge(NetworkStorage.active().stateStore().readAll()),
                     gid, Settings.getSmbClientId());
         } catch (Throwable e) {
             // On doubt, proceed: a duplicate download wastes bandwidth, a refusal loses the gallery.
@@ -282,10 +284,10 @@ public final class SmbDownloadBoard {
 
     @NonNull
     private TakeOverResult takeOverNow(@NonNull Context ctx, @NonNull SmbTaskInfo task) {
-        final SmbDownloadState.TakeOverAssessment fresh;
+        final DownloadState.TakeOverAssessment fresh;
         try {
-            fresh = SmbDownloadState.assessTakeOver(
-                    SmbDownloadState.merge(SmbDownloadStateStore.readAll()),
+            fresh = DownloadState.assessTakeOver(
+                    DownloadState.merge(NetworkStorage.active().stateStore().readAll()),
                     task.gid, Settings.getSmbClientId());
         } catch (Throwable e) {
             // No fresh read = no adoption; two devices running one download is the worse outcome.
@@ -310,7 +312,7 @@ public final class SmbDownloadBoard {
         device.stampAdoption(task);
         // The one write ever made to another device's file, and only to one silent past
         // STALE_AFTER_MS; leaving the stale entry would resurface it after we finish.
-        if (!SmbDownloadStateStore.removeTask(task.ownerClientId, task.gid)) {
+        if (!NetworkStorage.active().stateStore().removeTask(task.ownerClientId, task.gid)) {
             // Not fatal: our live, newer claim wins the merge anyway.
             Log.w(TAG, "Took over gid=" + task.gid + " but could not clear it from "
                     + task.ownerClientId);

@@ -4,6 +4,7 @@ import androidx.annotation.Nullable;
 
 import com.hippo.conaco.DataContainer;
 import com.hippo.conaco.ProgressNotifier;
+import com.hippo.ehviewer.storage.NetworkStorage;
 import com.hippo.streampipe.InputStreamPipe;
 
 import java.io.IOException;
@@ -25,7 +26,7 @@ public class SmbCoverDataContainer implements DataContainer {
 
     @Override
     public boolean isEnabled() {
-        return SmbConnection.isConfigured();
+        return NetworkStorage.active().isConfigured();
     }
 
     @Override
@@ -51,7 +52,7 @@ public class SmbCoverDataContainer implements DataContainer {
         if (buffered != null) {
             return buffered;
         }
-        return SmbGalleryFiles.openSmbCoverInputStreamPipe(SmbGalleryDirectory.lookupKey(mGid, mTitle));
+        return NetworkStorage.active().files().openCoverInputStreamPipe(NetworkStorage.lookupKey(mGid, mTitle));
     }
 
     @Override

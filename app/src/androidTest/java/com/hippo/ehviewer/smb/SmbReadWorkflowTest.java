@@ -7,6 +7,7 @@
 
 package com.hippo.ehviewer.smb;
 
+import com.hippo.ehviewer.storage.GalleryRef;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
@@ -46,9 +47,14 @@ public class SmbReadWorkflowTest {
 
     private static final String TAG = "SmbPerf";
 
-    private static final int METADATA_SAMPLE = 48;
-    private static final int COVER_SAMPLE = 8;
-    private static final int PAGE_SAMPLE = 4;
+    // Defaults keep the routine suite fast; a measurement run passes eh.*Sample args instead.
+    private static final int DEFAULT_METADATA_SAMPLE = 48;
+    private static final int DEFAULT_COVER_SAMPLE = 8;
+    private static final int DEFAULT_PAGE_SAMPLE = 4;
+
+    private int mMetadataSample;
+    private int mCoverSample;
+    private int mPageSample;
 
     private static final class Target {
         final String label;
@@ -86,6 +92,12 @@ public class SmbReadWorkflowTest {
         Assume.assumeFalse("no eh.targets given; read-workflow coverage skipped",
                 mTargets.isEmpty());
         mMinGalleries = Integer.parseInt(args.getString("eh.minGalleries", "1"));
+        mMetadataSample = Integer.parseInt(args.getString("eh.metaSample",
+                String.valueOf(DEFAULT_METADATA_SAMPLE)));
+        mCoverSample = Integer.parseInt(args.getString("eh.coverSample",
+                String.valueOf(DEFAULT_COVER_SAMPLE)));
+        mPageSample = Integer.parseInt(args.getString("eh.pageSample",
+                String.valueOf(DEFAULT_PAGE_SAMPLE)));
         mUser = args.getString("eh.user", Settings.getSmbUsername());
         mPass = args.getString("eh.pass", Settings.getSmbPassword());
 
@@ -123,21 +135,21 @@ public class SmbReadWorkflowTest {
     public void metadataReadsOffEveryTarget() throws Exception {
         forEachTarget(target -> {
             long t0 = SystemClock.elapsedRealtime();
-            List<SmbInventory.GalleryRef> refs = SmbInventory.listGalleryRefs();
+            List<GalleryRef> refs = SmbInventory.listGalleryRefs();
             long enumMs = SystemClock.elapsedRealtime() - t0;
             assertTrue(target.label + ": expected a library of at least " + mMinGalleries
                             + " galleries, found " + refs.size()
                             + " — is this the right share?",
                     refs.size() >= mMinGalleries);
 
-            List<SmbInventory.GalleryRef> sample =
-                    refs.subList(0, Math.min(METADATA_SAMPLE, refs.size()));
+            List<GalleryRef> sample =
+                    refs.subList(0, Math.min(mMetadataSample, refs.size()));
             long t1 = SystemClock.elapsedRealtime();
             int ok = 0;
             List<String> missing = new ArrayList<>();
             ExecutorService pool = SmbInventory.inventoryExecutor();
             List<Future<GalleryInfo>> pending = new ArrayList<>(sample.size());
-            for (SmbInventory.GalleryRef ref : sample) {
+            for (GalleryRef ref : sample) {
                 pending.add(pool.submit(() -> SmbInventory.readGalleryInfo(ref)));
             }
             for (int i = 0; i < pending.size(); i++) {
@@ -166,7 +178,7 @@ public class SmbReadWorkflowTest {
     @Test
     public void coverReadsOffEveryTarget() throws Exception {
         forEachTarget(target -> {
-            List<GalleryInfo> infos = firstInfos(COVER_SAMPLE, target.label);
+            List<GalleryInfo> infos = firstInfos(mCoverSample, target.label);
             long t0 = SystemClock.elapsedRealtime();
             long bytes = 0;
             for (GalleryInfo info : infos) {
@@ -184,7 +196,7 @@ public class SmbReadWorkflowTest {
     @Test
     public void firstPagesReadOffEveryTarget() throws Exception {
         forEachTarget(target -> {
-            List<GalleryInfo> infos = firstInfos(PAGE_SAMPLE, target.label);
+            List<GalleryInfo> infos = firstInfos(mPageSample, target.label);
             long t0 = SystemClock.elapsedRealtime();
             long bytes = 0;
             for (GalleryInfo info : infos) {
@@ -219,11 +231,11 @@ public class SmbReadWorkflowTest {
 
     /** Metadata for the first {@code count} galleries of the currently configured target. */
     private List<GalleryInfo> firstInfos(int count, String label) {
-        List<SmbInventory.GalleryRef> refs = SmbInventory.listGalleryRefs();
+        List<GalleryRef> refs = SmbInventory.listGalleryRefs();
         assertTrue(label + ": expected a library of at least " + mMinGalleries
                 + " galleries, found " + refs.size(), refs.size() >= mMinGalleries);
         List<GalleryInfo> infos = new ArrayList<>();
-        for (SmbInventory.GalleryRef ref : refs) {
+        for (GalleryRef ref : refs) {
             if (infos.size() >= count) {
                 break;
             }

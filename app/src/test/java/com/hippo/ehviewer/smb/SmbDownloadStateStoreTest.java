@@ -1,5 +1,6 @@
 package com.hippo.ehviewer.smb;
 
+import com.hippo.ehviewer.storage.DownloadState;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
@@ -22,15 +23,15 @@ public class SmbDownloadStateStoreTest {
     @Test
     public void aFileUntouchedPastTheWindowIsNot() {
         assertTrue(SmbDownloadStateStore.isAlive(
-                NOW - SmbDownloadStateStore.STALE_AFTER_MS + 1L, NOW));
+                NOW - DownloadState.STALE_AFTER_MS + 1L, NOW));
         assertFalse(SmbDownloadStateStore.isAlive(
-                NOW - SmbDownloadStateStore.STALE_AFTER_MS, NOW));
+                NOW - DownloadState.STALE_AFTER_MS, NOW));
     }
 
     /** A timestamp ahead of this device's clock means the two disagree about the time, not that the file is impossibly old. */
     @Test
     public void aFileDatedInTheFutureIsAlive() {
-        assertTrue(SmbDownloadStateStore.isAlive(NOW + 10 * SmbDownloadStateStore.STALE_AFTER_MS,
+        assertTrue(SmbDownloadStateStore.isAlive(NOW + 10 * DownloadState.STALE_AFTER_MS,
                 NOW));
     }
 

@@ -87,7 +87,7 @@ public class SmbGalleryFilesTest {
         }
     }
 
-    private final GalleryInfo gallery = SmbGalleryDirectory.lookupKey(42L, "Answer");
+    private final GalleryInfo gallery = com.hippo.ehviewer.storage.NetworkStorage.lookupKey(42L, "Answer");
 
     @Before
     public void setUp() {

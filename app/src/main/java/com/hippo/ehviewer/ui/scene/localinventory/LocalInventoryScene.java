@@ -6,7 +6,6 @@
  */
 package com.hippo.ehviewer.ui.scene.localinventory;
 
-import com.hippo.ehviewer.smb.SmbSpiderStorage;
 import android.app.Dialog;
 import android.content.Context;
 import android.content.DialogInterface;
@@ -41,10 +40,9 @@ import com.hippo.ehviewer.client.EhUtils;
 import com.hippo.ehviewer.client.data.GalleryInfo;
 import com.hippo.ehviewer.smb.SmbCoverDataContainer;
 import com.hippo.ehviewer.smb.SmbDeviceColor;
-import com.hippo.ehviewer.smb.SmbMetadata;
-import com.hippo.ehviewer.smb.SmbPaths;
-import com.hippo.ehviewer.smb.SmbSortMode;
-import com.hippo.ehviewer.smb.SmbConnection;
+import com.hippo.ehviewer.storage.GalleryTargets;
+import com.hippo.ehviewer.storage.NetworkStorage;
+import com.hippo.ehviewer.storage.SortMode;
 import com.hippo.ehviewer.ui.GalleryActivity;
 import com.hippo.ehviewer.ui.scene.ToolbarScene;
 import com.hippo.ehviewer.ui.scene.gallery.detail.GalleryDetailScene;
@@ -293,7 +291,7 @@ public class LocalInventoryScene extends ToolbarScene
 
     @NonNull
     private String getEmptyString() {
-        if (!SmbConnection.isConfigured() || !Settings.getSmbSaveEnabled()) {
+        if (!NetworkStorage.active().isConfigured() || !Settings.getSmbSaveEnabled()) {
             return getString(R.string.local_inventory_disabled);
         }
         return getString(R.string.local_inventory_empty);
@@ -611,8 +609,8 @@ public class LocalInventoryScene extends ToolbarScene
             if (at == null || at.gid != fresh.gid) {
                 continue;
             }
-            String before = SmbPaths.buildGalleryFolderName(at);
-            String after = SmbPaths.buildGalleryFolderName(fresh);
+            String before = NetworkStorage.active().galleryFolderName(at);
+            String after = NetworkStorage.active().galleryFolderName(fresh);
             if (!before.equals(after)) {
                 mPager.renameRef(before, after);
             }
@@ -667,7 +665,7 @@ public class LocalInventoryScene extends ToolbarScene
                 break;
             }
         }
-        mPager.forgetRef(SmbPaths.buildGalleryFolderName(gi));
+        mPager.forgetRef(NetworkStorage.active().galleryFolderName(gi));
     }
 
     private void openDetail(@Nullable GalleryInfo gi) {
@@ -679,7 +677,7 @@ public class LocalInventoryScene extends ToolbarScene
         args.putParcelable(GalleryDetailScene.KEY_GALLERY_INFO, gi);
         // Render fully from local SMB metadata. Reconstructs tags from tgList so the
         // detail page does not need a network call.
-        args.putParcelable(GalleryDetailScene.KEY_GALLERY_DETAIL, SmbMetadata.buildOfflineDetail(gi));
+        args.putParcelable(GalleryDetailScene.KEY_GALLERY_DETAIL, NetworkStorage.active().metadata().buildOfflineDetail(gi));
         // SMB metadata never carries comments — hide that section entirely.
         args.putBoolean(GalleryDetailScene.KEY_HIDE_COMMENTS, true);
         startScene(new Announcer(GalleryDetailScene.class).setArgs(args));
@@ -689,7 +687,7 @@ public class LocalInventoryScene extends ToolbarScene
         // next open is also fully offline.
         Context context = getEHContext();
         if (context != null && (gi.tgList == null || gi.tgList.isEmpty())) {
-            SmbMetadata.enrichLocalMetadataIfMissing(context, gi);
+            NetworkStorage.active().metadata().enrichLocalMetadataIfMissing(context, gi);
         }
     }
 
@@ -703,7 +701,7 @@ public class LocalInventoryScene extends ToolbarScene
         }
         // Mark the gid so SpiderDen routes reads (cover/spider info/pages) to SMB instead
         // of looking on phone storage.
-        SmbSpiderStorage.markGidAsSmbTarget(gi.gid);
+        GalleryTargets.mark(gi.gid);
         Intent intent = new Intent(context, GalleryActivity.class);
         intent.setAction(GalleryActivity.ACTION_EH);
         intent.putExtra(GalleryActivity.KEY_GALLERY_INFO, gi);
@@ -834,7 +832,7 @@ public class LocalInventoryScene extends ToolbarScene
         protected void getPageData(int taskId, int type, int page) {
             // Date sort can order from the cheap listing alone; rebuild on refresh or first use.
             final boolean rebuild = type == TYPE_REFRESH;
-            final SmbSortMode mode = SmbSortMode.fromOrdinal(Settings.getLocalInventorySort());
+            final SortMode mode = SortMode.fromOrdinal(Settings.getLocalInventorySort());
             mWorker.execute(() -> {
                 final InventoryPager.Page result;
                 try {
@@ -854,7 +852,7 @@ public class LocalInventoryScene extends ToolbarScene
                     }
                     // Mark every gid on the page so cover/detail/reader reads route through SMB.
                     for (GalleryInfo gi : result.data) {
-                        SmbSpiderStorage.markGidAsSmbTarget(gi.gid);
+                        GalleryTargets.mark(gi.gid);
                     }
                     onGetPageData(taskId, result.pages, page + 1, result.data);
                     // After the page is on screen: a badge is never worth making the page wait.

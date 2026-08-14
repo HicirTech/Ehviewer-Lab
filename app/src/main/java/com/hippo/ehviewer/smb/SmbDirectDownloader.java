@@ -11,6 +11,9 @@ import com.hippo.ehviewer.EhDB;
 import com.hippo.ehviewer.client.data.GalleryInfo;
 import com.hippo.ehviewer.spider.SpiderDen;
 import com.hippo.ehviewer.spider.SpiderQueen;
+import com.hippo.ehviewer.storage.DownloadState;
+import com.hippo.ehviewer.storage.GalleryTargets;
+import com.hippo.ehviewer.storage.NetworkStorage;
 import com.hippo.lib.image.Image;
 import com.hippo.lib.yorozuya.SimpleHandler;
 import com.hippo.lib.yorozuya.collect.LongList;
@@ -84,13 +87,13 @@ public final class SmbDirectDownloader {
                 final GalleryInfo info = outcome.infoForDelete;
                 IoThreadPoolExecutor.Companion.getInstance().execute(() -> {
                     try {
-                        SmbGalleryLifecycle.deleteGalleryFolder(info);
+                        NetworkStorage.active().lifecycle().deleteGalleryFolder(info);
                     } catch (Throwable e) {
                         Log.w(TAG, "Failed to delete SMB folder on cancel gid=" + gid, e);
                     }
                 });
             }
-            SmbSpiderStorage.unmarkGidAsSmbTarget(gid);
+            GalleryTargets.unmark(gid);
             afterQueueChange();
             foreground.stopIfIdle(ledger.isIdle(), appContext);
         });
@@ -213,8 +216,8 @@ public final class SmbDirectDownloader {
         // absent, or the inventory will not list the folder.
         IoThreadPoolExecutor.Companion.getInstance().execute(() -> {
             try {
-                if (SmbInventory.readGalleryMetadata(info) == null) {
-                    SmbMetadata.writeMetadataSkeleton(info);
+                if (NetworkStorage.active().inventory().readGalleryMetadata(info) == null) {
+                    NetworkStorage.active().metadata().writeMetadataSkeleton(info);
                 }
             } catch (Throwable e) {
                 Log.w(TAG, "Could not ensure metadata for gid=" + info.gid, e);
@@ -222,7 +225,7 @@ public final class SmbDirectDownloader {
         });
         // Mark BEFORE obtaining the queen so the SpiderDen it constructs immediately routes
         // to SMB. Unmarked in onJobFinish.
-        SmbSpiderStorage.markGidAsSmbTarget(info.gid);
+        GalleryTargets.mark(info.gid);
         try {
             SpiderQueen queen = SpiderQueen.obtainSpiderQueen(appContext, info, SpiderQueen.MODE_DOWNLOAD);
             ListenerImpl listener = new ListenerImpl(info);
@@ -235,10 +238,10 @@ public final class SmbDirectDownloader {
             publishState();
         } catch (IllegalStateException e) {
             // A phone download already runs this gid; leaving the mark would re-route it mid-flight.
-            SmbSpiderStorage.unmarkGidAsSmbTarget(info.gid);
+            GalleryTargets.unmark(info.gid);
             Log.w(TAG, "SMB direct download skipped for gid=" + info.gid + ": " + e.getMessage());
         } catch (Throwable e) {
-            SmbSpiderStorage.unmarkGidAsSmbTarget(info.gid);
+            GalleryTargets.unmark(info.gid);
             Log.e(TAG, "Failed to start SMB direct download gid=" + info.gid, e);
         }
     }
@@ -254,7 +257,7 @@ public final class SmbDirectDownloader {
         final Context ctx = appContext != null ? appContext : EhApplication.getInstance();
         IoThreadPoolExecutor.Companion.getInstance().execute(() -> {
             try {
-                SmbGalleryLifecycle.finalizeDownloadedGallery(ctx, info);
+                NetworkStorage.active().lifecycle().finalizeDownloadedGallery(ctx, info);
             } catch (Throwable e) {
                 Log.e(TAG, "SMB finalize failed for gid=" + info.gid, e);
             }
@@ -273,7 +276,7 @@ public final class SmbDirectDownloader {
     /** Stands down from a taken-over task; not cancel — the folder is the adopter's now. */
     private void yieldOnMainThread(long gid) {
         releaseQueen(ledger.yield(gid), "yield", gid);
-        SmbSpiderStorage.unmarkGidAsSmbTarget(gid);
+        GalleryTargets.unmark(gid);
         notifyObservers();
         updateNotification();
         SimpleHandler.getInstance().post(this::pumpOnMainThread);
@@ -370,7 +373,7 @@ public final class SmbDirectDownloader {
 
     /** Package-private so tests read what would have been published. */
     @NonNull
-    SmbDownloadState.ClientState snapshotClientState() {
+    DownloadState.ClientState snapshotClientState() {
         return ledger.clientState();
     }
 
@@ -380,7 +383,7 @@ public final class SmbDirectDownloader {
     private final SmbDownloadBoard.Device deviceBridge = new SmbDownloadBoard.Device() {
         @Override
         @NonNull
-        public SmbDownloadState.ClientState snapshot() {
+        public DownloadState.ClientState snapshot() {
             return ledger.clientState();
         }
 
@@ -400,7 +403,7 @@ public final class SmbDirectDownloader {
         }
 
         @Override
-        public void restore(@NonNull List<SmbDownloadState.Task> tasks) {
+        public void restore(@NonNull List<DownloadState.Task> tasks) {
             SimpleHandler.getInstance().post(() -> {
                 ledger.restore(tasks);
                 notifyObservers();

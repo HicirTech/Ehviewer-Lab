@@ -15,10 +15,9 @@ import com.hippo.ehviewer.client.EhCacheKeyFactory;
 import com.hippo.ehviewer.client.data.GalleryInfo;
 import com.hippo.ehviewer.smb.SmbCoverPrefetch;
 import com.hippo.ehviewer.smb.SmbDirectDownloader;
-import com.hippo.ehviewer.smb.SmbGalleryLifecycle;
-import com.hippo.ehviewer.smb.SmbMetadata;
 import com.hippo.ehviewer.smb.SmbPreviewCache;
-import com.hippo.ehviewer.smb.SmbSpiderStorage;
+import com.hippo.ehviewer.storage.GalleryTargets;
+import com.hippo.ehviewer.storage.NetworkStorage;
 import com.hippo.lib.yorozuya.SimpleHandler;
 
 import java.util.ArrayList;
@@ -61,7 +60,7 @@ final class InventoryOps {
         executor.execute(() -> {
             int updated = 0;
             for (GalleryInfo gi : batch) {
-                final GalleryInfo fresh = SmbMetadata.resyncMetadata(appContext, gi);
+                final GalleryInfo fresh = NetworkStorage.active().metadata().resyncMetadata(appContext, gi);
                 if (fresh != null) {
                     updated++;
                     // A re-sync can bring a different cover; the buffered copy would keep the old one.
@@ -102,7 +101,7 @@ final class InventoryOps {
         executor.execute(() -> {
             final List<GalleryInfo> gone = new ArrayList<>();
             for (GalleryInfo gi : toErase) {
-                if (SmbGalleryLifecycle.deleteGalleryFolder(gi)) {
+                if (NetworkStorage.active().lifecycle().deleteGalleryFolder(gi)) {
                     gone.add(gi);
                 }
             }
@@ -127,7 +126,7 @@ final class InventoryOps {
 
     /** Every local trace of a gallery that is no longer on the share. */
     private static void evictTraces(@NonNull Context appContext, @NonNull GalleryInfo gi) {
-        SmbSpiderStorage.unmarkGidAsSmbTarget(gi.gid);
+        GalleryTargets.unmark(gi.gid);
         SmbPreviewCache.evictGallery(gi.gid);
         SmbCoverPrefetch.evict(gi.gid);
         try {

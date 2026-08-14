@@ -7,6 +7,7 @@ import com.hippo.ehviewer.Settings;
 import com.hippo.ehviewer.client.data.GalleryInfo;
 import com.hippo.ehviewer.spider.SpiderQueen;
 
+import com.hippo.ehviewer.storage.DownloadState;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -217,9 +218,9 @@ final class SmbTaskLedger {
     }
 
     /** Recovered tasks come back paused, with their progress (or the next publish lies to everyone). */
-    void restore(@NonNull List<SmbDownloadState.Task> tasks) {
+    void restore(@NonNull List<DownloadState.Task> tasks) {
         synchronized (lock) {
-            for (SmbDownloadState.Task t : tasks) {
+            for (DownloadState.Task t : tasks) {
                 if (active.containsKey(t.gid) || queue.containsKey(t.gid)
                         || paused.containsKey(t.gid)) {
                     continue;   // already back, by whatever route
@@ -299,8 +300,8 @@ final class SmbTaskLedger {
 
     /** This device's queue as the share should see it. */
     @NonNull
-    SmbDownloadState.ClientState clientState() {
-        List<SmbDownloadState.Task> tasks = new ArrayList<>();
+    DownloadState.ClientState clientState() {
+        List<DownloadState.Task> tasks = new ArrayList<>();
         synchronized (lock) {
             for (ActiveJob job : active.values()) {
                 tasks.add(taskFor(job.info));
@@ -312,17 +313,17 @@ final class SmbTaskLedger {
                 tasks.add(taskFor(gi));
             }
         }
-        return new SmbDownloadState.ClientState(
+        return new DownloadState.ClientState(
                 Settings.getSmbClientId(), Settings.getSmbDeviceName(), tasks);
     }
 
     /** Caller holds {@code lock}. */
-    private SmbDownloadState.Task taskFor(@NonNull GalleryInfo info) {
+    private DownloadState.Task taskFor(@NonNull GalleryInfo info) {
         int[] p = progress.get(info.gid);
         int finished = p != null ? p[0] : 0;
         int total = p != null && p[1] > 0 ? p[1] : info.pages;
         Long claimed = claimedAt.get(info.gid);
-        return new SmbDownloadState.Task(info.gid, info.token, info.title,
+        return new DownloadState.Task(info.gid, info.token, info.title,
                 finished, total, claimed != null ? claimed : 0L, takenOverFrom.get(info.gid));
     }
 
