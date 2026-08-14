@@ -21,6 +21,7 @@ import java.util.Set;
 import java.util.HashSet;
 import java.util.Collections;
 import com.hippo.util.IoThreadPoolExecutor;
+import com.hippo.ehviewer.spider.RemotePageBridge;
 import com.hippo.ehviewer.spider.SpiderDen;
 import com.hippo.ehviewer.smb.SmbStorage;
 import com.hippo.ehviewer.R;
@@ -214,7 +215,7 @@ public class EhGalleryProvider extends GalleryProvider2 implements SpiderQueen.O
         }
         final Context appContext = mContext.getApplicationContext();
         IoThreadPoolExecutor.Companion.getInstance().execute(() -> {
-            if (SpiderDen.copyFromCacheToRemote(mGalleryInfo, index)) {
+            if (RemotePageBridge.copyFromCacheToRemote(mGalleryInfo, index)) {
                 return;
             }
             SimpleHandler.getInstance().post(() -> Toast.makeText(

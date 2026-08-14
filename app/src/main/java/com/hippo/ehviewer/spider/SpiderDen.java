@@ -62,7 +62,7 @@ public final class SpiderDen {
     private long mGid;
 
     @Nullable
-    private static SimpleDiskCache sCache;
+    static SimpleDiskCache sCache;   // package: RemotePageBridge reads pages out of it
 
     public static void initialize(Context context) {
         sCache = new SimpleDiskCache(new File(context.getCacheDir(), "image"),
@@ -444,154 +444,18 @@ public final class SpiderDen {
         }
     }
 
-    /**
-     * Puts the cached copy of one page onto the SMB share, replacing whatever is there (#16).
-     *
-     * <p>For the reader's "refresh this page": a page whose file on the share is corrupt reads back
-     * corrupt no matter how often it is re-requested, because the re-download lands in the cache
-     * and {@link #openOutputStreamPipe} deliberately refuses to write to the share while reading —
-     * otherwise every page anyone looked at would start an SMB write. This is the narrow exception:
-     * one page, asked for by hand, copied over once the good bytes are already in hand.
-     *
-     * <p>Copied rather than downloaded straight to the share, and copied only after the fetch has
-     * succeeded, so the file on the share is only ever replaced by something that exists. Deleting
-     * it first and re-fetching would be simpler and would leave the gallery worse than it started
-     * whenever the network is down.
-     *
-     * <p>The write itself is atomic (temp name, then rename), so no reader ever sees a half-written
-     * page either.
-     *
-     * <p>Performs SMB I/O; call from a worker thread.
-     */
-    public static boolean copyFromCacheToRemote(@NonNull GalleryInfo info, int index) {
-        if (sCache == null) {
-            return false;
-        }
-        GallerySpiderStorage remote = SmbSpiderStorage.createIfTarget(info, info.gid);
-        if (remote == null) {
-            return false;
-        }
-        String key = EhCacheKeyFactory.getImageKey(info.gid, index);
-        InputStreamPipe pipe = sCache.getInputStreamPipe(key);
-        if (pipe == null) {
-            return false;
-        }
-        OutputStreamPipe osPipe = null;
-        try {
-            // The extension has to come from the bytes: the share names pages by it, and a
-            // re-download can legitimately come back in a different format from the one there now.
-            BitmapFactory.Options options = new BitmapFactory.Options();
-            options.inJustDecodeBounds = true;
-            pipe.obtain();
-            BitmapFactory.decodeStream(pipe.open(), null, options);
-            pipe.close();
-            String extension = MimeTypeMap.getSingleton().getExtensionFromMimeType(options.outMimeType);
-            if (extension == null) {
-                return false;
-            }
-            extension = fixExtensionStatic('.' + extension);
-
-            osPipe = remote.openImageOutputStreamPipe(index, extension);
-            if (osPipe == null) {
-                return false;
-            }
-            osPipe.obtain();
-            pipe.obtain();
-            IOUtils.copy(pipe.open(), osPipe.open());
-            return true;
-        } catch (Throwable e) {
-            android.util.Log.w("SpiderDen", "Could not put the cached page on the share gid=" + info.gid
-                    + ", index=" + index, e);
-            return false;
-        } finally {
-            if (osPipe != null) {
-                osPipe.close();
-                osPipe.release();
-            }
-            pipe.close();
-            pipe.release();
-        }
-    }
-
-    /** {@link #fixExtension} without an instance, for the static copy above. */
-    private static String fixExtensionStatic(String extension) {
-        if (Utilities.contain(GalleryProvider2.SUPPORT_IMAGE_EXTENSIONS, extension)) {
-            return extension;
-        }
-        return GalleryProvider2.SUPPORT_IMAGE_EXTENSIONS[0];
-    }
-
-    private boolean mPhoneCopyResolved;
+    /** Lazily built; a benign race at worst builds it twice with the same answer. */
     @Nullable
-    private UniFile mPhoneCopyDir;
+    private RemotePageBridge mRemoteBridge;
 
-    /**
-     * This gallery's folder in phone storage, if it has one.
-     *
-     * <p>Resolved once per den and remembered, including the answer "there is none". The lookup
-     * lists the download directory when the database has no name for the gallery, and asking that
-     * once per page would put a storage-access-framework listing between every page of a download.
-     *
-     * <p>{@code getExistingGalleryDownloadDir} never creates anything: a gallery that was never
-     * downloaded to the phone leaves no trace in the download database from being asked about.
-     */
-    @Nullable
-    private UniFile phoneCopyDir() {
-        synchronized (mDownloadDirLock) {
-            if (!mPhoneCopyResolved) {
-                mPhoneCopyResolved = true;
-                mPhoneCopyDir = getExistingGalleryDownloadDir(mGalleryInfo);
-            }
-            return mPhoneCopyDir;
+    @NonNull
+    private RemotePageBridge remoteBridge() {
+        RemotePageBridge bridge = mRemoteBridge;
+        if (bridge == null) {
+            bridge = new RemotePageBridge(mGalleryInfo, mGid);
+            mRemoteBridge = bridge;
         }
-    }
-
-    /**
-     * Puts a page the phone already holds onto the share, and says whether it managed to.
-     *
-     * <p>The other half of "move a download to the share": with this, moving is an ordinary SMB
-     * download whose pages happen to be found locally instead of fetched. It is not limited to
-     * moves, because there is no reason to re-download a page from e-hentai when the same page is
-     * sitting in phone storage.
-     */
-    private boolean copyFromPhoneToRemote(int index) {
-        GallerySpiderStorage remote = remoteStorage();
-        if (remote == null) {
-            return false;
-        }
-        UniFile dir = phoneCopyDir();
-        if (dir == null) {
-            return false;
-        }
-        for (String extension : GalleryProvider2.SUPPORT_IMAGE_EXTENSIONS) {
-            UniFile file = dir.findFile(generateImageFilename(index, extension));
-            if (file == null) {
-                continue;
-            }
-            OutputStreamPipe osPipe = null;
-            InputStream is = null;
-            try {
-                osPipe = remote.openImageOutputStreamPipe(index, extension);
-                if (osPipe == null) {
-                    return false;
-                }
-                osPipe.obtain();
-                is = file.openInputStream();
-                IOUtils.copy(is, osPipe.open());
-                return true;
-            } catch (Throwable e) {
-                android.util.Log.w("SpiderDen", "Could not put the phone's copy of page " + index
-                        + " on the share, gid=" + mGid, e);
-                return false;
-            } finally {
-                IOUtils.closeQuietly(is);
-                if (osPipe != null) {
-                    osPipe.close();
-                    osPipe.release();
-                }
-            }
-        }
-        return false;
+        return bridge;
     }
 
     /**
@@ -613,8 +477,10 @@ public final class SpiderDen {
             if (containInDownloadDir(index)) {
                 return true;
             }
-            if (remoteStorage() != null) {
-                return copyFromCacheToRemote(mGalleryInfo, index) || copyFromPhoneToRemote(index);
+            GallerySpiderStorage remote = remoteStorage();
+            if (remote != null) {
+                return RemotePageBridge.copyFromCacheToRemote(mGalleryInfo, index)
+                        || remoteBridge().copyFromPhone(index, remote);
             }
             return copyFromCacheToDownloadDir(index);
         } else {
