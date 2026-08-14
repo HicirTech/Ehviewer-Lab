@@ -12,6 +12,7 @@ import androidx.annotation.Nullable;
 
 import com.hippo.ehviewer.client.data.GalleryInfo;
 import com.hippo.ehviewer.spider.GallerySpiderStorage;
+import com.hippo.ehviewer.storage.GalleryTargets;
 import com.hippo.streampipe.InputStreamPipe;
 import com.hippo.streampipe.OutputStreamPipe;
 
@@ -19,28 +20,10 @@ import java.io.InputStream;
 import java.io.OutputStream;
 
 /**
- * {@link GallerySpiderStorage} backed by the SMB share, plus the per-gid mark that decides which
- * galleries use it. A thin adapter over the static SMB helpers so {@code SpiderDen} can talk to
- * one interface instead of reaching into the SMB layer from a dozen call sites.
+ * {@link GallerySpiderStorage} backed by the SMB share; created only for gids marked in
+ * {@link GalleryTargets}. A thin adapter over the static SMB helpers.
  */
 public final class SmbSpiderStorage implements GallerySpiderStorage {
-
-    // Per-gid routing mark (a global flag once leaked phone downloads onto the share); lives
-    // beside createIfTarget, its one consumer.
-    private static final java.util.Set<Long> SMB_TARGET_GIDS =
-            java.util.Collections.synchronizedSet(new java.util.HashSet<>());
-
-    public static void markGidAsSmbTarget(long gid) {
-        SMB_TARGET_GIDS.add(gid);
-    }
-
-    public static void unmarkGidAsSmbTarget(long gid) {
-        SMB_TARGET_GIDS.remove(gid);
-    }
-
-    public static boolean isGidMarkedSmbTarget(long gid) {
-        return SMB_TARGET_GIDS.contains(gid);
-    }
 
     @NonNull
     private final GalleryInfo info;
@@ -51,8 +34,8 @@ public final class SmbSpiderStorage implements GallerySpiderStorage {
 
     /** An SMB backend iff the gid is marked, re-checked per call so unmarking acts immediately. */
     @Nullable
-    public static SmbSpiderStorage createIfTarget(@NonNull GalleryInfo info, long gid) {
-        return SmbSpiderStorage.isGidMarkedSmbTarget(gid) ? new SmbSpiderStorage(info) : null;
+    static SmbSpiderStorage createIfTarget(@NonNull GalleryInfo info, long gid) {
+        return GalleryTargets.isMarked(gid) ? new SmbSpiderStorage(info) : null;
     }
 
     @Override

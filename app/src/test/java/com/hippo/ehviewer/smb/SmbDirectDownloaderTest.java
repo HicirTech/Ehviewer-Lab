@@ -1,5 +1,6 @@
 package com.hippo.ehviewer.smb;
 
+import com.hippo.ehviewer.storage.GalleryTargets;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
@@ -264,12 +265,12 @@ public class SmbDirectDownloaderTest {
     public void cancel_clearsTheSmbTargetMark() {
         SmbDirectDownloader.getInstance().start(context, gallery(1));
         drain();
-        assertTrue(SmbSpiderStorage.isGidMarkedSmbTarget(1));
+        assertTrue(GalleryTargets.isMarked(1));
 
         SmbDirectDownloader.getInstance().cancel(1);
         drain();
 
-        assertFalse(SmbSpiderStorage.isGidMarkedSmbTarget(1));
+        assertFalse(GalleryTargets.isMarked(1));
     }
 
     /**
@@ -283,12 +284,12 @@ public class SmbDirectDownloaderTest {
 
         SmbDirectDownloader.getInstance().cancel(1);
         drain();
-        assertFalse(SmbSpiderStorage.isGidMarkedSmbTarget(1));
+        assertFalse(GalleryTargets.isMarked(1));
 
-        SmbSpiderStorage.markGidAsSmbTarget(1);
+        GalleryTargets.mark(1);
         assertTrue("a finished download must stay routed to the share",
-                SmbSpiderStorage.isGidMarkedSmbTarget(1));
-        SmbSpiderStorage.unmarkGidAsSmbTarget(1);
+                GalleryTargets.isMarked(1));
+        GalleryTargets.unmark(1);
     }
 
     /**
@@ -302,7 +303,7 @@ public class SmbDirectDownloaderTest {
         SmbDirectDownloader.getInstance().start(context, gallery(1));
         drain();
 
-        assertFalse(SmbSpiderStorage.isGidMarkedSmbTarget(1));
+        assertFalse(GalleryTargets.isMarked(1));
         assertTrue("a job that never started must not be listed as active", tasks().isEmpty());
     }
 

@@ -15,6 +15,7 @@ import androidx.annotation.Nullable;
 
 import com.hippo.ehviewer.client.data.GalleryInfo;
 
+import com.hippo.ehviewer.storage.GalleryRef;
 import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -93,7 +94,7 @@ public final class SmbAutoTune {
         if (!SmbConnection.isConfigured()) {
             return Result.unavailable("unconfigured");
         }
-        List<SmbInventory.GalleryRef> refs = SmbInventory.listGalleryRefs();
+        List<GalleryRef> refs = SmbInventory.listGalleryRefs();
         if (refs.isEmpty()) {
             return Result.unavailable("empty");
         }
@@ -105,7 +106,7 @@ public final class SmbAutoTune {
                     return t;
                 });
         try {
-            List<SmbInventory.GalleryRef> metaSample =
+            List<GalleryRef> metaSample =
                     refs.subList(0, Math.min(METADATA_SAMPLE, refs.size()));
 
             // Warm-up, outside every timing: the first operations on a fresh process also pay for
@@ -129,7 +130,7 @@ public final class SmbAutoTune {
                 SmbConcurrency.resize(pool, conc);
                 long t0 = SystemClock.elapsedRealtime();
                 List<Future<?>> pending = new ArrayList<>(metaSample.size());
-                for (SmbInventory.GalleryRef ref : metaSample) {
+                for (GalleryRef ref : metaSample) {
                     pending.add(pool.submit(() -> SmbInventory.readGalleryInfo(ref)));
                 }
                 for (Future<?> f : pending) {
@@ -151,7 +152,7 @@ public final class SmbAutoTune {
                 progress.on("collect", 0);
             }
             List<SmbFile> images = new ArrayList<>();
-            for (SmbInventory.GalleryRef ref : refs) {
+            for (GalleryRef ref : refs) {
                 if (images.size() >= IMAGE_SAMPLE) {
                     break;
                 }
@@ -170,7 +171,7 @@ public final class SmbAutoTune {
                     continue;
                 }
                 SmbFile page = SmbGalleryFiles.findSmbImageFileForPreview(
-                        SmbGalleryDirectory.lookupKey(info.gid, info.title), 0);
+                        com.hippo.ehviewer.storage.NetworkStorage.lookupKey(info.gid, info.title), 0);
                 if (page != null) {
                     images.add(page);
                 }

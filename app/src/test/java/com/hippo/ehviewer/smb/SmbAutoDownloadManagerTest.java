@@ -1,5 +1,7 @@
 package com.hippo.ehviewer.smb;
 
+import com.hippo.ehviewer.storage.DownloadState;
+import com.hippo.ehviewer.storage.GalleryTargets;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
@@ -118,12 +120,12 @@ public class SmbAutoDownloadManagerTest {
     public static class ShadowSmbDownloadStateStore {
 
         @Implementation
-        protected static List<SmbDownloadState.Published> readAll() {
+        protected static List<DownloadState.Published> readAll() {
             return new ArrayList<>();
         }
 
         @Implementation
-        protected static boolean writeSelf(SmbDownloadState.ClientState state) {
+        protected static boolean writeSelf(DownloadState.ClientState state) {
             return true;
         }
     }
@@ -194,7 +196,7 @@ public class SmbAutoDownloadManagerTest {
         // Both are process-wide singletons; leave nothing for the next test.
         SmbDirectDownloader.getInstance().cancel(GID);
         pump();
-        SmbSpiderStorage.unmarkGidAsSmbTarget(GID);
+        GalleryTargets.unmark(GID);
         accepted.clear();
         started.clear();
     }

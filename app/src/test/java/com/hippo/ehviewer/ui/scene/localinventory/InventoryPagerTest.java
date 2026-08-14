@@ -6,6 +6,8 @@
  */
 package com.hippo.ehviewer.ui.scene.localinventory;
 
+import com.hippo.ehviewer.storage.GalleryRef;
+import com.hippo.ehviewer.storage.SortMode;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
@@ -13,7 +15,6 @@ import static org.junit.Assert.assertTrue;
 import com.hippo.ehviewer.client.data.GalleryInfo;
 import com.hippo.ehviewer.smb.SmbCoverPrefetch;
 import com.hippo.ehviewer.smb.SmbInventory;
-import com.hippo.ehviewer.smb.SmbSortMode;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -34,7 +35,7 @@ import java.util.List;
         instrumentedPackages = {"com.hippo.ehviewer.smb"})
 public class InventoryPagerTest {
 
-    static final List<SmbInventory.GalleryRef> refsOnShare = new ArrayList<>();
+    static final List<GalleryRef> refsOnShare = new ArrayList<>();
     static final List<GalleryInfo> inventoryOnShare = new ArrayList<>();
     static int listCalls;
     static int readCalls;
@@ -42,13 +43,13 @@ public class InventoryPagerTest {
     @Implements(SmbInventory.class)
     public static class ShadowSmbInventory {
         @Implementation
-        protected static List<SmbInventory.GalleryRef> listGalleryRefs() {
+        protected static List<GalleryRef> listGalleryRefs() {
             listCalls++;
             return new ArrayList<>(refsOnShare);
         }
 
         @Implementation
-        protected static GalleryInfo readGalleryInfo(SmbInventory.GalleryRef ref) {
+        protected static GalleryInfo readGalleryInfo(GalleryRef ref) {
             readCalls++;
             GalleryInfo gi = new GalleryInfo();
             gi.gid = Long.parseLong(ref.folderName.split("-")[0]);
@@ -57,7 +58,7 @@ public class InventoryPagerTest {
         }
 
         @Implementation
-        protected static List<GalleryInfo> loadInventory(SmbSortMode mode) {
+        protected static List<GalleryInfo> loadInventory(SortMode mode) {
             return new ArrayList<>(inventoryOnShare);
         }
     }
@@ -81,7 +82,7 @@ public class InventoryPagerTest {
 
     private static void seedRefs(int n) {
         for (int i = 0; i < n; i++) {
-            refsOnShare.add(new SmbInventory.GalleryRef((i + 1) + "-G" + (i + 1), 1000L + i));
+            refsOnShare.add(new GalleryRef((i + 1) + "-G" + (i + 1), 1000L + i));
         }
     }
 
@@ -89,12 +90,12 @@ public class InventoryPagerTest {
     @Test
     public void pagesSliceTheOrderingAndReadLazily() {
         seedRefs(120);
-        InventoryPager.Page p0 = pager.loadPage(SmbSortMode.DOWNLOAD_DATE_DESC, 0, true);
+        InventoryPager.Page p0 = pager.loadPage(SortMode.DOWNLOAD_DATE_DESC, 0, true);
         assertEquals(3, p0.pages);
         assertEquals(50, p0.data.size());
         assertEquals(50, readCalls);
 
-        InventoryPager.Page p2 = pager.loadPage(SmbSortMode.DOWNLOAD_DATE_DESC, 2, false);
+        InventoryPager.Page p2 = pager.loadPage(SortMode.DOWNLOAD_DATE_DESC, 2, false);
         assertEquals(20, p2.data.size());
         assertEquals(70, readCalls);
         assertEquals("paging must not re-list the share", 1, listCalls);
@@ -104,7 +105,7 @@ public class InventoryPagerTest {
     @Test
     public void dateSortOrdersByMtimeDescending() {
         seedRefs(3);   // mtimes 1000, 1001, 1002
-        InventoryPager.Page page = pager.loadPage(SmbSortMode.DOWNLOAD_DATE_DESC, 0, true);
+        InventoryPager.Page page = pager.loadPage(SortMode.DOWNLOAD_DATE_DESC, 0, true);
         assertEquals(3L, page.data.get(0).gid);
         assertEquals(1L, page.data.get(2).gid);
     }
@@ -118,7 +119,7 @@ public class InventoryPagerTest {
             gi.title = "T" + (i + 1);
             inventoryOnShare.add(gi);
         }
-        InventoryPager.Page page = pager.loadPage(SmbSortMode.TITLE_ASC, 0, true);
+        InventoryPager.Page page = pager.loadPage(SortMode.TITLE_ASC, 0, true);
         assertEquals(3, page.data.size());
         assertEquals("cached ordering must not read per row", 0, readCalls);
     }
@@ -127,9 +128,9 @@ public class InventoryPagerTest {
     @Test
     public void forgottenRefsLeaveTheOrdering() {
         seedRefs(2);
-        pager.loadPage(SmbSortMode.DOWNLOAD_DATE_DESC, 0, true);
+        pager.loadPage(SortMode.DOWNLOAD_DATE_DESC, 0, true);
         pager.forgetRef("1-G1");
-        InventoryPager.Page page = pager.loadPage(SmbSortMode.DOWNLOAD_DATE_DESC, 0, false);
+        InventoryPager.Page page = pager.loadPage(SortMode.DOWNLOAD_DATE_DESC, 0, false);
         assertEquals(1, page.data.size());
         assertEquals(2L, page.data.get(0).gid);
     }
@@ -141,10 +142,10 @@ public class InventoryPagerTest {
         gi.gid = 1;
         gi.title = "Old";
         inventoryOnShare.add(gi);
-        pager.loadPage(SmbSortMode.TITLE_ASC, 0, true);
+        pager.loadPage(SortMode.TITLE_ASC, 0, true);
 
         pager.renameRef("1-Old", "1-New");
-        InventoryPager.Page page = pager.loadPage(SmbSortMode.TITLE_ASC, 0, false);
+        InventoryPager.Page page = pager.loadPage(SortMode.TITLE_ASC, 0, false);
         assertEquals(1, page.data.size());
         assertEquals("the cached record must survive the rename", "Old", page.data.get(0).title);
         assertEquals(0, readCalls);

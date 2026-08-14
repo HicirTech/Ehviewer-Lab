@@ -1,17 +1,18 @@
-package com.hippo.ehviewer.smb;
+package com.hippo.ehviewer.storage;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
 import com.hippo.ehviewer.client.data.GalleryInfo;
 
+import com.hippo.ehviewer.storage.SortMode;
 import java.util.Comparator;
 
 /**
  * Inventory ordering. Persisted as ordinal() — declaration order must stay stable. Entries carry
  * the mtime DOWNLOAD_DATE_DESC needs, keeping comparators pure.
  */
-public enum SmbSortMode {
+public enum SortMode {
     /** Most recently downloaded first (mtime of metadata.json on the share). */
     DOWNLOAD_DATE_DESC,
     /** Most recently posted to the site first (uses {@link GalleryInfo#posted}). */
@@ -23,8 +24,8 @@ public enum SmbSortMode {
 
     /** Maps a persisted ordinal back to a mode, falling back to the default for stale values. */
     @NonNull
-    public static SmbSortMode fromOrdinal(int o) {
-        SmbSortMode[] all = values();
+    public static SortMode fromOrdinal(int o) {
+        SortMode[] all = values();
         return o >= 0 && o < all.length ? all[o] : DOWNLOAD_DATE_DESC;
     }
 

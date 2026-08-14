@@ -7,6 +7,7 @@
 
 package com.hippo.ehviewer.smb;
 
+import com.hippo.ehviewer.storage.DownloadState;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
@@ -37,18 +38,18 @@ import java.util.concurrent.CopyOnWriteArrayList;
         instrumentedPackages = {"com.hippo.ehviewer.smb"})
 public class SmbDownloadBoardTest {
 
-    static final List<SmbDownloadState.Published> onShare = new ArrayList<>();
+    static final List<DownloadState.Published> onShare = new ArrayList<>();
     static final List<String> storeWrites = new ArrayList<>();
 
     @Implements(SmbDownloadStateStore.class)
     public static class ShadowStore {
         @Implementation
-        protected static List<SmbDownloadState.Published> readAll() {
+        protected static List<DownloadState.Published> readAll() {
             return new ArrayList<>(onShare);
         }
 
         @Implementation
-        protected static boolean writeSelf(SmbDownloadState.ClientState state) {
+        protected static boolean writeSelf(DownloadState.ClientState state) {
             storeWrites.add("writeSelf:" + state.clientId);
             return true;
         }
@@ -63,13 +64,13 @@ public class SmbDownloadBoardTest {
     /** Records every question; answers with whatever the test seeded. */
     static final class FakeDevice implements SmbDownloadBoard.Device {
         final List<String> calls = new CopyOnWriteArrayList<>();
-        List<SmbDownloadState.Task> held = new ArrayList<>();
+        List<DownloadState.Task> held = new ArrayList<>();
         List<Long> retired = new ArrayList<>();
 
         @Override
         @NonNull
-        public SmbDownloadState.ClientState snapshot() {
-            return new SmbDownloadState.ClientState(
+        public DownloadState.ClientState snapshot() {
+            return new DownloadState.ClientState(
                     Settings.getSmbClientId(), "test-device", new ArrayList<>(held));
         }
 
@@ -89,9 +90,9 @@ public class SmbDownloadBoardTest {
         }
 
         @Override
-        public void restore(@NonNull List<SmbDownloadState.Task> tasks) {
+        public void restore(@NonNull List<DownloadState.Task> tasks) {
             StringBuilder gids = new StringBuilder();
-            for (SmbDownloadState.Task t : tasks) {
+            for (DownloadState.Task t : tasks) {
                 gids.append(t.gid).append(',');
             }
             calls.add("restore:" + gids);
@@ -131,17 +132,17 @@ public class SmbDownloadBoardTest {
         selfId = Settings.getSmbClientId();
     }
 
-    private static SmbDownloadState.Task task(long gid, long claimedAt) {
-        return new SmbDownloadState.Task(gid, "token" + gid, "Gallery " + gid,
+    private static DownloadState.Task task(long gid, long claimedAt) {
+        return new DownloadState.Task(gid, "token" + gid, "Gallery " + gid,
                 3, 10, claimedAt, null);
     }
 
-    private static SmbDownloadState.Published published(
-            String clientId, boolean alive, SmbDownloadState.Task... tasks) {
-        List<SmbDownloadState.Task> list = new ArrayList<>();
+    private static DownloadState.Published published(
+            String clientId, boolean alive, DownloadState.Task... tasks) {
+        List<DownloadState.Task> list = new ArrayList<>();
         java.util.Collections.addAll(list, tasks);
-        return new SmbDownloadState.Published(
-                new SmbDownloadState.ClientState(clientId, "device " + clientId, list),
+        return new DownloadState.Published(
+                new DownloadState.ClientState(clientId, "device " + clientId, list),
                 alive, System.currentTimeMillis());
     }
 

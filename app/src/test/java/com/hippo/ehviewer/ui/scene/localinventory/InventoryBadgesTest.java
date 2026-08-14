@@ -6,6 +6,7 @@
  */
 package com.hippo.ehviewer.ui.scene.localinventory;
 
+import com.hippo.ehviewer.storage.DownloadState;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
@@ -13,7 +14,6 @@ import androidx.annotation.NonNull;
 
 import com.hippo.ehviewer.Settings;
 import com.hippo.ehviewer.smb.SmbDownloadBoard;
-import com.hippo.ehviewer.smb.SmbDownloadState;
 import com.hippo.ehviewer.smb.SmbTaskInfo;
 
 import org.junit.Before;
@@ -73,12 +73,12 @@ public class InventoryBadgesTest {
     }
 
     private static SmbTaskInfo task(long gid, int finished, int total) {
-        SmbDownloadState.Task t = new SmbDownloadState.Task(gid, "tok", "T" + gid,
+        DownloadState.Task t = new DownloadState.Task(gid, "tok", "T" + gid,
                 finished, total, 1_000L, null);
-        SmbDownloadState.Published p = new SmbDownloadState.Published(
-                new SmbDownloadState.ClientState("owner", "owner-device", Arrays.asList(t)),
+        DownloadState.Published p = new DownloadState.Published(
+                new DownloadState.ClientState("owner", "owner-device", Arrays.asList(t)),
                 true, System.currentTimeMillis());
-        SmbDownloadState.OwnedTask owned = SmbDownloadState.merge(Arrays.asList(p)).get(0);
+        DownloadState.OwnedTask owned = DownloadState.merge(Arrays.asList(p)).get(0);
         return SmbTaskInfo.of(owned, "someone-else", null,
                 com.hippo.ehviewer.dao.DownloadInfo.STATE_DOWNLOAD);
     }

@@ -17,7 +17,7 @@ import androidx.annotation.Nullable;
 import com.hippo.ehviewer.client.EhCacheKeyFactory;
 import com.hippo.ehviewer.client.data.GalleryInfo;
 import com.hippo.ehviewer.gallery.GalleryProvider2;
-import com.hippo.ehviewer.smb.SmbSpiderStorage;
+import com.hippo.ehviewer.storage.NetworkStorage;
 import com.hippo.lib.yorozuya.IOUtils;
 import com.hippo.lib.yorozuya.Utilities;
 import com.hippo.streampipe.InputStreamPipe;
@@ -55,7 +55,7 @@ public final class RemotePageBridge {
         if (SpiderDen.sCache == null) {
             return false;
         }
-        GallerySpiderStorage remote = SmbSpiderStorage.createIfTarget(info, info.gid);
+        GallerySpiderStorage remote = NetworkStorage.active().spiderStorage(info, info.gid);
         if (remote == null) {
             return false;
         }

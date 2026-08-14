@@ -5,8 +5,9 @@
  * you may not use this file except in compliance with the License.
  */
 
-package com.hippo.ehviewer.smb;
+package com.hippo.ehviewer.storage;
 
+import com.hippo.ehviewer.storage.SortMode;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertSame;
 
@@ -19,28 +20,28 @@ import java.util.List;
 import org.junit.Test;
 
 /** Unit tests for the Local Inventory ordering policy. */
-public class SmbSortModeTest {
+public class SortModeTest {
 
     @Test
     public void fromOrdinal_mapsEachConstant() {
-        assertSame(SmbSortMode.DOWNLOAD_DATE_DESC, SmbSortMode.fromOrdinal(0));
-        assertSame(SmbSortMode.POSTED_DATE_DESC, SmbSortMode.fromOrdinal(1));
-        assertSame(SmbSortMode.TITLE_ASC, SmbSortMode.fromOrdinal(2));
-        assertSame(SmbSortMode.CATEGORY, SmbSortMode.fromOrdinal(3));
+        assertSame(SortMode.DOWNLOAD_DATE_DESC, SortMode.fromOrdinal(0));
+        assertSame(SortMode.POSTED_DATE_DESC, SortMode.fromOrdinal(1));
+        assertSame(SortMode.TITLE_ASC, SortMode.fromOrdinal(2));
+        assertSame(SortMode.CATEGORY, SortMode.fromOrdinal(3));
     }
 
     @Test
     public void fromOrdinal_outOfRangeFallsBackToDefault() {
-        assertSame(SmbSortMode.DOWNLOAD_DATE_DESC, SmbSortMode.fromOrdinal(-1));
-        assertSame(SmbSortMode.DOWNLOAD_DATE_DESC, SmbSortMode.fromOrdinal(99));
+        assertSame(SortMode.DOWNLOAD_DATE_DESC, SortMode.fromOrdinal(-1));
+        assertSame(SortMode.DOWNLOAD_DATE_DESC, SortMode.fromOrdinal(99));
     }
 
     @Test
     public void downloadDateDesc_newestMtimeFirst() {
-        SmbSortMode.Entry older = entry(gallery("a", null, "", 0), 100L);
-        SmbSortMode.Entry newer = entry(gallery("b", null, "", 0), 200L);
+        SortMode.Entry older = entry(gallery("a", null, "", 0), 100L);
+        SortMode.Entry newer = entry(gallery("b", null, "", 0), 200L);
 
-        List<SmbSortMode.Entry> list = sorted(SmbSortMode.DOWNLOAD_DATE_DESC, older, newer);
+        List<SortMode.Entry> list = sorted(SortMode.DOWNLOAD_DATE_DESC, older, newer);
 
         assertEquals("b", list.get(0).info.title);
         assertEquals("a", list.get(1).info.title);
@@ -48,11 +49,11 @@ public class SmbSortModeTest {
 
     @Test
     public void postedDateDesc_newestPostedFirst_nullsLast() {
-        SmbSortMode.Entry old = entry(gallery("old", null, "2024-01-01 00:00", 0), 0L);
-        SmbSortMode.Entry recent = entry(gallery("recent", null, "2025-06-01 00:00", 0), 0L);
-        SmbSortMode.Entry undated = entry(gallery("undated", null, null, 0), 0L);
+        SortMode.Entry old = entry(gallery("old", null, "2024-01-01 00:00", 0), 0L);
+        SortMode.Entry recent = entry(gallery("recent", null, "2025-06-01 00:00", 0), 0L);
+        SortMode.Entry undated = entry(gallery("undated", null, null, 0), 0L);
 
-        List<SmbSortMode.Entry> list = sorted(SmbSortMode.POSTED_DATE_DESC, old, undated, recent);
+        List<SortMode.Entry> list = sorted(SortMode.POSTED_DATE_DESC, old, undated, recent);
 
         assertEquals("recent", list.get(0).info.title);
         assertEquals("old", list.get(1).info.title);
@@ -62,12 +63,12 @@ public class SmbSortModeTest {
 
     @Test
     public void titleAsc_caseInsensitive_andFallsBackToTitleJpn() {
-        SmbSortMode.Entry banana = entry(gallery("banana", null, "", 0), 0L);
-        SmbSortMode.Entry apple = entry(gallery("Apple", null, "", 0), 0L);
+        SortMode.Entry banana = entry(gallery("banana", null, "", 0), 0L);
+        SortMode.Entry apple = entry(gallery("Apple", null, "", 0), 0L);
         // No primary title: should sort by titleJpn ("cherry").
-        SmbSortMode.Entry cherry = entry(gallery(null, "cherry", "", 0), 0L);
+        SortMode.Entry cherry = entry(gallery(null, "cherry", "", 0), 0L);
 
-        List<SmbSortMode.Entry> list = sorted(SmbSortMode.TITLE_ASC, banana, cherry, apple);
+        List<SortMode.Entry> list = sorted(SortMode.TITLE_ASC, banana, cherry, apple);
 
         assertEquals("Apple", list.get(0).info.title);
         assertEquals("banana", list.get(1).info.title);
@@ -76,11 +77,11 @@ public class SmbSortModeTest {
 
     @Test
     public void category_groupsByCategoryThenTitle() {
-        SmbSortMode.Entry cat2b = entry(gallery("b", null, "", 2), 0L);
-        SmbSortMode.Entry cat1z = entry(gallery("z", null, "", 1), 0L);
-        SmbSortMode.Entry cat1a = entry(gallery("a", null, "", 1), 0L);
+        SortMode.Entry cat2b = entry(gallery("b", null, "", 2), 0L);
+        SortMode.Entry cat1z = entry(gallery("z", null, "", 1), 0L);
+        SortMode.Entry cat1a = entry(gallery("a", null, "", 1), 0L);
 
-        List<SmbSortMode.Entry> list = sorted(SmbSortMode.CATEGORY, cat2b, cat1z, cat1a);
+        List<SortMode.Entry> list = sorted(SortMode.CATEGORY, cat2b, cat1z, cat1a);
 
         // Category 1 first (a, z by title), then category 2.
         assertEquals("a", list.get(0).info.title);
@@ -99,12 +100,12 @@ public class SmbSortModeTest {
         return gi;
     }
 
-    private static SmbSortMode.Entry entry(GalleryInfo info, long downloadedAtMillis) {
-        return new SmbSortMode.Entry(info, downloadedAtMillis);
+    private static SortMode.Entry entry(GalleryInfo info, long downloadedAtMillis) {
+        return new SortMode.Entry(info, downloadedAtMillis);
     }
 
-    private static List<SmbSortMode.Entry> sorted(SmbSortMode mode, SmbSortMode.Entry... entries) {
-        List<SmbSortMode.Entry> list = new ArrayList<>();
+    private static List<SortMode.Entry> sorted(SortMode mode, SortMode.Entry... entries) {
+        List<SortMode.Entry> list = new ArrayList<>();
         Collections.addAll(list, entries);
         Collections.sort(list, mode.comparator());
         return list;

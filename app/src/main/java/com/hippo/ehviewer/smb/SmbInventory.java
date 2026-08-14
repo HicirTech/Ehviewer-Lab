@@ -9,6 +9,8 @@ import androidx.annotation.Nullable;
 import com.alibaba.fastjson.JSONObject;
 import com.hippo.ehviewer.client.data.GalleryInfo;
 
+import com.hippo.ehviewer.storage.GalleryRef;
+import com.hippo.ehviewer.storage.SortMode;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
@@ -54,11 +56,11 @@ public final class SmbInventory {
 
     @NonNull
     public static List<GalleryInfo> loadInventory() {
-        return loadInventory(SmbSortMode.DOWNLOAD_DATE_DESC);
+        return loadInventory(SortMode.DOWNLOAD_DATE_DESC);
     }
 
     @NonNull
-    public static List<GalleryInfo> loadInventory(@NonNull SmbSortMode mode) {
+    public static List<GalleryInfo> loadInventory(@NonNull SortMode mode) {
         if (!SmbConnection.isConfigured()) {
             return new ArrayList<>();
         }
@@ -66,7 +68,7 @@ public final class SmbInventory {
         long tLoad = SystemClock.elapsedRealtime();
         int reads = 0;
         // The mtime rides along for DOWNLOAD_DATE_DESC; other modes ignore it.
-        List<SmbSortMode.Entry> entries = new ArrayList<>();
+        List<SortMode.Entry> entries = new ArrayList<>();
         try {
             CIFSContext cifs = SmbConnection.buildContext();
             SmbFile galleryRoot = new SmbFile(SmbConnection.galleryRootUrl(), cifs);
@@ -90,14 +92,14 @@ public final class SmbInventory {
             }
 
             java.util.concurrent.ThreadPoolExecutor pool = inventoryExecutor();
-            List<java.util.concurrent.Future<SmbSortMode.Entry>> pending =
+            List<java.util.concurrent.Future<SortMode.Entry>> pending =
                     new ArrayList<>(folders.size());
             for (SmbFile child : folders) {
                 pending.add(pool.submit(() -> readEntry(child)));
             }
             // Collected in submission order so comparator ties stay deterministic.
-            for (java.util.concurrent.Future<SmbSortMode.Entry> f : pending) {
-                SmbSortMode.Entry entry;
+            for (java.util.concurrent.Future<SortMode.Entry> f : pending) {
+                SortMode.Entry entry;
                 try {
                     entry = f.get();
                 } catch (Throwable e) {
@@ -130,7 +132,7 @@ public final class SmbInventory {
 
     /** One folder's metadata, or null. Runs pooled; shares nothing with this class. */
     @Nullable
-    private static SmbSortMode.Entry readEntry(@NonNull SmbFile folder) throws IOException {
+    private static SortMode.Entry readEntry(@NonNull SmbFile folder) throws IOException {
         SmbFile metadata = new SmbFile(folder, SmbMetadata.METADATA_FILE);
         if (!metadata.exists()) {
             return null;
@@ -150,30 +152,16 @@ public final class SmbInventory {
         } catch (Throwable ignored) {
             mtime = 0L;
         }
-        return new SmbSortMode.Entry(info, mtime);
+        return new SortMode.Entry(info, mtime);
     }
 
     @NonNull
-    private static List<GalleryInfo> toGalleryList(@NonNull List<SmbSortMode.Entry> entries) {
+    private static List<GalleryInfo> toGalleryList(@NonNull List<SortMode.Entry> entries) {
         List<GalleryInfo> out = new ArrayList<>(entries.size());
-        for (SmbSortMode.Entry e : entries) {
+        for (SortMode.Entry e : entries) {
             out.add(e.info);
         }
         return out;
-    }
-
-    /**
-     * A folder located but not yet read; metadata is read lazily per visible row. folderMtime
-     * rides the enumeration for free and orders the default view without a single metadata read.
-     */
-    public static final class GalleryRef {
-        @NonNull public final String folderName;
-        public final long folderMtime;
-
-        public GalleryRef(@NonNull String folderName, long folderMtime) {
-            this.folderName = folderName;
-            this.folderMtime = folderMtime;
-        }
     }
 
     /** All gallery folders in one listing, no metadata reads — first-paint cheap. */

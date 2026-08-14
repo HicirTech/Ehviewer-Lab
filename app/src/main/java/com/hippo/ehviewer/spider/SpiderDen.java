@@ -31,7 +31,7 @@ import com.hippo.ehviewer.client.EhCacheKeyFactory;
 import com.hippo.ehviewer.client.EhUtils;
 import com.hippo.ehviewer.client.data.GalleryInfo;
 import com.hippo.ehviewer.gallery.GalleryProvider2;
-import com.hippo.ehviewer.smb.SmbSpiderStorage;
+import com.hippo.ehviewer.storage.NetworkStorage;
 import com.hippo.io.UniFileInputStreamPipe;
 import com.hippo.io.UniFileOutputStreamPipe;
 import com.hippo.streampipe.InputStreamPipe;
@@ -248,7 +248,7 @@ public final class SpiderDen {
     /** The remote backend for this gallery, or null = phone storage. The one selection point. */
     @Nullable
     private GallerySpiderStorage remoteStorage() {
-        return SmbSpiderStorage.createIfTarget(mGalleryInfo, mGid);
+        return NetworkStorage.active().spiderStorage(mGalleryInfo, mGid);
     }
 
     /** Spider-info writer, routed to the active backend. */

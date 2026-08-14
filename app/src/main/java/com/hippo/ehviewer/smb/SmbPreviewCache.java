@@ -8,6 +8,7 @@ import androidx.annotation.Nullable;
 import com.hippo.ehviewer.EhApplication;
 import com.hippo.ehviewer.client.data.GalleryInfo;
 
+import com.hippo.ehviewer.storage.NetworkStorage;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -27,7 +28,6 @@ import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import jcifs.smb.SmbFile;
 
 /**
  * Fans preview reads out ahead of Conaco's serial executor into deterministic local files, so
@@ -111,13 +111,13 @@ public final class SmbPreviewCache {
      * pooled — inline it stuttered a UI frame on big galleries.
      */
     public static void prefetchGallery(long gid, @Nullable String title, int count) {
-        if (count <= 0 || !SmbConnection.isConfigured()) {
+        if (count <= 0 || !NetworkStorage.active().isConfigured()) {
             return;
         }
         if (!PREFETCHED_GIDS.add(gid)) {
             return;
         }
-        final GalleryInfo lookup = SmbGalleryDirectory.lookupKey(gid, title);
+        final GalleryInfo lookup = NetworkStorage.lookupKey(gid, title);
         // One short-lived dispatch task; count-many per-page tasks are queued from inside it.
         track(gid, prefetchExecutor().submit(() -> dispatchPages(lookup, gid, count)));
     }
@@ -169,7 +169,7 @@ public final class SmbPreviewCache {
             return;
         }
         long tPerf0 = android.os.SystemClock.elapsedRealtime();
-        SmbFile remote = SmbGalleryFiles.findSmbImageFileForPreview(lookup, index);
+        InputStream remote = NetworkStorage.active().files().openImageInputStream(lookup, index);
         if (remote == null) {
             return;
         }
@@ -177,7 +177,7 @@ public final class SmbPreviewCache {
         InputStream in = null;
         OutputStream out = null;
         try {
-            in = new java.io.BufferedInputStream(remote.getInputStream(), SmbGalleryFiles.SMB_IO_BUFFER);
+            in = remote;
             out = new FileOutputStream(tmp);
             byte[] buf = new byte[16 * 1024];
             int n;

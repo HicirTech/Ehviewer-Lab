@@ -14,6 +14,7 @@ import androidx.annotation.Nullable;
 
 import com.hippo.ehviewer.EhApplication;
 import com.hippo.ehviewer.client.data.GalleryInfo;
+import com.hippo.ehviewer.storage.NetworkStorage;
 import com.hippo.lib.yorozuya.IOUtils;
 import com.hippo.streampipe.InputStreamPipe;
 
@@ -64,7 +65,7 @@ public final class SmbCoverPrefetch {
 
     /** Prefetches one page of rows (not the whole share — that would slow the visible twelve). */
     public static void prefetch(@NonNull List<GalleryInfo> infos) {
-        if (!SmbConnection.isConfigured()) {
+        if (!NetworkStorage.active().isConfigured()) {
             return;
         }
         sweepLegacyOnce();
@@ -72,9 +73,9 @@ public final class SmbCoverPrefetch {
             if (info == null || !REQUESTED.add(info.gid)) {
                 continue;
             }
-            final GalleryInfo lookup = SmbGalleryDirectory.lookupKey(info.gid, info.title);
+            final GalleryInfo lookup = NetworkStorage.lookupKey(info.gid, info.title);
             SmbPreviewCache.prefetchExecutor().submit(() -> {
-                byte[] bytes = SmbGalleryFiles.readCoverBytes(lookup);
+                byte[] bytes = NetworkStorage.active().files().readCoverBytes(lookup);
                 if (bytes == null) {
                     // Nothing there, or the read failed; let a later scroll try again.
                     REQUESTED.remove(lookup.gid);

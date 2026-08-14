@@ -6,6 +6,9 @@ import android.util.Log;
 import androidx.annotation.NonNull;
 
 import com.hippo.ehviewer.Settings;
+import com.hippo.ehviewer.storage.DownloadState;
+import com.hippo.ehviewer.storage.GalleryRef;
+import com.hippo.ehviewer.storage.NetworkStorage;
 import com.hippo.lib.yorozuya.SimpleHandler;
 
 import java.util.Collections;
@@ -128,26 +131,26 @@ public final class SmbSavedGalleries {
     }
 
     private static boolean enabled() {
-        return SmbConnection.isConfigured() && Settings.getSmbSaveEnabled();
+        return NetworkStorage.active().isConfigured() && Settings.getSmbSaveEnabled();
     }
 
     /** Reads the share; null on failure so the caller keeps the previous answer. */
     private static Set<Long> read() {
         long t0 = SystemClock.elapsedRealtime();
         try {
-            List<SmbInventory.GalleryRef> refs = SmbInventory.listGalleryRefs();
+            List<GalleryRef> refs = NetworkStorage.active().inventory().listGalleryRefs();
             Set<Long> gids = new HashSet<>(refs.size() * 2);
-            for (SmbInventory.GalleryRef ref : refs) {
-                long gid = SmbPaths.parseGid(ref.folderName);
-                if (gid != SmbPaths.NOT_A_GALLERY) {
+            for (GalleryRef ref : refs) {
+                long gid = NetworkStorage.active().parseGalleryGid(ref.folderName);
+                if (gid != NetworkStorage.NOT_A_GALLERY) {
                     gids.add(gid);
                 }
             }
             long tListed = SystemClock.elapsedRealtime();
 
             int claimed = 0;
-            for (SmbDownloadState.Published p : SmbDownloadStateStore.readAll()) {
-                for (SmbDownloadState.Task t : p.state.tasks) {
+            for (DownloadState.Published p : NetworkStorage.active().stateStore().readAll()) {
+                for (DownloadState.Task t : p.state.tasks) {
                     if (gids.remove(t.gid)) {
                         claimed++;
                     }

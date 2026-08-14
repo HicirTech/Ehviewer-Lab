@@ -13,6 +13,7 @@ import android.util.Log;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
+import com.hippo.ehviewer.storage.GalleryRef;
 import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -102,14 +103,14 @@ public final class SmbBenchmark {
         int imageConcurrency = SmbConcurrency.image();
 
         long t0 = SystemClock.elapsedRealtime();
-        List<SmbInventory.GalleryRef> refs = SmbInventory.listGalleryRefs();
+        List<GalleryRef> refs = SmbInventory.listGalleryRefs();
         long listMillis = SystemClock.elapsedRealtime() - t0;
 
         if (refs.isEmpty()) {
             return Result.unavailable("empty");
         }
 
-        List<SmbInventory.GalleryRef> sample =
+        List<GalleryRef> sample =
                 refs.subList(0, Math.min(METADATA_SAMPLE, refs.size()));
 
         // Metadata, through the same pool the inventory uses, so the number means something about
@@ -117,7 +118,7 @@ public final class SmbBenchmark {
         ThreadPoolExecutor pool = SmbInventory.inventoryExecutor();
         long tMeta = SystemClock.elapsedRealtime();
         List<Future<Boolean>> pending = new ArrayList<>(sample.size());
-        for (SmbInventory.GalleryRef ref : sample) {
+        for (GalleryRef ref : sample) {
             pending.add(pool.submit(() -> SmbInventory.readGalleryInfo(ref) != null));
         }
         int metadataRead = 0;
@@ -159,9 +160,9 @@ public final class SmbBenchmark {
 
     /** Reads real pages concurrently, spread across galleries so one book cannot skew it. */
     @NonNull
-    private static Images readImages(@NonNull List<SmbInventory.GalleryRef> refs, int concurrency) {
+    private static Images readImages(@NonNull List<GalleryRef> refs, int concurrency) {
         List<Callable> jobs = new ArrayList<>();
-        for (SmbInventory.GalleryRef ref : refs) {
+        for (GalleryRef ref : refs) {
             if (jobs.size() >= IMAGE_SAMPLE) {
                 break;
             }

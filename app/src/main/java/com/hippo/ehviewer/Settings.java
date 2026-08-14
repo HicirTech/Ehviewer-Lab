@@ -16,7 +16,7 @@
 
 package com.hippo.ehviewer;
 
-import com.hippo.ehviewer.smb.SmbConnection;
+import com.hippo.ehviewer.storage.SortMode;
 import static com.hippo.ehviewer.client.EhConfig.IMAGE_SIZE_780X;
 import static com.hippo.ehviewer.client.EhConfig.IMAGE_SIZE_980X;
 
@@ -1044,7 +1044,7 @@ public class Settings {
     }
 
     /**
-     * Local Inventory sort mode. Values map to {@code SmbSortMode} ordinals
+     * Local Inventory sort mode. Values map to {@code SortMode} ordinals
      * (0=DOWNLOAD_DATE_DESC, 1=POSTED_DATE_DESC, 2=TITLE_ASC, 3=CATEGORY).
      * Persisted so the user's preferred order is remembered across sessions.
      */

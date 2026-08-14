@@ -7,6 +7,8 @@
 
 package com.hippo.ehviewer.smb;
 
+import com.hippo.ehviewer.storage.GalleryRef;
+import com.hippo.ehviewer.storage.SortMode;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
@@ -131,7 +133,7 @@ public class SmbInventoryTest {
     @Test
     public void foreignFoldersAreNotGalleries() {
         listings.put(rootPath, new String[]{"42-Answer/", "state/", "misc backups/"});
-        List<SmbInventory.GalleryRef> refs = SmbInventory.listGalleryRefs();
+        List<GalleryRef> refs = SmbInventory.listGalleryRefs();
         assertEquals(1, refs.size());
         assertEquals("the trailing slash jcifs reports must be trimmed",
                 "42-Answer", refs.get(0).folderName);
@@ -147,7 +149,7 @@ public class SmbInventoryTest {
         createTimes.put(rootPath + "1-A/", 1000L);
         mtimes.put(rootPath + "1-A/", 9999L);
         mtimes.put(rootPath + "2-B/", 2000L);
-        List<SmbInventory.GalleryRef> refs = SmbInventory.listGalleryRefs();
+        List<GalleryRef> refs = SmbInventory.listGalleryRefs();
         assertEquals(2, refs.size());
         assertEquals(1000L, refs.get(0).folderMtime);
         assertEquals("no createTime: the enumeration's mtime stands in",
@@ -160,7 +162,7 @@ public class SmbInventoryTest {
         listings.put(rootPath, new String[]{"1-A/", "2-B/"});
         folderWithMetadata("1-A", 1L);
         folderWithMetadata("2-B", 2L);
-        List<GalleryInfo> loaded = SmbInventory.loadInventory(SmbSortMode.TITLE_ASC);
+        List<GalleryInfo> loaded = SmbInventory.loadInventory(SortMode.TITLE_ASC);
         assertEquals(2, loaded.size());
         assertEquals(1L, loaded.get(0).gid);
         assertEquals(2L, loaded.get(1).gid);
@@ -174,7 +176,7 @@ public class SmbInventoryTest {
         folderWithMetadata("2-B", 2L);
         folderWithMetadata("3-C", 3L);
         unreadable.add(rootPath + "2-B/" + SmbMetadata.METADATA_FILE);
-        List<GalleryInfo> loaded = SmbInventory.loadInventory(SmbSortMode.TITLE_ASC);
+        List<GalleryInfo> loaded = SmbInventory.loadInventory(SortMode.TITLE_ASC);
         assertEquals(2, loaded.size());
     }
 
@@ -183,7 +185,7 @@ public class SmbInventoryTest {
     public void aRefWithoutMetadataReadsAsNull() {
         listings.put(rootPath, new String[]{"7-G/"});
         existing.add(rootPath + "7-G/");
-        List<SmbInventory.GalleryRef> refs = SmbInventory.listGalleryRefs();
+        List<GalleryRef> refs = SmbInventory.listGalleryRefs();
         assertEquals(1, refs.size());
         assertTrue(SmbInventory.readGalleryInfo(refs.get(0)) == null);
     }

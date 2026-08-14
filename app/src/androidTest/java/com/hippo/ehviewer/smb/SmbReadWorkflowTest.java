@@ -7,6 +7,7 @@
 
 package com.hippo.ehviewer.smb;
 
+import com.hippo.ehviewer.storage.GalleryRef;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
@@ -123,21 +124,21 @@ public class SmbReadWorkflowTest {
     public void metadataReadsOffEveryTarget() throws Exception {
         forEachTarget(target -> {
             long t0 = SystemClock.elapsedRealtime();
-            List<SmbInventory.GalleryRef> refs = SmbInventory.listGalleryRefs();
+            List<GalleryRef> refs = SmbInventory.listGalleryRefs();
             long enumMs = SystemClock.elapsedRealtime() - t0;
             assertTrue(target.label + ": expected a library of at least " + mMinGalleries
                             + " galleries, found " + refs.size()
                             + " — is this the right share?",
                     refs.size() >= mMinGalleries);
 
-            List<SmbInventory.GalleryRef> sample =
+            List<GalleryRef> sample =
                     refs.subList(0, Math.min(METADATA_SAMPLE, refs.size()));
             long t1 = SystemClock.elapsedRealtime();
             int ok = 0;
             List<String> missing = new ArrayList<>();
             ExecutorService pool = SmbInventory.inventoryExecutor();
             List<Future<GalleryInfo>> pending = new ArrayList<>(sample.size());
-            for (SmbInventory.GalleryRef ref : sample) {
+            for (GalleryRef ref : sample) {
                 pending.add(pool.submit(() -> SmbInventory.readGalleryInfo(ref)));
             }
             for (int i = 0; i < pending.size(); i++) {
@@ -219,11 +220,11 @@ public class SmbReadWorkflowTest {
 
     /** Metadata for the first {@code count} galleries of the currently configured target. */
     private List<GalleryInfo> firstInfos(int count, String label) {
-        List<SmbInventory.GalleryRef> refs = SmbInventory.listGalleryRefs();
+        List<GalleryRef> refs = SmbInventory.listGalleryRefs();
         assertTrue(label + ": expected a library of at least " + mMinGalleries
                 + " galleries, found " + refs.size(), refs.size() >= mMinGalleries);
         List<GalleryInfo> infos = new ArrayList<>();
-        for (SmbInventory.GalleryRef ref : refs) {
+        for (GalleryRef ref : refs) {
             if (infos.size() >= count) {
                 break;
             }
