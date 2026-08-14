@@ -282,7 +282,7 @@ public final class SmbMetadata {
         if (fresh.title == null || fresh.title.equals(local.title)) {
             return false;
         }
-        if (SmbDirectDownloader.getInstance().isClaimedElsewhere(local.gid)
+        if (SmbDownloadBoard.getInstance().isClaimedElsewhere(local.gid)
                 || isDownloadingHere(local.gid)) {
             Log.i(TAG, "Not renaming gid=" + local.gid + ": it is being downloaded");
             return false;

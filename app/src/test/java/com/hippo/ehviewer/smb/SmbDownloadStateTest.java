@@ -319,4 +319,73 @@ public class SmbDownloadStateTest {
         assertNull(SmbDownloadState.parse("not json at all"));
         assertNull(SmbDownloadState.parse("{\"tasks\":[]}"));   // no clientId: not usable
     }
+
+    // ------------------------------------------------------------- planReconcile / assessTakeOver
+
+    /**
+     * The reconcile decision, pure (#98): held-but-outclaimed yields, published-but-lost
+     * restores, and nothing else. The board applies this; nothing else may decide.
+     */
+    @Test
+    public void plan_yieldsWhatALiveRivalClaimedMoreRecently() {
+        ClientState held = new ClientState(ME, "me", Arrays.asList(task(42, 1_000)));
+        SmbDownloadState.ReconcilePlan plan = SmbDownloadState.planReconcile(ME, held,
+                Arrays.asList(published(ME, true, task(42, 1_000)),
+                        published(OTHER, true, task(42, 2_000))),
+                gid -> false);
+        assertEquals(Arrays.asList(42L), plan.yields);
+        assertTrue(plan.restores.isEmpty());
+    }
+
+    @Test
+    public void plan_restoresWhatWasPublishedButIsNoLongerHeld() {
+        ClientState held = new ClientState(ME, "me", Arrays.asList());
+        SmbDownloadState.ReconcilePlan plan = SmbDownloadState.planReconcile(ME, held,
+                Arrays.asList(published(ME, true, task(7, 1_000))),
+                gid -> false);
+        assertTrue(plan.yields.isEmpty());
+        assertEquals(1, plan.restores.size());
+        assertEquals(7L, plan.restores.get(0).gid);
+        assertFalse("something to restore: the restore itself will publish", plan.shouldPublish);
+    }
+
+    /** The retired must stay retired; the plan says publish instead, to clear the stale claim. */
+    @Test
+    public void plan_leavesTheRetiredDownAndPublishesInstead() {
+        ClientState held = new ClientState(ME, "me", Arrays.asList());
+        SmbDownloadState.ReconcilePlan plan = SmbDownloadState.planReconcile(ME, held,
+                Arrays.asList(published(ME, true, task(7, 1_000))),
+                gid -> gid == 7L);
+        assertTrue(plan.restores.isEmpty());
+        assertTrue(plan.shouldPublish);
+    }
+
+    /** Never published: nothing to restore and no file to correct, so no publish either. */
+    @Test
+    public void plan_doesNothingWhenThisDeviceNeverPublished() {
+        ClientState held = new ClientState(ME, "me", Arrays.asList());
+        SmbDownloadState.ReconcilePlan plan = SmbDownloadState.planReconcile(ME, held,
+                Arrays.asList(published(OTHER, true, task(9, 1_000))),
+                gid -> false);
+        assertTrue(plan.yields.isEmpty());
+        assertTrue(plan.restores.isEmpty());
+        assertFalse(plan.shouldPublish);
+    }
+
+    /** The three answers a fresh look can give a takeover, in one place. */
+    @Test
+    public void assess_ordersTheThreeTakeoverAnswers() {
+        assertEquals(SmbDownloadState.TakeOverAssessment.ALREADY_OURS,
+                SmbDownloadState.assessTakeOver(
+                        SmbDownloadState.merge(Arrays.asList(published(ME, true, task(1, 1_000)))),
+                        1, ME));
+        assertEquals(SmbDownloadState.TakeOverAssessment.OWNER_ALIVE,
+                SmbDownloadState.assessTakeOver(
+                        SmbDownloadState.merge(Arrays.asList(published(OTHER, true, task(1, 1_000)))),
+                        1, ME));
+        assertEquals(SmbDownloadState.TakeOverAssessment.ORPHAN,
+                SmbDownloadState.assessTakeOver(
+                        SmbDownloadState.merge(Arrays.asList(published(OTHER, false, task(1, 1_000)))),
+                        1, ME));
+    }
 }
