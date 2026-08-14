@@ -83,4 +83,51 @@ public class GalleryListingCacheTest {
 
         assertEquals(Collections.<String>emptySet(), c.get(GID, NOW));
     }
+
+    /** The #102 point: a confirmed write teaches the listing instead of destroying it. */
+    @Test
+    public void aConfirmedWriteIsAddedToTheListing() {
+        GalleryListingCache c = cache();
+        c.put(GID, names("00000001.jpg"), NOW);
+
+        c.noteWritten(GID, "00000002.jpg");
+
+        assertEquals(names("00000001.jpg", "00000002.jpg"), c.get(GID, NOW));
+    }
+
+    /** No listing, nothing to teach: the next query must go to the share, not trust one name. */
+    @Test
+    public void notingWithoutAListingRemembersNothing() {
+        GalleryListingCache c = cache();
+
+        c.noteWritten(GID, "00000001.jpg");
+
+        assertNull(c.get(GID, NOW));
+    }
+
+    /**
+     * Noting must not refresh the snapshot's age — the rest of the listing is still as old as
+     * when it was fetched, and another device's changes still surface within one TTL.
+     */
+    @Test
+    public void notingDoesNotExtendTheListingsLife() {
+        GalleryListingCache c = cache();
+        c.put(GID, names("00000001.jpg"), NOW);
+
+        c.noteWritten(GID, "00000002.jpg");
+
+        assertNull("the snapshot must still age from fetch time", c.get(GID, NOW + TTL));
+    }
+
+    /** The handed-out set must not change under a reader mid-iteration (copy-on-write). */
+    @Test
+    public void aHandedOutListingIsNotMutatedByLaterNotes() {
+        GalleryListingCache c = cache();
+        c.put(GID, names("00000001.jpg"), NOW);
+        Set<String> handedOut = c.get(GID, NOW);
+
+        c.noteWritten(GID, "00000002.jpg");
+
+        assertEquals(names("00000001.jpg"), handedOut);
+    }
 }

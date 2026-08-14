@@ -60,9 +60,14 @@ public final class SmbSpiderStorage implements GallerySpiderStorage {
         return SmbGalleryFiles.containImage(info, index);
     }
 
+    /**
+     * Deliberate no-op (#102). The one caller removes "the failed download's partial file" — but
+     * writes here are atomic, so a failed download leaves no partial file, and the name it would
+     * delete is the previous complete page.
+     */
     @Override
     public boolean removeImage(int index) {
-        return SmbGalleryFiles.removeImage(info, index);
+        return false;
     }
 
     @Nullable

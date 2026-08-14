@@ -267,33 +267,6 @@ public final class SmbGalleryFiles {
         return false;
     }
 
-    public static boolean removeImage(@NonNull GalleryInfo info, int index) {
-        boolean result = false;
-        try {
-            Set<String> names = SmbGalleryDirectory.galleryFilenames(info);
-            SmbFile galleryDir = null;
-            for (String extension : com.hippo.ehviewer.gallery.GalleryProvider2.SUPPORT_IMAGE_EXTENSIONS) {
-                String filename = SpiderDen.generateImageFilename(index, extension);
-                if (!names.contains(filename)) {
-                    continue;
-                }
-                if (galleryDir == null) {
-                    galleryDir = SmbGalleryDirectory.resolveGalleryDir(info);
-                }
-                SmbFile file = new SmbFile(galleryDir, filename);
-                if (file.exists()) {
-                    file.delete();
-                    result = true;
-                }
-            }
-        } catch (Throwable e) {
-            Log.w(TAG, "Failed to remove SMB image gid=" + info.gid + ", index=" + index, e);
-        } finally {
-            SmbGalleryDirectory.invalidateListing(info.gid);
-        }
-        return result;
-    }
-
     /**
      * Atomic write: temp name, rename on close, so no reader ever sees a half-written file (#35).
      * Two-arg renameTo because re-downloads legitimately overwrite.
@@ -332,9 +305,13 @@ public final class SmbGalleryFiles {
                 out.close();
                 try {
                     temp.renameTo(target, true);
-                    // A stale listing deleting a just-written page was #35; invalidate here.
-                    SmbGalleryDirectory.invalidateListing(gid);
+                    // The share just confirmed this name exists; a stale listing deleting a
+                    // just-written page was #35, so the cache must learn it — incrementally
+                    // (#102), not by re-listing the folder once per page.
+                    SmbGalleryDirectory.noteWritten(gid, name);
                 } catch (Throwable e) {
+                    // Uncertain what the folder holds now — forget, do not guess.
+                    SmbGalleryDirectory.invalidateListing(gid);
                     try {
                         temp.delete();
                     } catch (Throwable ignored) {

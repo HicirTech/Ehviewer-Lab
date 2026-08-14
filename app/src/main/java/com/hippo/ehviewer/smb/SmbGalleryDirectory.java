@@ -85,6 +85,11 @@ public final class SmbGalleryDirectory {
         LISTING_CACHE.invalidate(gid);
     }
 
+    /** A file the share just confirmed (rename returned): remember it instead of re-listing. */
+    static void noteWritten(long gid, @NonNull String name) {
+        LISTING_CACHE.noteWritten(gid, name);
+    }
+
     public static boolean prepareGalleryDir(@NonNull GalleryInfo info) {
         try {
             getGalleryDir(info);
