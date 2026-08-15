@@ -124,4 +124,18 @@
     <string-array name="storage_protocol_values" translatable="false">
         <item>smb</item>
     </string-array>
+    <string name="settings_storage_save_test">Save &amp; Test</string>
+    <string name="settings_storage_save_test_summary">Connection changes are saved together here, after a connect, read and write check.</string>
+    <string name="settings_storage_save_test_ready">Unsaved changes — tap to test and save.</string>
+    <string name="settings_storage_checking">Testing\u2026</string>
+    <string name="settings_storage_check_connect">Connect</string>
+    <string name="settings_storage_check_read">Read</string>
+    <string name="settings_storage_check_write">Write</string>
+    <string name="settings_storage_saved">Saved</string>
+    <string name="settings_storage_save_failed">Could not write the settings</string>
+    <string name="settings_storage_readonly_question">The share is readable but not writable. Save anyway? Browsing will work; downloads will not.</string>
+    <string name="settings_storage_readonly_save">Save read-only</string>
+    <string name="settings_storage_discard_title">Discard unsaved connection changes?</string>
+    <string name="settings_storage_discard">Discard</string>
+    <string name="settings_storage_unsaved">%s (unsaved)</string>
 </resources>

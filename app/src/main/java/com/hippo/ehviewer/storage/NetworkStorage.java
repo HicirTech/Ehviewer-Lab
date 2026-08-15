@@ -70,6 +70,13 @@ public interface NetworkStorage {
     @Nullable
     String testConnection() throws IOException;
 
+    /**
+     * Probes a not-yet-saved configuration: connect, then read, then write a temporary file
+     * (#133). Must not touch the live configuration or any cached connection state.
+     */
+    @NonNull
+    SelfCheck selfCheck(@NonNull ConnectionDraft draft);
+
     /** Returned by {@link #parseGalleryGid} when the name is not a gallery folder's. */
     long NOT_A_GALLERY = -1L;
 

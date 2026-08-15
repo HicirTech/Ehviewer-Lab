@@ -116,4 +116,18 @@
     <string name="settings_storage_enable_save">儲存畫廊到網絡儲存</string>
     <string name="settings_storage_enable_save_summary">網絡儲存總開關。關閉時，所有相關功能均不可用。</string>
     <string name="settings_storage_protocol">協議</string>
+    <string name="settings_storage_save_test">儲存並測試</string>
+    <string name="settings_storage_save_test_summary">連線設定嘅改動喺呢度統一儲存;儲存前依次自檢連線、讀取、寫入。</string>
+    <string name="settings_storage_save_test_ready">有未儲存嘅改動,㩒一下測試並儲存。</string>
+    <string name="settings_storage_checking">測試緊\u2026</string>
+    <string name="settings_storage_check_connect">連線</string>
+    <string name="settings_storage_check_read">讀取</string>
+    <string name="settings_storage_check_write">寫入</string>
+    <string name="settings_storage_saved">已儲存</string>
+    <string name="settings_storage_save_failed">設定寫入失敗</string>
+    <string name="settings_storage_readonly_question">共享可讀但不可寫。仍要儲存嗎?可以瀏覽庫存,下載將不可用。</string>
+    <string name="settings_storage_readonly_save">只讀儲存</string>
+    <string name="settings_storage_discard_title">捨棄未儲存嘅連線改動?</string>
+    <string name="settings_storage_discard">捨棄</string>
+    <string name="settings_storage_unsaved">%s(未儲存)</string>
 </resources>

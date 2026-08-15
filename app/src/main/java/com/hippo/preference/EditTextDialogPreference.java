@@ -54,14 +54,30 @@ public class EditTextDialogPreference extends DialogPreference {
     }
 
     @Nullable
+    private String mText;
+    private boolean mTextSet;
+
+    @Nullable
     public String getText() {
-        return getPersistedString(null);
+        return mTextSet ? mText : getPersistedString(null);
     }
 
-    /** Persists programmatically (the auto-tuner applies its result through this). */
+    /**
+     * Sets the value: persisted when the preference is persistent, held on the object when it
+     * is not (the settings page's draft mode, #133). The auto-tuner also applies through this.
+     */
     public void setText(@Nullable String text) {
-        persistString(text);
+        mText = text;
+        mTextSet = true;
+        if (isPersistent()) {
+            persistString(text);
+        }
         notifyChanged();
+    }
+
+    @Override
+    protected void onSetInitialValue(@Nullable Object defaultValue) {
+        setText(getPersistedString(defaultValue == null ? null : String.valueOf(defaultValue)));
     }
 
     @Override
@@ -90,9 +106,9 @@ public class EditTextDialogPreference extends DialogPreference {
             return;
         }
         String value = editText.getText().toString();
-        // The listener may veto and persist an adjusted value itself (concurrency clamping).
+        // The listener may veto and apply an adjusted value itself (concurrency clamping).
         if (callChangeListener(value)) {
-            persistString(value);
+            setText(value);
         }
     }
 }

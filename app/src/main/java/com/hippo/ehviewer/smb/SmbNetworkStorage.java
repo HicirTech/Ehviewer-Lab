@@ -65,6 +65,13 @@ public final class SmbNetworkStorage implements NetworkStorage {
 
     @NonNull
     @Override
+    public com.hippo.ehviewer.storage.SelfCheck selfCheck(
+            @NonNull com.hippo.ehviewer.storage.ConnectionDraft draft) {
+        return SmbSelfCheck.run(draft);
+    }
+
+    @NonNull
+    @Override
     public String galleryFolderName(@NonNull GalleryInfo info) {
         return SmbPaths.buildGalleryFolderName(info);
     }

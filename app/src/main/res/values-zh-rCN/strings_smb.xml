@@ -117,4 +117,18 @@
     <string name="settings_storage_enable_save">保存画廊到网络存储</string>
     <string name="settings_storage_enable_save_summary">网络存储总开关。关闭时，所有相关功能均不可用。</string>
     <string name="settings_storage_protocol">协议</string>
+    <string name="settings_storage_save_test">保存并测试</string>
+    <string name="settings_storage_save_test_summary">连接设置的改动在这里统一保存;保存前依次自检连接、读取、写入。</string>
+    <string name="settings_storage_save_test_ready">有未保存的改动,点击测试并保存。</string>
+    <string name="settings_storage_checking">正在测试\u2026</string>
+    <string name="settings_storage_check_connect">连接</string>
+    <string name="settings_storage_check_read">读取</string>
+    <string name="settings_storage_check_write">写入</string>
+    <string name="settings_storage_saved">已保存</string>
+    <string name="settings_storage_save_failed">设置写入失败</string>
+    <string name="settings_storage_readonly_question">共享可读但不可写。仍要保存吗?可浏览库存,下载将不可用。</string>
+    <string name="settings_storage_readonly_save">只读保存</string>
+    <string name="settings_storage_discard_title">丢弃未保存的连接改动?</string>
+    <string name="settings_storage_discard">丢弃</string>
+    <string name="settings_storage_unsaved">%s(未保存)</string>
 </resources>

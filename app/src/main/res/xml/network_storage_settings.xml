@@ -57,6 +57,11 @@
         android:summary="@string/settings_smb_disable_signing_summary" />
 
     <androidx.preference.Preference
+        android:key="storage_save_test"
+        android:title="@string/settings_storage_save_test"
+        android:summary="@string/settings_storage_save_test_summary" />
+
+    <androidx.preference.Preference
         android:key="smb_test_connection"
         android:title="@string/settings_smb_test" />
 
