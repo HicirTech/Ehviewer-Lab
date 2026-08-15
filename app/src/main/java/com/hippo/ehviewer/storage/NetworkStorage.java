@@ -13,8 +13,6 @@ import com.hippo.ehviewer.client.data.GalleryInfo;
 import com.hippo.ehviewer.smb.SmbNetworkStorage;
 import com.hippo.ehviewer.spider.GallerySpiderStorage;
 
-import java.io.IOException;
-
 /**
  * A network storage backend (#100): everything protocol-specific sits behind this and its
  * component interfaces. Callers get the active backend from {@link #active()} and never learn
@@ -61,14 +59,9 @@ public interface NetworkStorage {
 
     boolean isConfigured();
 
-    /**
-     * Verifies the storage is reachable and prepares the gallery root.
-     *
-     * @return null when everything is in place, otherwise a user-facing warning
-     * @throws IOException when the storage is not usable at all
-     */
-    @Nullable
-    String testConnection() throws IOException;
+    /** The live configuration as one displayable address — format is backend-specific. */
+    @NonNull
+    String address();
 
     /**
      * Probes a not-yet-saved configuration: connect, then read, then write a temporary file

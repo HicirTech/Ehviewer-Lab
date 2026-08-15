@@ -46,8 +46,6 @@
     <string name="smb_notif_extra_waiting">  （另 %d 个等待）</string>
     <string name="smb_notif_progress_starting">启动中…%s</string>
     <string name="smb_notif_progress_count">%1$d/%2$d%3$s</string>
-    <string name="smb_test_error_unconfigured">请先填写主机和共享名</string>
-    <string name="smb_test_error_share_not_accessible">无法访问共享</string>
     <string name="smb_save_started">已开始保存到 %1$s：%2$s</string>
     <string name="smb_save_already_complete">已保存到 %1$s，跳过</string>
     <string name="smb_save_claimed_elsewhere">另一台设备正在把这本下载到 %1$s 共享</string>
@@ -77,7 +75,6 @@
     <string name="settings_smb_password">SMB 密码</string>
     <string name="settings_smb_device_name">本机名称</string>
     <string name="settings_smb_device_name_summary">你的其它设备会在这台正在下载的画廊旁看到这个名字。默认使用机型名。</string>
-    <string name="smb_test_warn_gallery_dir">已连接,但无法创建「%1$s」文件夹 —— 共享可能是只读的。</string>
     <string name="settings_smb_disable_signing">禁用 SMB 签名</string>
     <string name="settings_smb_disable_signing_summary">跳过逐包签名，在慢 CPU（如部分联发科芯片）上加快传输。除非传输明显变慢，否则保持关闭（自动）；下次连接时生效。</string>
     <string name="settings_about_upstream">上游 / 原项目</string>

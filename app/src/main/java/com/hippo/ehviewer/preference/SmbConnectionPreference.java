@@ -214,9 +214,7 @@ public class SmbConnectionPreference extends DialogPreference {
             setSummary(c.getString(R.string.settings_storage_connection_unconfigured));
             return;
         }
-        String address = com.hippo.ehviewer.smb.SmbPaths.buildShareUrl(
-                Settings.getSmbHost(), Settings.getSmbPort(),
-                Settings.getSmbShareName(), Settings.getSmbSharePath());
+        String address = NetworkStorage.active().address();
         String access;
         switch (Settings.getStorageLastCheck()) {
             case Settings.LAST_CHECK_READ_WRITE:

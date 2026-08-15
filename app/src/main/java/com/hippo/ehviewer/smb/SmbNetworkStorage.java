@@ -25,7 +25,6 @@ import com.hippo.ehviewer.storage.NetworkStorageStateStore;
 import com.hippo.ehviewer.storage.SortMode;
 import com.hippo.streampipe.InputStreamPipe;
 
-import java.io.IOException;
 import java.io.InputStream;
 import java.util.List;
 
@@ -57,10 +56,14 @@ public final class SmbNetworkStorage implements NetworkStorage {
         return SmbConnection.isConfigured();
     }
 
-    @Nullable
+    @NonNull
     @Override
-    public String testConnection() throws IOException {
-        return SmbConnection.testConnection();
+    public String address() {
+        return SmbPaths.buildShareUrl(
+                com.hippo.ehviewer.Settings.getSmbHost(),
+                com.hippo.ehviewer.Settings.getSmbPort(),
+                com.hippo.ehviewer.Settings.getSmbShareName(),
+                com.hippo.ehviewer.Settings.getSmbSharePath());
     }
 
     @NonNull

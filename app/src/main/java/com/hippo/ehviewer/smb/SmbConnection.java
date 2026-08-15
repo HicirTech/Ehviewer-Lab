@@ -6,11 +6,8 @@ import android.util.Log;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
-import com.hippo.ehviewer.EhApplication;
-import com.hippo.ehviewer.R;
 import com.hippo.ehviewer.Settings;
 
-import java.io.IOException;
 import java.util.Properties;
 
 import jcifs.CIFSContext;
@@ -101,39 +98,4 @@ public final class SmbConnection {
                 Settings.getSmbSharePath());
     }
 
-    /**
-     * Verifies the share is reachable and creates the gallery root. Creation failure is a
-     * warning, not an error — a read-only share still browses.
-     *
-     * @return null when everything is in place, otherwise a user-facing warning.
-     */
-    @Nullable
-    public static String testConnection() throws IOException {
-        String host = Settings.getSmbHost();
-        String shareName = Settings.getSmbShareName();
-
-        if (TextUtils.isEmpty(host) || TextUtils.isEmpty(shareName)) {
-            throw new IOException(EhApplication.getInstance()
-                    .getString(R.string.smb_test_error_unconfigured));
-        }
-
-        CIFSContext cifs = buildContext();
-        SmbFile shareRoot = new SmbFile(buildSmbUrl(), cifs);
-        if (!shareRoot.exists()) {
-            throw new IOException(EhApplication.getInstance()
-                    .getString(R.string.smb_test_error_share_not_accessible));
-        }
-
-        try {
-            SmbFile galleryRoot = new SmbFile(galleryRootUrl(), cifs);
-            if (!galleryRoot.exists()) {
-                galleryRoot.mkdirs();
-            }
-        } catch (Throwable e) {
-            Log.w(TAG, "Share is reachable but " + SmbPaths.GALLERY_DIR + "/ could not be created", e);
-            return EhApplication.getInstance()
-                    .getString(R.string.smb_test_warn_gallery_dir, SmbPaths.GALLERY_DIR);
-        }
-        return null;
-    }
 }

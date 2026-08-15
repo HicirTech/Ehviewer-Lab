@@ -45,8 +45,6 @@
     <string name="smb_notif_extra_waiting">  （另 %d 個等待）</string>
     <string name="smb_notif_progress_starting">啟動中…%s</string>
     <string name="smb_notif_progress_count">%1$d/%2$d%3$s</string>
-    <string name="smb_test_error_unconfigured">請先填寫主機和共享名稱</string>
-    <string name="smb_test_error_share_not_accessible">無法存取共享</string>
     <string name="smb_save_started">已開始儲存到 %1$s：%2$s</string>
     <string name="smb_save_already_complete">已儲存到 %1$s，略過</string>
     <string name="smb_save_claimed_elsewhere">另一台裝置正在把這本下載到 %1$s 共享</string>
@@ -76,7 +74,6 @@
     <string name="settings_smb_password">SMB 密碼</string>
     <string name="settings_smb_device_name">本機名稱</string>
     <string name="settings_smb_device_name_summary">你的其它裝置會在這台正在下載的畫廊旁看到這個名字。預設使用機型名。</string>
-    <string name="smb_test_warn_gallery_dir">已連線,但無法建立「%1$s」資料夾 —— 共享可能是唯讀的。</string>
     <string name="settings_smb_disable_signing">停用 SMB 簽署</string>
     <string name="settings_smb_disable_signing_summary">略過逐封包簽署，喺慢 CPU（例如部分聯發科晶片）上加快傳輸。除非傳輸明顯變慢，否則保持關閉（自動）；下次連線時生效。</string>
     <string name="settings_about_upstream">上游 / 原專案</string>
