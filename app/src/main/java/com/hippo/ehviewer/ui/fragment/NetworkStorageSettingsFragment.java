@@ -2,7 +2,6 @@ package com.hippo.ehviewer.ui.fragment;
 
 import android.content.Context;
 import android.os.Bundle;
-import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AlertDialog;
@@ -10,6 +9,7 @@ import androidx.annotation.Nullable;
 import androidx.preference.Preference;
 import androidx.preference.TwoStatePreference;
 
+import com.hippo.ehviewer.preference.SmbConnectionPreference;
 import com.hippo.preference.EditTextDialogPreference;
 
 import com.hippo.ehviewer.R;
@@ -29,25 +29,11 @@ public class NetworkStorageSettingsFragment extends BasePreferenceFragmentCompat
     @Nullable
     private com.hippo.preference.ListPreference mProtocol;
     @Nullable
-    private TwoStatePreference mSigning;
+    private SmbConnectionPreference mConnection;
     @Nullable
     private TwoStatePreference mAutoDownloadSwitch;
     @Nullable
-    private EditTextDialogPreference mHost;
-    @Nullable
-    private EditTextDialogPreference mPort;
-    @Nullable
-    private EditTextDialogPreference mShareName;
-    @Nullable
-    private EditTextDialogPreference mSharePath;
-    @Nullable
     private EditTextDialogPreference mDeviceName;
-    @Nullable
-    private EditTextDialogPreference mUsername;
-    @Nullable
-    private EditTextDialogPreference mPassword;
-    @Nullable
-    private Preference mTestConnection;
     private Preference mBenchmark;
     private Preference mAutoTune;
     private EditTextDialogPreference mMetadataConcurrency;
@@ -62,16 +48,9 @@ public class NetworkStorageSettingsFragment extends BasePreferenceFragmentCompat
 
         mMasterSwitch = findPreference(Settings.KEY_NETWORK_STORAGE_ENABLED);
         mProtocol = findPreference(Settings.KEY_STORAGE_PROTOCOL);
-        mSigning = findPreference(Settings.KEY_SMB_SIGNING_DISABLED);
+        mConnection = findPreference("smb_connection");
         mAutoDownloadSwitch = findPreference(Settings.KEY_SMB_AUTO_DOWNLOAD_ENABLED);
-        mHost = findPreference(Settings.KEY_SMB_HOST);
-        mPort = findPreference(Settings.KEY_SMB_PORT);
-        mShareName = findPreference(Settings.KEY_SMB_SHARE_NAME);
-        mSharePath = findPreference(Settings.KEY_SMB_SHARE_PATH);
         mDeviceName = findPreference(Settings.KEY_SMB_DEVICE_NAME);
-        mUsername = findPreference(Settings.KEY_SMB_USERNAME);
-        mPassword = findPreference(Settings.KEY_SMB_PASSWORD);
-        mTestConnection = findPreference("smb_test_connection");
         mBenchmark = findPreference("smb_benchmark");
         mAutoTune = findPreference("smb_auto_tune");
         mMetadataConcurrency = findPreference(Settings.KEY_SMB_METADATA_CONCURRENCY);
@@ -98,50 +77,12 @@ public class NetworkStorageSettingsFragment extends BasePreferenceFragmentCompat
         if (mAutoDownloadSwitch != null) {
             mAutoDownloadSwitch.setOnPreferenceChangeListener(this);
         }
-        if (mHost != null) {
-            cacheHint(mHost, null);
-            mHost.setOnPreferenceChangeListener(this);
-            updateTextSummary(mHost, Settings.getSmbHost());
-        }
-        if (mPort != null) {
-            cacheHint(mPort, null);
-            mPort.setOnPreferenceChangeListener(this);
-            updateTextSummary(mPort, Settings.getSmbPort());
-        }
-        if (mShareName != null) {
-            cacheHint(mShareName, null);
-            mShareName.setOnPreferenceChangeListener(this);
-            updateTextSummary(mShareName, Settings.getSmbShareName());
-        }
-        if (mSharePath != null) {
-            cacheHint(mSharePath, null);
-            mSharePath.setOnPreferenceChangeListener(this);
-            updateTextSummary(mSharePath, Settings.getSmbSharePath());
-        }
         if (mDeviceName != null) {
             cacheHint(mDeviceName, null);
             mDeviceName.setOnPreferenceChangeListener(this);
             // Shows the resolved name, so an unset field displays the model that will actually be
             // published rather than looking empty.
             updateTextSummary(mDeviceName, Settings.getSmbDeviceName());
-        }
-        if (mUsername != null) {
-            // Username has no XML summary — fall back to a generic "tap to set" hint.
-            cacheHint(mUsername, getString(R.string.settings_smb_field_unset));
-            mUsername.setOnPreferenceChangeListener(this);
-            updateTextSummary(mUsername, Settings.getSmbUsername());
-        }
-        if (mPassword != null) {
-            cacheHint(mPassword, getString(R.string.settings_smb_field_unset_password));
-            mPassword.setOnPreferenceChangeListener(this);
-            updatePasswordSummary(Settings.getSmbPassword());
-        }
-
-        if (mTestConnection != null) {
-            mTestConnection.setOnPreferenceClickListener(preference -> {
-                testConnection();
-                return true;
-            });
         }
         if (mBenchmark != null) {
             mBenchmark.setOnPreferenceClickListener(preference -> {
@@ -209,22 +150,10 @@ public class NetworkStorageSettingsFragment extends BasePreferenceFragmentCompat
         if (preference == mAutoDownloadSwitch) {
             return true;
         }
-        if (preference == mHost) {
-            updateTextSummary(mHost, value);
-        } else if (preference == mPort) {
-            updateTextSummary(mPort, value);
-        } else if (preference == mShareName) {
-            updateTextSummary(mShareName, value);
-        } else if (preference == mSharePath) {
-            updateTextSummary(mSharePath, value);
-        } else if (preference == mDeviceName) {
+        if (preference == mDeviceName) {
             // Clearing it falls back to the model name, so show that rather than the empty value.
             updateTextSummary(mDeviceName,
                     value.trim().isEmpty() ? Settings.getSmbDeviceName() : value);
-        } else if (preference == mUsername) {
-            updateTextSummary(mUsername, value);
-        } else if (preference == mPassword) {
-            updatePasswordSummary(value);
         }
         return true;
     }
@@ -234,8 +163,7 @@ public class NetworkStorageSettingsFragment extends BasePreferenceFragmentCompat
         // A never-configured user (empty protocol) still sees the SMB rows: the selector
         // displays its default and there is nothing else to show.
         boolean smb = protocol.isEmpty() || NetworkStorage.PROTOCOL_SMB.equals(protocol);
-        for (Preference row : new Preference[]{mHost, mPort, mShareName, mSharePath,
-                mUsername, mPassword, mSigning, mTestConnection, mBenchmark}) {
+        for (Preference row : new Preference[]{mConnection, mBenchmark}) {
             if (row != null) {
                 row.setVisible(smb);
             }
@@ -244,16 +172,9 @@ public class NetworkStorageSettingsFragment extends BasePreferenceFragmentCompat
 
     private void applyMasterState(boolean enabled) {
         if (mProtocol != null) mProtocol.setEnabled(enabled);
-        if (mSigning != null) mSigning.setEnabled(enabled);
+        if (mConnection != null) mConnection.setEnabled(enabled);
         if (mAutoDownloadSwitch != null) mAutoDownloadSwitch.setEnabled(enabled);
-        if (mHost != null) mHost.setEnabled(enabled);
-        if (mPort != null) mPort.setEnabled(enabled);
-        if (mShareName != null) mShareName.setEnabled(enabled);
-        if (mSharePath != null) mSharePath.setEnabled(enabled);
         if (mDeviceName != null) mDeviceName.setEnabled(enabled);
-        if (mUsername != null) mUsername.setEnabled(enabled);
-        if (mPassword != null) mPassword.setEnabled(enabled);
-        if (mTestConnection != null) mTestConnection.setEnabled(enabled);
         if (mBenchmark != null) mBenchmark.setEnabled(enabled);
         if (mAutoTune != null) mAutoTune.setEnabled(enabled);
         if (mMetadataConcurrency != null) mMetadataConcurrency.setEnabled(enabled);
@@ -265,23 +186,9 @@ public class NetworkStorageSettingsFragment extends BasePreferenceFragmentCompat
             return;
         }
         if (value == null || value.trim().isEmpty()) {
-            // Empty — restore the original XML-defined hint (e.g. "Example: 192.168.1.10",
-            // "Default: 445", "Path on share like: /ehviewer/") so the user sees the actual
-            // help text instead of a generic placeholder.
             preference.setSummary(mHintSummaries.get(preference));
         } else {
             preference.setSummary(value);
-        }
-    }
-
-    private void updatePasswordSummary(@Nullable String password) {
-        if (mPassword == null) {
-            return;
-        }
-        if (password == null || password.isEmpty()) {
-            mPassword.setSummary(mHintSummaries.get(mPassword));
-        } else {
-            mPassword.setSummary("******");
         }
     }
 
@@ -448,37 +355,4 @@ public class NetworkStorageSettingsFragment extends BasePreferenceFragmentCompat
                 + "\n\n"
                 + context.getString(R.string.settings_smb_benchmark_hint);
     }
-
-    private void testConnection() {
-        // Snapshot the application context before going off-thread. Using the fragment's
-        // getActivity()/getContext() from the worker would NPE if the user navigates away
-        // from the Settings screen while the SMB probe is still running.
-        Context context = getContext();
-        if (context == null) {
-            return;
-        }
-        final Context appContext = context.getApplicationContext();
-        IoThreadPoolExecutor.Companion.getInstance().execute(() -> {
-            CharSequence message;
-            try {
-                // Non-null means the share is reachable but something about the setup needs
-                // saying — currently only that the gallery directory could not be created.
-                String warning = NetworkStorage.active().testConnection();
-                String success = appContext.getString(
-                        R.string.settings_smb_test_success, NetworkStorage.active().displayName());
-                message = warning == null ? success : success + "\n" + warning;
-            } catch (Exception e) {
-                message = appContext.getString(R.string.settings_smb_test_failed,
-                        NetworkStorage.active().displayName(), e.getMessage());
-            }
-            final CharSequence toastText = message;
-            new android.os.Handler(android.os.Looper.getMainLooper()).post(() -> {
-                try {
-                    Toast.makeText(appContext, toastText, Toast.LENGTH_SHORT).show();
-                } catch (Throwable ignored) {
-                }
-            });
-        });
-    }
 }
-

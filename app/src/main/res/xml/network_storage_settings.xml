@@ -16,49 +16,10 @@
         app:entries="@array/storage_protocol_entries"
         app:entryValues="@array/storage_protocol_values" />
 
-    <com.hippo.preference.EditTextDialogPreference
-        android:key="smb_host"
-        android:title="@string/settings_smb_host"
-        android:summary="@string/settings_smb_host_summary"
+    <com.hippo.ehviewer.preference.SmbConnectionPreference
+        android:key="smb_connection"
+        android:title="@string/settings_storage_connection"
         app:allowDividerAbove="true" />
-
-    <com.hippo.preference.EditTextDialogPreference
-        android:key="smb_port"
-        android:title="@string/settings_smb_port"
-        android:summary="@string/settings_smb_port_summary"
-        android:defaultValue="445"
-        android:inputType="number" />
-
-    <com.hippo.preference.EditTextDialogPreference
-        android:key="smb_share_name"
-        android:title="@string/settings_smb_share_name"
-        android:summary="@string/settings_smb_share_name_summary" />
-
-    <com.hippo.preference.EditTextDialogPreference
-        android:key="smb_share_path"
-        android:title="@string/settings_smb_share_path"
-        android:summary="@string/settings_smb_share_path_summary" />
-
-    <com.hippo.preference.EditTextDialogPreference
-        android:key="smb_username"
-        android:title="@string/settings_smb_username"
-        android:summary="@string/settings_smb_username_summary" />
-
-    <com.hippo.preference.EditTextDialogPreference
-        android:key="smb_password"
-        android:title="@string/settings_smb_password"
-        android:summary="@string/settings_smb_password_summary"
-        android:inputType="textPassword" />
-
-    <com.hippo.preference.SwitchPreference
-        android:defaultValue="false"
-        android:key="smb_signing_disabled"
-        android:title="@string/settings_smb_disable_signing"
-        android:summary="@string/settings_smb_disable_signing_summary" />
-
-    <androidx.preference.Preference
-        android:key="smb_test_connection"
-        android:title="@string/settings_smb_test" />
 
     <androidx.preference.Preference
         android:key="smb_benchmark"

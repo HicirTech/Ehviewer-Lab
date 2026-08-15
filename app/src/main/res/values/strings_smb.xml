@@ -69,27 +69,16 @@
     <string name="settings_smb_enable_auto_download">Auto Download To Network Storage</string>
     <string name="settings_smb_enable_auto_download_summary">When enabled, opening the first page of a gallery automatically queues a background download to network storage. When off, the Download button asks each time.</string>
     <string name="settings_smb_share_path">SMB Share Path</string>
-    <string name="settings_smb_share_path_summary">Path on share like: /ehviewer/ (starts with /)</string>
     <string name="settings_smb_host">SMB Host</string>
-    <string name="settings_smb_host_summary">Example: 192.168.1.10</string>
     <string name="settings_smb_port">SMB Port</string>
-    <string name="settings_smb_port_summary">Default: 445</string>
     <string name="settings_smb_share_name">SMB Share Name</string>
-    <string name="settings_smb_share_name_summary">Example: share</string>
     <string name="settings_smb_username">SMB Username</string>
-    <string name="settings_smb_username_summary">Optional, leave empty for guest access</string>
     <string name="settings_smb_password">SMB Password</string>
-    <string name="settings_smb_password_summary">Optional, leave empty for guest access</string>
-    <string name="settings_smb_test">Test Connection</string>
-    <string name="settings_smb_test_success">%1$s connection successful!</string>
     <string name="settings_smb_device_name">This device\'s name</string>
     <string name="settings_smb_device_name_summary">Shown to your other devices next to the galleries this one is downloading. Defaults to the model name.</string>
     <string name="smb_test_warn_gallery_dir">Connected, but the “%1$s” folder could not be created — the share may be read-only.</string>
-    <string name="settings_smb_test_failed">%1$s connection failed: %2$s</string>
     <string name="settings_smb_disable_signing">Disable SMB Signing</string>
     <string name="settings_smb_disable_signing_summary">Skip per-packet signing for faster transfers on slow CPUs (e.g. some MediaTek SoCs). Leave off (auto) unless transfers feel slow; applies on the next connection.</string>
-    <string name="settings_smb_field_unset">Tap to set</string>
-    <string name="settings_smb_field_unset_password">Tap to set password</string>
     <string name="settings_about_upstream">Upstream / Origin</string>
     <string name="settings_about_upstream_summary" translatable="false">xiaojieonly/Ehviewer_CN_SXJ</string>
     <string name="settings_about_version_debug">%1$s · DEBUG</string>
@@ -124,4 +113,30 @@
     <string-array name="storage_protocol_values" translatable="false">
         <item>smb</item>
     </string-array>
+    <string name="settings_storage_checking">Testing\u2026</string>
+    <string name="settings_storage_check_connect">Connect</string>
+    <string name="settings_storage_check_read">Read</string>
+    <string name="settings_storage_check_write">Write</string>
+    <string name="settings_storage_readonly_question">The share is readable but not writable. Save anyway? Browsing will work; downloads will not.</string>
+    <string name="settings_storage_readonly_save">Save read-only</string>
+    <string name="settings_storage_connection">SMB Connection</string>
+    <string name="settings_storage_connection_unconfigured">Not configured. Tap to set up.</string>
+    <string name="settings_storage_save">Save</string>
+    <string name="settings_storage_stage_pass">passed</string>
+    <string name="settings_storage_stage_fail">failed</string>
+    <string name="settings_storage_stage_skipped">not tested</string>
+    <string name="settings_storage_access_read_write">readable and writable</string>
+    <string name="settings_storage_access_read_only">readable, not writable</string>
+    <string name="settings_storage_access_untested">not tested yet</string>
+    <string name="settings_storage_section_server">Server</string>
+    <string name="settings_storage_section_account">Account</string>
+    <string name="settings_storage_hint_host">Host</string>
+    <string name="settings_storage_hint_port">Port</string>
+    <string name="settings_storage_hint_share">Share name</string>
+    <string name="settings_storage_hint_path">Path on share</string>
+    <string name="settings_storage_hint_username">Username, empty for guest</string>
+    <string name="settings_storage_hint_password">Password</string>
+    <string name="smb_error_auth">Wrong username or password</string>
+    <string name="smb_error_share_not_found">No such share on the host</string>
+    <string name="smb_error_access_denied">Access denied by the host</string>
 </resources>
