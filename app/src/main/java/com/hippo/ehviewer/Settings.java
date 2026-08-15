@@ -878,6 +878,17 @@ public class Settings {
     /** Selected protocol; absent for users from before the selector — resolved, never read raw. */
     public static final String KEY_STORAGE_PROTOCOL = "storage_protocol";
 
+    /** What the last passed save-probe established about the share (#133). */
+    public static final String KEY_STORAGE_LAST_CHECK = "storage_last_check";
+    public static final String LAST_CHECK_READ_WRITE = "rw";
+    public static final String LAST_CHECK_READ_ONLY = "ro";
+
+    @NonNull
+    public static String getStorageLastCheck() {
+        String value = getString(KEY_STORAGE_LAST_CHECK, "");
+        return value == null ? "" : value;
+    }
+
     @NonNull
     public static String getStorageProtocol() {
         return com.hippo.ehviewer.storage.NetworkStorage.resolveProtocol(
