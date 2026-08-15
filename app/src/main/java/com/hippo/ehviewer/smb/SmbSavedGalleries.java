@@ -29,7 +29,8 @@ public final class SmbSavedGalleries {
 
     private static final String TAG = "SmbSavedGalleries";
 
-    // Bounds screen-flicking only; own changes call invalidate() and skip the TTL.
+    // Bounds screen-flicking only; own changes call invalidate() and skip the TTL, so 30s
+    // (6x the listing cache's 5s) merely delays seeing other devices' additions in badges.
     private static final long TTL_MS = 30_000L;
 
     private static final SmbSavedGalleries INSTANCE = new SmbSavedGalleries();
