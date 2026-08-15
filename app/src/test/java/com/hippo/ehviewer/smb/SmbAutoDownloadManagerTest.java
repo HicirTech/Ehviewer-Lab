@@ -154,12 +154,17 @@ public class SmbAutoDownloadManagerTest {
 
     /** Lets whatever was handed to a background thread find its way back to the main one. */
     private void pump() {
+        java.util.concurrent.ThreadPoolExecutor io =
+                com.hippo.util.IoThreadPoolExecutor.Companion.getInstance();
         long deadline = System.currentTimeMillis() + PUMP_DEADLINE_MS;
         int quiet = 0;
         while (quiet < PUMP_QUIET_ROUNDS && System.currentTimeMillis() < deadline) {
+            // The IO pool is the first hop; on a loaded CI runner it can sit scheduled-but-idle
+            // past any quiet window measured on the main looper alone (the 2026-08-15 flake).
+            boolean ioBusy = io.getActiveCount() > 0 || !io.getQueue().isEmpty();
             boolean hadWork = !shadowOf(Looper.getMainLooper()).isIdle();
             shadowOf(Looper.getMainLooper()).idle();
-            quiet = hadWork ? 0 : quiet + 1;
+            quiet = (hadWork || ioBusy) ? 0 : quiet + 1;
             try {
                 Thread.sleep(10);
             } catch (InterruptedException e) {
