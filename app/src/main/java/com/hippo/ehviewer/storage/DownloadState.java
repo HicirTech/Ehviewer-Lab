@@ -30,7 +30,7 @@ public final class DownloadState {
      */
     public static final int SCHEMA_VERSION = 1;
 
-    /** Silent this long = orphaned. Several missed 20s beats, so a WiFi blip does not orphan. */
+    /** Silent this long = orphaned: 4.5 of the heartbeat's 20s beats, so a WiFi blip costing a few beats does not orphan a live download. */
     public static final long STALE_AFTER_MS = 90_000L;
 
     /** One gallery on one device's list. */

@@ -249,14 +249,19 @@ public class SpiderDenRoutingTest {
         return ShadowSmbSpiderStorage.calls.contains("openImageInputStreamPipe");
     }
 
-    // --- I1: MODE_READ must never write to the share ----------------------------------------
+    // --- I1: MODE_READ never asks the share for a page write pipe ---------------------------
+    //
+    // Deliberately narrower than "never writes": reading DOES update the share once per
+    // session — SpiderQueen persists the resume position (startPage) into .ehviewer, and the
+    // spider-info path is not mode-gated on purpose. On a read-only share that write fails
+    // harmlessly (and the save flow's probe already told the user the share is read-only).
 
     /**
      * SmbDirectDownloader owns share persistence end to end. If the reader wrote too, every page
      * viewed would be re-uploaded.
      */
     @Test
-    public void invariant1_readModeNeverWritesToTheShare() {
+    public void invariant1_readModeNeverAsksTheShareForAPageWritePipe() {
         OutputStreamPipe pipe = den(SpiderQueen.MODE_READ).openOutputStreamPipe(INDEX, "jpg");
 
         assertNotNull("read mode should still buffer the page in the cache", pipe);

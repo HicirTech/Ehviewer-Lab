@@ -24,7 +24,8 @@ public interface GallerySpiderStorage {
     /** Ensure the gallery's destination directory exists. Returns false on failure. */
     boolean prepareDir();
 
-    /** Open a stream to write the per-gallery spider-info file, or null on failure. */
+    /** Open a stream to write the per-gallery spider-info file, or null on failure.
+     * Also called while reading: the resume position (startPage) lives in this file. */
     @Nullable
     OutputStream openSpiderInfoOutputStream();
 

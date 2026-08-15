@@ -19,8 +19,8 @@ final class SmbHeartbeat {
 
     private static final String TAG = "SmbDirectDownloader";
 
-    // 20s: progress is not worth a ~64ms share write per page, and this stays well inside
-    // STALE_AFTER_MS so a few missed beats don't get this device declared dead.
+    // 20s: progress is not worth a ~64ms share write per page, and 4.5 beats fit inside
+    // STALE_AFTER_MS (90s) so a few missed beats don't get this device declared dead.
     private static final long INTERVAL_MS = 20_000L;
 
     interface Shell {
