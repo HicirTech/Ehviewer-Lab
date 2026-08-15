@@ -95,6 +95,8 @@ public class SmbSelfCheckTest {
 
     @Before
     public void setUp() {
+        com.hippo.ehviewer.GetText.initialize(
+                org.robolectric.RuntimeEnvironment.getApplication());
         connectFails = false;
         listFails = false;
         writeFails = false;

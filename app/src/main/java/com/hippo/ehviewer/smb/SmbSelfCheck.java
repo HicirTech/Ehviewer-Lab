@@ -52,14 +52,14 @@ final class SmbSelfCheck {
                 return SelfCheck.failedToConnect(null);
             }
         } catch (Throwable e) {
-            return SelfCheck.failedToConnect(messageOf(e));
+            return SelfCheck.failedToConnect(SmbErrors.describe(e));
         }
 
         // Stage 2: its contents can be read.
         try {
             new SmbFile(shareUrl, ctx).list();
         } catch (Throwable e) {
-            return new SelfCheck(true, false, false, messageOf(e));
+            return new SelfCheck(true, false, false, SmbErrors.describe(e));
         }
 
         // Stage 3: a temporary file goes in, comes back byte-identical, and goes away.
@@ -90,7 +90,7 @@ final class SmbSelfCheck {
             }
             return new SelfCheck(true, true, true, null);
         } catch (Throwable e) {
-            return new SelfCheck(true, true, false, messageOf(e));
+            return new SelfCheck(true, true, false, SmbErrors.describe(e));
         } finally {
             if (temp != null) {
                 try {
@@ -125,11 +125,5 @@ final class SmbSelfCheck {
         }
         return base.withCredentials(
                 new NtlmPasswordAuthenticator(null, draft.username, draft.password));
-    }
-
-    @Nullable
-    private static String messageOf(@NonNull Throwable e) {
-        String message = e.getMessage();
-        return TextUtils.isEmpty(message) ? e.getClass().getSimpleName() : message;
     }
 }

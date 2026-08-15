@@ -129,4 +129,7 @@
     <string name="settings_storage_hint_path">共享内路径</string>
     <string name="settings_storage_hint_username">用户名,留空为访客</string>
     <string name="settings_storage_hint_password">密码</string>
+    <string name="smb_error_auth">用户名或密码不正确</string>
+    <string name="smb_error_share_not_found">主机上没有这个共享</string>
+    <string name="smb_error_access_denied">主机拒绝了访问</string>
 </resources>
