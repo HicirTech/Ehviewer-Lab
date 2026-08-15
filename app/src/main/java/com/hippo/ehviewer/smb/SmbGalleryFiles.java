@@ -214,12 +214,7 @@ public final class SmbGalleryFiles {
                     if (fis != null) {
                         throw new IllegalStateException("Please close it first");
                     }
-                    java.io.File dir = new java.io.File(
-                            EhApplication.getInstance().getCacheDir(), "smb_tmp");
-                    if (!dir.exists()) {
-                        //noinspection ResultOfMethodCallIgnored
-                        dir.mkdirs();
-                    }
+                    java.io.File dir = SmbShims.dir();
                     tempFile = java.io.File.createTempFile("smb_cover_", null, dir);
                     InputStream remote = null;
                     OutputStream local = null;
@@ -397,12 +392,7 @@ public final class SmbGalleryFiles {
                     if (fis != null) {
                         throw new IllegalStateException("Please close it first");
                     }
-                    java.io.File dir = new java.io.File(
-                            EhApplication.getInstance().getCacheDir(), "smb_tmp");
-                    if (!dir.exists()) {
-                        //noinspection ResultOfMethodCallIgnored
-                        dir.mkdirs();
-                    }
+                    java.io.File dir = SmbShims.dir();
                     tempFile = java.io.File.createTempFile("smb_img_", null, dir);
                     InputStream remote = null;
                     OutputStream local = null;

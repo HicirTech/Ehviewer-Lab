@@ -1,10 +1,3 @@
-/*
- * Copyright 2026 Ehviewer SMB Saver fork
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- */
-
 package com.hippo.ehviewer.smb;
 
 import static org.junit.Assert.assertArrayEquals;
@@ -29,21 +22,21 @@ import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.nio.file.Files;
 
-/** What makes the cover prefetch acceptable in an architecture whose only durable store is the share: <b>bytes live in memory, and the one disk file invo */
+/** The #129 shape: preview bytes live in a bounded memory buffer, and the one disk file involved is an anonymous shim that dies with its pipe. */
 @RunWith(RobolectricTestRunner.class)
 @Config(application = android.app.Application.class)
-public class SmbCoverPrefetchTest {
+public class SmbPreviewCacheTest {
 
     private File shimDir;
     private File legacyDir;
 
     @Before
     public void setUp() throws Exception {
-        shimDir = Files.createTempDirectory("smb-cover-shim").toFile();
-        legacyDir = Files.createTempDirectory("smb-cover-legacy").toFile();
+        shimDir = Files.createTempDirectory("smb-preview-shim").toFile();
+        legacyDir = Files.createTempDirectory("smb-preview-legacy").toFile();
         plantShim(shimDir);
         plant("sLegacyDir", legacyDir);
-        setStatic("sLegacySwept", false);
+        plant("sLegacySwept", false);
         clearBuffer();
     }
 
@@ -51,7 +44,7 @@ public class SmbCoverPrefetchTest {
     public void tearDown() throws Exception {
         plantShim(null);
         plant("sLegacyDir", null);
-        setStatic("sLegacySwept", false);
+        plant("sLegacySwept", false);
         clearBuffer();
         for (File d : new File[]{shimDir, legacyDir}) {
             File[] files = d.listFiles();
@@ -77,31 +70,27 @@ public class SmbCoverPrefetchTest {
     }
 
     private static void plant(String name, Object value) throws Exception {
-        Field f = SmbCoverPrefetch.class.getDeclaredField(name);
+        Field f = SmbPreviewCache.class.getDeclaredField(name);
         f.setAccessible(true);
         f.set(null, value);
     }
 
-    private static void setStatic(String name, Object value) throws Exception {
-        plant(name, value);
-    }
-
     private static void clearBuffer() throws Exception {
-        Field f = SmbCoverPrefetch.class.getDeclaredField("BUFFER");
+        Field f = SmbPreviewCache.class.getDeclaredField("BUFFER");
         f.setAccessible(true);
         ((java.util.Map<?, ?>) f.get(null)).clear();
-        Field n = SmbCoverPrefetch.class.getDeclaredField("sBufferedBytes");
+        Field n = SmbPreviewCache.class.getDeclaredField("sBufferedBytes");
         n.setAccessible(true);
         n.set(null, 0);
-        Field r = SmbCoverPrefetch.class.getDeclaredField("REQUESTED");
+        Field r = SmbPreviewCache.class.getDeclaredField("PREFETCHED_GIDS");
         r.setAccessible(true);
         ((java.util.Set<?>) r.get(null)).clear();
     }
 
-    private static void put(long gid, byte[] bytes) throws Exception {
-        Method m = SmbCoverPrefetch.class.getDeclaredMethod("put", long.class, byte[].class);
+    private static void put(long gid, int index, byte[] bytes) throws Exception {
+        Method m = SmbPreviewCache.class.getDeclaredMethod("put", String.class, byte[].class);
         m.setAccessible(true);
-        m.invoke(null, gid, bytes);
+        m.invoke(null, gid + ":" + index, bytes);
     }
 
     private static byte[] drain(InputStreamPipe pipe) throws Exception {
@@ -122,11 +111,11 @@ public class SmbCoverPrefetchTest {
 
     // --- the disk boundary -------------------------------------------------------------------
 
-    /** The property this class exists to hold: serving a cover writes one shim, the decode reads it, and by the time the pipe is closed the disk is exactly a */
+    /** Serving a preview writes one shim, the decode reads it, and after close the disk is clean. */
     @Test
     public void theDecodeShimDoesNotOutliveTheDecode() throws Exception {
-        put(1L, new byte[]{1, 2, 3});
-        InputStreamPipe pipe = SmbCoverPrefetch.pipeFor(1L);
+        put(1L, 0, new byte[]{1, 2, 3});
+        InputStreamPipe pipe = SmbPreviewCache.pipeFor(1L, 0);
         assertNotNull(pipe);
 
         byte[] got = drain(pipe);
@@ -136,60 +125,73 @@ public class SmbCoverPrefetchTest {
                 shimDir.listFiles() == null ? 0 : shimDir.listFiles().length);
     }
 
-    /** The bytes come from memory; an unknown gid means "go ask the share", not an error. */
+    /** The bytes come from memory; an unbuffered page means "go ask the share", not an error. */
     @Test
-    public void anUnbufferedGidYieldsNoPipe() {
-        assertNull(SmbCoverPrefetch.pipeFor(999L));
+    public void anUnbufferedPageYieldsNoPipe() {
+        assertNull(SmbPreviewCache.pipeFor(999L, 0));
+    }
+
+    /** Pages are individual entries — index 0 buffered says nothing about index 1. */
+    @Test
+    public void pagesAreBufferedPerIndex() throws Exception {
+        put(1L, 0, new byte[]{1});
+
+        assertNotNull(SmbPreviewCache.pipeFor(1L, 0));
+        assertNull(SmbPreviewCache.pipeFor(1L, 1));
     }
 
     // --- eviction ----------------------------------------------------------------------------
 
     @Test
     public void evictForgetsExactlyItsOwnGallery() throws Exception {
-        put(100L, new byte[]{1});
-        put(1001L, new byte[]{2});
+        put(100L, 0, new byte[]{1});
+        put(100L, 12, new byte[]{2});
+        put(1001L, 0, new byte[]{3});
+        put(10L, 0, new byte[]{4});
 
-        SmbCoverPrefetch.evict(100L);
+        SmbPreviewCache.evictGallery(100L);
 
-        assertNull(SmbCoverPrefetch.pipeFor(100L));
-        assertNotNull("a neighbouring gid went with the eviction",
-                SmbCoverPrefetch.pipeFor(1001L));
+        assertNull(SmbPreviewCache.pipeFor(100L, 0));
+        assertNull("a two-digit page index survived", SmbPreviewCache.pipeFor(100L, 12));
+        assertNotNull("a gid sharing a prefix went with the eviction",
+                SmbPreviewCache.pipeFor(1001L, 0));
+        assertNotNull("a gid the target starts with went with the eviction",
+                SmbPreviewCache.pipeFor(10L, 0));
     }
 
-    /** The buffer is bounded; past the cap the least recently touched entries fall out. */
+    /** The buffer is bounded; past the cap the least recently touched pages fall out. */
     @Test
     public void theBufferDropsTheColdestPastItsCap() throws Exception {
-        byte[] threeMb = new byte[3 * 1024 * 1024];
-        put(1L, threeMb);
-        put(2L, threeMb);
-        assertNotNull(SmbCoverPrefetch.pipeFor(1L));   // touch 1 so 2 is the coldest
+        byte[] sixMb = new byte[6 * 1024 * 1024];
+        put(1L, 0, sixMb);
+        put(1L, 1, sixMb);
+        assertNotNull(SmbPreviewCache.pipeFor(1L, 0));   // touch page 0 so page 1 is the coldest
 
-        put(3L, threeMb);                              // 9 MB total, cap is 8
+        put(1L, 2, sixMb);                               // 18 MB total, cap is 16
 
-        assertNull("the coldest entry should have been dropped",
-                SmbCoverPrefetch.pipeFor(2L));
-        assertNotNull(SmbCoverPrefetch.pipeFor(1L));
-        assertNotNull(SmbCoverPrefetch.pipeFor(3L));
+        assertNull("the coldest page should have been dropped",
+                SmbPreviewCache.pipeFor(1L, 1));
+        assertNotNull(SmbPreviewCache.pipeFor(1L, 0));
+        assertNotNull(SmbPreviewCache.pipeFor(1L, 2));
     }
 
-    // --- the hl.8 leftovers ------------------------------------------------------------------
+    // --- the named-file leftovers ------------------------------------------------------------
 
-    /** hl.8 shipped covers as named files under cache/smb_cover. */
+    /** Earlier builds shipped previews as named files under cache/smb_preview. */
     @Test
     public void theLegacyNamedFileCacheIsSweptAway() throws Exception {
-        File stale = new File(legacyDir, "123");
+        File stale = new File(legacyDir, "123-0");
         try (FileOutputStream os = new FileOutputStream(stale)) {
-            os.write("cover bytes from hl.8".getBytes());
+            os.write("preview bytes from the old build".getBytes());
         }
 
-        // Invoked directly rather than through prefetch(): the public entry point consults
-        // Settings, which does not exist under this Robolectric config, and this test is about
-        // the sweep, not about configuration gating.
-        Method m = SmbCoverPrefetch.class.getDeclaredMethod("sweepLegacyOnce");
+        // Invoked directly rather than through prefetchGallery(): the public entry point
+        // consults Settings, and this test is about the sweep, not configuration gating.
+        Method m = SmbPreviewCache.class.getDeclaredMethod("sweepLegacyOnce");
         m.setAccessible(true);
         m.invoke(null);
 
-        assertTrue("the hl.8 cover cache should be gone, directory and all",
+        assertTrue("the old preview cache should be gone, directory and all",
                 !stale.exists() && !legacyDir.exists());
     }
 }
