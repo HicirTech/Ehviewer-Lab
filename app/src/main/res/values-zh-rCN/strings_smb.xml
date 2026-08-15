@@ -121,4 +121,12 @@
     <string name="settings_storage_access_read_write">可读 可写</string>
     <string name="settings_storage_access_read_only">可读 不可写</string>
     <string name="settings_storage_access_untested">尚未测试</string>
+    <string name="settings_storage_section_server">服务器</string>
+    <string name="settings_storage_section_account">凭据</string>
+    <string name="settings_storage_hint_host">主机</string>
+    <string name="settings_storage_hint_port">端口</string>
+    <string name="settings_storage_hint_share">共享名</string>
+    <string name="settings_storage_hint_path">共享内路径</string>
+    <string name="settings_storage_hint_username">用户名,留空为访客</string>
+    <string name="settings_storage_hint_password">密码</string>
 </resources>

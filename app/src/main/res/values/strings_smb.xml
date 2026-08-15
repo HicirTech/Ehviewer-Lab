@@ -128,4 +128,12 @@
     <string name="settings_storage_access_read_write">readable and writable</string>
     <string name="settings_storage_access_read_only">readable, not writable</string>
     <string name="settings_storage_access_untested">not tested yet</string>
+    <string name="settings_storage_section_server">Server</string>
+    <string name="settings_storage_section_account">Account</string>
+    <string name="settings_storage_hint_host">Host</string>
+    <string name="settings_storage_hint_port">Port</string>
+    <string name="settings_storage_hint_share">Share name</string>
+    <string name="settings_storage_hint_path">Path on share</string>
+    <string name="settings_storage_hint_username">Username, empty for guest</string>
+    <string name="settings_storage_hint_password">Password</string>
 </resources>

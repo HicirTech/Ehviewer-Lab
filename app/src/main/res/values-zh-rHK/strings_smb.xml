@@ -120,4 +120,12 @@
     <string name="settings_storage_access_read_write">可讀 可寫</string>
     <string name="settings_storage_access_read_only">可讀 不可寫</string>
     <string name="settings_storage_access_untested">尚未測試</string>
+    <string name="settings_storage_section_server">伺服器</string>
+    <string name="settings_storage_section_account">憑證</string>
+    <string name="settings_storage_hint_host">主機</string>
+    <string name="settings_storage_hint_port">連接埠</string>
+    <string name="settings_storage_hint_share">共享名</string>
+    <string name="settings_storage_hint_path">共享內路徑</string>
+    <string name="settings_storage_hint_username">使用者名稱,留空為訪客</string>
+    <string name="settings_storage_hint_password">密碼</string>
 </resources>
