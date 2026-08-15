@@ -1764,6 +1764,7 @@ public class GalleryDetailScene extends BaseScene implements View.OnClickListene
     }
 
     private void promptDownloadTarget(@NonNull GalleryInfo galleryInfo) {
+        com.hippo.ehviewer.ui.NotificationPermission.onDownloadStart(mContext);
         CharSequence[] items = new CharSequence[]{
                 getString(R.string.gallery_download_target_local),
                 getString(R.string.gallery_download_target_smb, NetworkStorage.active().displayName())

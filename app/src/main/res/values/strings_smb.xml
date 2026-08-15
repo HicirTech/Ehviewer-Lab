@@ -37,7 +37,6 @@
     <string name="local_inventory_delete_many_done">Deleted %1$d of %2$d</string>
     <string name="local_inventory_resync_many_done">Updated %1$d of %2$d</string>
     <string name="smb_page_repair_failed">The page was reloaded, but it could not be written back to the %1$s share</string>
-    <string name="smb_download_channel_name">%1$s Save</string>
     <string name="smb_download_notif_title">Saving to %1$s</string>
     <string name="smb_download_notif_preparing">Preparing…</string>
     <string name="smb_notif_queue_title">%1$s save</string>
@@ -136,4 +135,5 @@
     <string name="smb_error_auth">Wrong username or password</string>
     <string name="smb_error_share_not_found">No such share on the host</string>
     <string name="smb_error_access_denied">Access denied by the host</string>
+    <string name="notifications_disabled_hint">Notifications are off — downloads will run silently in the background</string>
 </resources>

@@ -219,6 +219,9 @@ public class SmbWorkflowTest {
                 By.res(mPkg, "guest_mode"),   // SignInScene — guest, never credentials
                 By.res(mPkg, "ok"),           // AnalyticsScene / SelectSiteScene
                 By.text("GOT IT"),            // showcase guide overlay
+                // The POST_NOTIFICATIONS system dialog (#103): grant, or a fresh device
+                // wedges the whole suite on it.
+                By.res("com.android.permissioncontroller:id/permission_allow_button"),
         };
         for (androidx.test.uiautomator.BySelector s : peelable) {
             UiObject2 o = mDevice.findObject(s);
