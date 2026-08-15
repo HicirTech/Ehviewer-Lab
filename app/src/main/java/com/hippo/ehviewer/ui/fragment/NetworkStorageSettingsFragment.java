@@ -2,16 +2,15 @@ package com.hippo.ehviewer.ui.fragment;
 
 import android.content.Context;
 import android.os.Bundle;
-import android.text.InputType;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AlertDialog;
 import androidx.annotation.Nullable;
-import androidx.preference.EditTextPreference;
 import androidx.preference.Preference;
-import androidx.preference.PreferenceFragmentCompat;
 import androidx.preference.TwoStatePreference;
+
+import com.hippo.preference.EditTextDialogPreference;
 
 import com.hippo.ehviewer.R;
 import com.hippo.ehviewer.Settings;
@@ -23,38 +22,36 @@ import com.hippo.util.IoThreadPoolExecutor;
 import java.util.HashMap;
 import java.util.Map;
 
-public class NetworkStorageSettingsFragment extends PreferenceFragmentCompat implements Preference.OnPreferenceChangeListener {
+public class NetworkStorageSettingsFragment extends BasePreferenceFragmentCompat implements Preference.OnPreferenceChangeListener {
 
     @Nullable
     private TwoStatePreference mMasterSwitch;
     @Nullable
-    private androidx.preference.DropDownPreference mProtocol;
-    @Nullable
-    private androidx.preference.PreferenceCategory mSmbCategory;
+    private com.hippo.preference.ListPreference mProtocol;
     @Nullable
     private TwoStatePreference mSigning;
     @Nullable
     private TwoStatePreference mAutoDownloadSwitch;
     @Nullable
-    private EditTextPreference mHost;
+    private EditTextDialogPreference mHost;
     @Nullable
-    private EditTextPreference mPort;
+    private EditTextDialogPreference mPort;
     @Nullable
-    private EditTextPreference mShareName;
+    private EditTextDialogPreference mShareName;
     @Nullable
-    private EditTextPreference mSharePath;
+    private EditTextDialogPreference mSharePath;
     @Nullable
-    private EditTextPreference mDeviceName;
+    private EditTextDialogPreference mDeviceName;
     @Nullable
-    private EditTextPreference mUsername;
+    private EditTextDialogPreference mUsername;
     @Nullable
-    private EditTextPreference mPassword;
+    private EditTextDialogPreference mPassword;
     @Nullable
     private Preference mTestConnection;
     private Preference mBenchmark;
     private Preference mAutoTune;
-    private EditTextPreference mMetadataConcurrency;
-    private EditTextPreference mImageConcurrency;
+    private EditTextDialogPreference mMetadataConcurrency;
+    private EditTextDialogPreference mImageConcurrency;
 
     /** XML summaries snapshotted before values overwrite them, restored when a field clears. */
     private final Map<Preference, CharSequence> mHintSummaries = new HashMap<>();
@@ -65,7 +62,6 @@ public class NetworkStorageSettingsFragment extends PreferenceFragmentCompat imp
 
         mMasterSwitch = findPreference(Settings.KEY_NETWORK_STORAGE_ENABLED);
         mProtocol = findPreference(Settings.KEY_STORAGE_PROTOCOL);
-        mSmbCategory = findPreference("category_protocol_smb");
         mSigning = findPreference(Settings.KEY_SMB_SIGNING_DISABLED);
         mAutoDownloadSwitch = findPreference(Settings.KEY_SMB_AUTO_DOWNLOAD_ENABLED);
         mHost = findPreference(Settings.KEY_SMB_HOST);
@@ -81,24 +77,16 @@ public class NetworkStorageSettingsFragment extends PreferenceFragmentCompat imp
         mMetadataConcurrency = findPreference(Settings.KEY_SMB_METADATA_CONCURRENCY);
         mImageConcurrency = findPreference(Settings.KEY_SMB_IMAGE_CONCURRENCY);
 
-        // Plain number boxes, clamped on entry. A dropdown of blessed values was wrong twice
-        // over: the blessed values came from one library size, and the tuner below can land on
-        // any number in 1..64.
-        for (EditTextPreference pref : new EditTextPreference[]{
+        // Number boxes clamped on entry (via the change listener). A dropdown of blessed values
+        // was wrong twice over: the blessed values came from one library size, and the tuner
+        // below can land on any number in 1..64.
+        for (EditTextDialogPreference pref : new EditTextDialogPreference[]{
                 mMetadataConcurrency, mImageConcurrency}) {
-            if (pref == null) {
-                continue;
+            if (pref != null) {
+                pref.setOnPreferenceChangeListener(this);
             }
-            pref.setOnBindEditTextListener(editText ->
-                    editText.setInputType(InputType.TYPE_CLASS_NUMBER));
-            pref.setOnPreferenceChangeListener(this);
         }
         updateConcurrencySummaries();
-
-        if (mPassword != null) {
-            mPassword.setOnBindEditTextListener(editText -> editText.setInputType(
-                    InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PASSWORD));
-        }
 
         if (mMasterSwitch != null) {
             mMasterSwitch.setOnPreferenceChangeListener(this);
@@ -188,7 +176,7 @@ public class NetworkStorageSettingsFragment extends PreferenceFragmentCompat imp
             }
             int clamped = Math.max(com.hippo.ehviewer.smb.SmbConcurrency.MIN,
                     Math.min(com.hippo.ehviewer.smb.SmbConcurrency.MAX, parsed));
-            ((EditTextPreference) preference).setText(String.valueOf(clamped));
+            ((EditTextDialogPreference) preference).setText(String.valueOf(clamped));
             updateConcurrencySummaries();
             return false;   // we stored the clamped value ourselves
         }
@@ -241,13 +229,16 @@ public class NetworkStorageSettingsFragment extends PreferenceFragmentCompat imp
         return true;
     }
 
-    /** Each protocol's category shows only while it is the selected protocol. */
+    /** Each protocol's rows show only while it is the selected protocol. */
     private void applyProtocol(@NonNull String protocol) {
-        if (mSmbCategory != null) {
-            // A never-configured user (empty protocol) still sees the SMB fields: the selector
-            // displays its default and there is nothing else to show.
-            mSmbCategory.setVisible(protocol.isEmpty()
-                    || NetworkStorage.PROTOCOL_SMB.equals(protocol));
+        // A never-configured user (empty protocol) still sees the SMB rows: the selector
+        // displays its default and there is nothing else to show.
+        boolean smb = protocol.isEmpty() || NetworkStorage.PROTOCOL_SMB.equals(protocol);
+        for (Preference row : new Preference[]{mHost, mPort, mShareName, mSharePath,
+                mUsername, mPassword, mSigning, mTestConnection, mBenchmark}) {
+            if (row != null) {
+                row.setVisible(smb);
+            }
         }
     }
 
@@ -269,7 +260,7 @@ public class NetworkStorageSettingsFragment extends PreferenceFragmentCompat imp
         if (mImageConcurrency != null) mImageConcurrency.setEnabled(enabled);
     }
 
-    private void updateTextSummary(@Nullable EditTextPreference preference, @Nullable String value) {
+    private void updateTextSummary(@Nullable EditTextDialogPreference preference, @Nullable String value) {
         if (preference == null) {
             return;
         }

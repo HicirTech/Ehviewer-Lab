@@ -118,8 +118,6 @@
     <string name="settings_storage_enable_save">Save Galleries To Network Storage</string>
     <string name="settings_storage_enable_save_summary">Master switch for network storage. When off, all network-storage features are disabled.</string>
     <string name="settings_storage_protocol">Protocol</string>
-    <string name="settings_storage_category_generic">General</string>
-    <string name="settings_storage_category_smb" translatable="false">SMB</string>
     <string-array name="storage_protocol_entries" translatable="false">
         <item>SMB</item>
     </string-array>

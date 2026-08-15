@@ -8,116 +8,91 @@
         android:title="@string/settings_storage_enable_save"
         android:summary="@string/settings_storage_enable_save_summary" />
 
-    <androidx.preference.DropDownPreference
+    <com.hippo.preference.ListPreference
         android:key="storage_protocol"
         android:title="@string/settings_storage_protocol"
-        android:entries="@array/storage_protocol_entries"
-        android:entryValues="@array/storage_protocol_values"
+        android:summary="%s"
         android:defaultValue="smb"
-        app:useSimpleSummaryProvider="true"
-        app:iconSpaceReserved="false" />
+        app:entries="@array/storage_protocol_entries"
+        app:entryValues="@array/storage_protocol_values" />
 
-    <PreferenceCategory
-        android:key="category_protocol_smb"
-        android:title="@string/settings_storage_category_smb">
+    <com.hippo.preference.EditTextDialogPreference
+        android:key="smb_host"
+        android:title="@string/settings_smb_host"
+        android:summary="@string/settings_smb_host_summary"
+        app:allowDividerAbove="true" />
 
-        <androidx.preference.EditTextPreference
-            android:key="smb_host"
-            android:title="@string/settings_smb_host"
-            android:summary="@string/settings_smb_host_summary"
-            app:useSimpleSummaryProvider="false"
-            app:iconSpaceReserved="false" />
+    <com.hippo.preference.EditTextDialogPreference
+        android:key="smb_port"
+        android:title="@string/settings_smb_port"
+        android:summary="@string/settings_smb_port_summary"
+        android:defaultValue="445"
+        android:inputType="number" />
 
-        <androidx.preference.EditTextPreference
-            android:key="smb_port"
-            android:title="@string/settings_smb_port"
-            android:summary="@string/settings_smb_port_summary"
-            android:defaultValue="445"
-            android:inputType="number"
-            app:useSimpleSummaryProvider="false"
-            app:iconSpaceReserved="false" />
+    <com.hippo.preference.EditTextDialogPreference
+        android:key="smb_share_name"
+        android:title="@string/settings_smb_share_name"
+        android:summary="@string/settings_smb_share_name_summary" />
 
-        <androidx.preference.EditTextPreference
-            android:key="smb_share_name"
-            android:title="@string/settings_smb_share_name"
-            android:summary="@string/settings_smb_share_name_summary"
-            app:useSimpleSummaryProvider="false"
-            app:iconSpaceReserved="false" />
+    <com.hippo.preference.EditTextDialogPreference
+        android:key="smb_share_path"
+        android:title="@string/settings_smb_share_path"
+        android:summary="@string/settings_smb_share_path_summary" />
 
-        <androidx.preference.EditTextPreference
-            android:key="smb_share_path"
-            android:title="@string/settings_smb_share_path"
-            android:summary="@string/settings_smb_share_path_summary"
-            app:useSimpleSummaryProvider="false"
-            app:iconSpaceReserved="false" />
+    <com.hippo.preference.EditTextDialogPreference
+        android:key="smb_username"
+        android:title="@string/settings_smb_username"
+        android:summary="@string/settings_smb_username_summary" />
 
-        <androidx.preference.EditTextPreference
-            android:key="smb_username"
-            android:title="@string/settings_smb_username"
-            android:summary="@string/settings_smb_username_summary"
-            app:useSimpleSummaryProvider="false"
-            app:iconSpaceReserved="false" />
+    <com.hippo.preference.EditTextDialogPreference
+        android:key="smb_password"
+        android:title="@string/settings_smb_password"
+        android:summary="@string/settings_smb_password_summary"
+        android:inputType="textPassword" />
 
-        <androidx.preference.EditTextPreference
-            android:key="smb_password"
-            android:title="@string/settings_smb_password"
-            android:summary="@string/settings_smb_password_summary"
-            app:useSimpleSummaryProvider="false"
-            app:iconSpaceReserved="false" />
+    <com.hippo.preference.SwitchPreference
+        android:defaultValue="false"
+        android:key="smb_signing_disabled"
+        android:title="@string/settings_smb_disable_signing"
+        android:summary="@string/settings_smb_disable_signing_summary" />
 
-        <com.hippo.preference.SwitchPreference
-            android:defaultValue="false"
-            android:key="smb_signing_disabled"
-            android:title="@string/settings_smb_disable_signing"
-            android:summary="@string/settings_smb_disable_signing_summary" />
+    <androidx.preference.Preference
+        android:key="smb_test_connection"
+        android:title="@string/settings_smb_test" />
 
-        <androidx.preference.Preference
-            android:key="smb_test_connection"
-            android:title="@string/settings_smb_test"
-            app:iconSpaceReserved="false" />
+    <androidx.preference.Preference
+        android:key="smb_benchmark"
+        android:title="@string/settings_smb_benchmark"
+        android:summary="@string/settings_smb_benchmark_summary" />
 
-        <androidx.preference.Preference
-            android:key="smb_benchmark"
-            android:title="@string/settings_smb_benchmark"
-            android:summary="@string/settings_smb_benchmark_summary"
-            app:iconSpaceReserved="false" />
-    </PreferenceCategory>
+    <com.hippo.preference.SwitchPreference
+        android:defaultValue="false"
+        android:key="smb_auto_download_enabled"
+        android:title="@string/settings_smb_enable_auto_download"
+        android:summary="@string/settings_smb_enable_auto_download_summary"
+        app:allowDividerAbove="true" />
 
-    <PreferenceCategory
-        android:key="category_storage_generic"
-        android:title="@string/settings_storage_category_generic">
+    <com.hippo.preference.EditTextDialogPreference
+        android:key="smb_device_name"
+        android:title="@string/settings_smb_device_name"
+        android:summary="@string/settings_smb_device_name_summary" />
 
-        <com.hippo.preference.SwitchPreference
-            android:defaultValue="false"
-            android:key="smb_auto_download_enabled"
-            android:title="@string/settings_smb_enable_auto_download"
-            android:summary="@string/settings_smb_enable_auto_download_summary" />
+    <com.hippo.preference.EditTextDialogPreference
+        android:key="smb_metadata_concurrency"
+        android:defaultValue="6"
+        android:title="@string/settings_smb_metadata_concurrency"
+        android:summary="@string/settings_smb_metadata_concurrency_summary"
+        android:inputType="number" />
 
-        <androidx.preference.EditTextPreference
-            android:key="smb_device_name"
-            android:title="@string/settings_smb_device_name"
-            android:summary="@string/settings_smb_device_name_summary"
-            app:useSimpleSummaryProvider="false"
-            app:iconSpaceReserved="false" />
+    <com.hippo.preference.EditTextDialogPreference
+        android:key="smb_image_concurrency"
+        android:defaultValue="6"
+        android:title="@string/settings_smb_image_concurrency"
+        android:summary="@string/settings_smb_image_concurrency_summary"
+        android:inputType="number" />
 
-        <androidx.preference.EditTextPreference
-            android:key="smb_metadata_concurrency"
-            android:defaultValue="6"
-            android:title="@string/settings_smb_metadata_concurrency"
-            android:summary="@string/settings_smb_metadata_concurrency_summary"
-            app:iconSpaceReserved="false" />
-
-        <androidx.preference.EditTextPreference
-            android:key="smb_image_concurrency"
-            android:defaultValue="6"
-            android:title="@string/settings_smb_image_concurrency"
-            android:summary="@string/settings_smb_image_concurrency_summary"
-            app:iconSpaceReserved="false" />
-
-        <androidx.preference.Preference
-            android:key="smb_auto_tune"
-            android:title="@string/settings_smb_autotune"
-            android:summary="@string/settings_smb_autotune_summary"
-            app:iconSpaceReserved="false" />
-    </PreferenceCategory>
+    <androidx.preference.Preference
+        android:key="smb_auto_tune"
+        android:title="@string/settings_smb_autotune"
+        android:summary="@string/settings_smb_autotune_summary" />
 </PreferenceScreen>
