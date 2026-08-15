@@ -45,8 +45,6 @@
     <string name="smb_notif_extra_waiting">  (+%d waiting)</string>
     <string name="smb_notif_progress_starting">Starting…%s</string>
     <string name="smb_notif_progress_count">%1$d/%2$d%3$s</string>
-    <string name="smb_test_error_unconfigured">Host and share name must be configured</string>
-    <string name="smb_test_error_share_not_accessible">Share not accessible</string>
     <string name="smb_save_started">%1$s save started: %2$s</string>
     <string name="smb_save_already_complete">Already saved to %1$s, skipping</string>
     <string name="smb_save_claimed_elsewhere">Another device is already downloading this to the %1$s share</string>
@@ -76,7 +74,6 @@
     <string name="settings_smb_password">SMB Password</string>
     <string name="settings_smb_device_name">This device\'s name</string>
     <string name="settings_smb_device_name_summary">Shown to your other devices next to the galleries this one is downloading. Defaults to the model name.</string>
-    <string name="smb_test_warn_gallery_dir">Connected, but the “%1$s” folder could not be created — the share may be read-only.</string>
     <string name="settings_smb_disable_signing">Disable SMB Signing</string>
     <string name="settings_smb_disable_signing_summary">Skip per-packet signing for faster transfers on slow CPUs (e.g. some MediaTek SoCs). Leave off (auto) unless transfers feel slow; applies on the next connection.</string>
     <string name="settings_about_upstream">Upstream / Origin</string>
