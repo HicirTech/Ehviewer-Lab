@@ -116,5 +116,4 @@
     <string name="settings_storage_enable_save">儲存畫廊至網路儲存</string>
     <string name="settings_storage_enable_save_summary">網路儲存總開關。關閉時，所有相關功能均不可用。</string>
     <string name="settings_storage_protocol">協定</string>
-    <string name="settings_storage_category_generic">一般</string>
 </resources>
