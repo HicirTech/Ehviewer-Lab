@@ -149,6 +149,7 @@ public final class SmbDownloadsDelegate {
             return;
         }
         String title = task.title != null ? task.title : String.valueOf(task.gid);
+        com.hippo.ehviewer.ui.NotificationPermission.onDownloadStart(context);
         new AlertDialog.Builder(context)
                 .setTitle(R.string.smb_take_over_title)
                 .setMessage(context.getString(R.string.smb_take_over_message,
@@ -227,6 +228,7 @@ public final class SmbDownloadsDelegate {
 
     /** Moves = enqueues (#88): claims, progress rows, resume — the pages come from the phone. */
     public void moveToShare(@NonNull Context context, @NonNull List<DownloadInfo> downloads) {
+        com.hippo.ehviewer.ui.NotificationPermission.onDownloadStart(context);
         final Context appContext = context.getApplicationContext();
         for (DownloadInfo info : downloads) {
             SmbDirectDownloader.getInstance().startMove(appContext, info);

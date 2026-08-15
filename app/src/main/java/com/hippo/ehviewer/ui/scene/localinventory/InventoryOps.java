@@ -75,6 +75,7 @@ final class InventoryOps {
 
     /** Re-enqueues; contain() skips what is already on the share, so only the holes download. */
     void repairMissingPages(@NonNull Context context, @NonNull List<GalleryInfo> galleries) {
+        com.hippo.ehviewer.ui.NotificationPermission.onDownloadStart(context);
         for (GalleryInfo gi : galleries) {
             SmbDirectDownloader.getInstance().start(context, gi);
         }
