@@ -65,6 +65,40 @@ public class SmbTaskLedgerTest {
         assertFalse(ledger.finish(gallery).wasMove);
     }
 
+    /** The cancel-path delete keys off the enqueue epoch: any re-enqueue stands it down (#150). */
+    @Test
+    public void theEpochMovesOnlyWhenTheUserEnqueues() {
+        SmbTaskLedger ledger = new SmbTaskLedger();
+        long never = ledger.epochOf(gallery.gid);
+
+        ledger.enqueue(gallery, false);
+        long first = ledger.epochOf(gallery.gid);
+        assertTrue("enqueue must move the epoch", first != never);
+
+        ledger.cancel(gallery.gid);
+        assertTrue("cancel must not move it", ledger.epochOf(gallery.gid) == first);
+
+        ledger.enqueue(gallery, false);
+        assertTrue("re-enqueue must move it again", ledger.epochOf(gallery.gid) != first);
+    }
+
+    /**
+     * The bug the epoch exists for (#150): finish re-adds the retired flag, so retired
+     * membership would re-arm a pending cancel-delete against a just-completed gallery. The
+     * epoch must sit still through finish.
+     */
+    @Test
+    public void aFinishDoesNotMoveTheEpoch() {
+        SmbTaskLedger ledger = new SmbTaskLedger();
+        ledger.enqueue(gallery, false);
+        long epoch = ledger.epochOf(gallery.gid);
+
+        ledger.finish(gallery);
+
+        assertTrue("finish must leave the epoch untouched",
+                ledger.epochOf(gallery.gid) == epoch);
+    }
+
     /** Pause is not cancel: the user still wants the move once it resumes and finishes. */
     @Test
     public void aPausedMoveStaysAMove() {

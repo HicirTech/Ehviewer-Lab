@@ -195,14 +195,22 @@ public final class SmbGalleryFiles {
     public static boolean deleteImage(@NonNull GalleryInfo info, int index) {
         consumeWrite(info.gid, index);
         try {
-            SmbFile file = findSmbImageFile(info, index);
-            if (file == null) {
-                return false;
+            // Every extension, not the first match: a format-changing re-publish leaves two
+            // names for one page, and deleting only the preferred one keeps the bad file (#150).
+            Set<String> names = SmbGalleryDirectory.galleryFilenames(info);
+            boolean deleted = false;
+            for (String extension : com.hippo.ehviewer.gallery.GalleryProvider2.SUPPORT_IMAGE_EXTENSIONS) {
+                String filename = SpiderDen.generateImageFilename(index, extension);
+                if (names.contains(filename)) {
+                    new SmbFile(SmbGalleryDirectory.resolveGalleryDir(info), filename).delete();
+                    deleted = true;
+                }
             }
-            file.delete();
-            // Deletion is rare; re-listing on the next read beats patching the cache.
-            SmbGalleryDirectory.invalidateListing(info.gid);
-            return true;
+            if (deleted) {
+                // Deletion is rare; re-listing on the next read beats patching the cache.
+                SmbGalleryDirectory.invalidateListing(info.gid);
+            }
+            return deleted;
         } catch (Throwable e) {
             SmbGalleryDirectory.invalidateListing(info.gid);
             Log.e(TAG, "Failed to delete page gid=" + info.gid + ", index=" + index, e);
