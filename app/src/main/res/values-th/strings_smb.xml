@@ -1,0 +1,125 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  ~ Copyright 2026 Ehviewer SMB Saver fork
+  ~
+  ~ Licensed under the Apache License, Version 2.0 (the "License");
+  ~ you may not use this file except in compliance with the License.
+  -->
+
+<!-- The fork's own strings (#95). Everything here is fork-added; resource merging folds it into
+     the same table as strings.xml, so names and call sites are untouched. Upstream strings that
+     the fork MODIFIES stay in strings.xml — only additions live here, so that upstream merges of
+     strings.xml stop colliding with fork copy. Add new fork strings here, not there. -->
+<resources>
+    <string name="local_inventory">คลัง %1$s</string>
+    <string name="local_inventory_empty">ยังไม่มีแกลเลอรีในแชร์ %1$s</string>
+    <string name="local_inventory_disabled">เปิดใช้งาน “บันทึกแกลเลอรีไปยังที่เก็บข้อมูลเครือข่าย” ในการตั้งค่าแล้วกำหนดค่าให้เรียบร้อย</string>
+    <string name="local_inventory_timeout">แชร์ %1$s ไม่ตอบสนองภายใน 7 วินาที</string>
+    <string name="local_inventory_sort_title">เรียงตาม</string>
+    <string name="local_inventory_sort_download_date">วันที่ดาวน์โหลด (ใหม่สุดก่อน)</string>
+    <string name="local_inventory_sort_posted_date">วันที่เผยแพร่ (ใหม่สุดก่อน)</string>
+    <string name="local_inventory_sort_title_az">ชื่อเรื่อง (A–Z)</string>
+    <string name="local_inventory_sort_category">หมวดหมู่</string>
+    <string name="local_inventory_delete">ลบออกจากแชร์ %1$s</string>
+    <string name="local_inventory_delete_confirm_title">ลบแกลเลอรีนี้หรือไม่?</string>
+    <string name="local_inventory_delete_confirm_title_many">ลบแกลเลอรี %1$d รายการหรือไม่?</string>
+    <string name="local_inventory_delete_confirm_message">“%1$s” จะถูกลบออกจากแชร์ %2$s และไม่สามารถกู้คืนได้</string>
+    <string name="local_inventory_delete_failed">ไม่สามารถลบออกจากแชร์ %1$s ได้</string>
+    <string name="local_inventory_resync_title">ซิงค์แกลเลอรีนี้ใหม่</string>
+    <string name="local_inventory_resync_metadata">ข้อมูลแกลเลอรี</string>
+    <string name="local_inventory_resync_pages">เฉพาะหน้าที่ขาดหาย</string>
+    <string name="local_inventory_resync_both">ข้อมูลและหน้าที่ขาดหาย</string>
+    <string name="local_inventory_resync_running">กำลังซิงค์ใหม่…</string>
+    <string name="local_inventory_resync_done">อัปเดตข้อมูลแกลเลอรีแล้ว</string>
+    <string name="local_inventory_resync_failed">ไม่สามารถเชื่อมต่อกับ e-hentai ได้ ไม่มีการเปลี่ยนแปลงใด ๆ</string>
+    <string name="local_inventory_resync_queued">เพิ่มเข้าคิวแล้ว จะดาวน์โหลดหน้าที่ขาดหาย</string>
+    <string name="local_inventory_delete_confirm_many">แกลเลอรี %1$d รายการจะถูกลบออกจากแชร์ %2$s และไม่สามารถกู้คืนได้</string>
+    <string name="local_inventory_delete_many_done">ลบแล้ว %1$d จาก %2$d</string>
+    <string name="local_inventory_resync_many_done">อัปเดตแล้ว %1$d จาก %2$d</string>
+    <string name="smb_page_repair_failed">โหลดหน้านี้ใหม่แล้ว แต่ไม่สามารถเขียนกลับไปยังแชร์ %1$s ได้</string>
+    <string name="smb_download_notif_title">กำลังบันทึกไปยัง %1$s</string>
+    <string name="smb_download_notif_preparing">กำลังเตรียม…</string>
+    <string name="smb_notif_queue_title">การบันทึก %1$s</string>
+    <string name="smb_notif_queue_waiting">รออยู่ %d รายการ</string>
+    <string name="smb_notif_extra_waiting">  (+%d รออยู่)</string>
+    <string name="smb_notif_progress_starting">กำลังเริ่ม…%s</string>
+    <string name="smb_notif_progress_count">%1$d/%2$d%3$s</string>
+    <string name="smb_save_started">เริ่มบันทึกไปยัง %1$s แล้ว: %2$s</string>
+    <string name="smb_save_already_complete">บันทึกไปยัง %1$s แล้ว ข้ามรายการนี้</string>
+    <string name="smb_save_claimed_elsewhere">อุปกรณ์เครื่องอื่นกำลังดาวน์โหลดรายการนี้ไปยังแชร์ %1$s อยู่แล้ว</string>
+    <string name="smb_task_action_cancel">ยกเลิกการดาวน์โหลด</string>
+    <string name="smb_task_cancel_message">นำ “%1$s” ออกจากคิวหรือไม่? หน้าที่บันทึกลงแชร์ไปแล้วจะถูกลบด้วย</string>
+    <string name="smb_task_owner_offline">อุปกรณ์ออฟไลน์</string>
+    <string name="smb_task_owner_last_seen">%1$s · เห็นล่าสุด %2$s</string>
+    <string name="smb_take_over_title">รับช่วงการดาวน์โหลดนี้หรือไม่?</string>
+    <string name="smb_take_over_message">“%1$s” หยุดตอบสนองแล้ว รับช่วง “%2$s” มาดาวน์โหลดต่อบนอุปกรณ์นี้หรือไม่?</string>
+    <string name="smb_take_over_confirm">รับช่วงต่อ</string>
+    <string name="smb_take_over_owner_returned">อุปกรณ์เครื่องนั้นกลับมาออนไลน์แล้ว จึงไม่ได้แตะต้องการดาวน์โหลดของเครื่องนั้น</string>
+    <string name="smb_take_over_failed">ไม่สามารถรับช่วงการดาวน์โหลดได้</string>
+    <string name="smb_save_failed">ไม่สามารถเริ่มบันทึกไปยัง %1$s ได้ — อาจเข้าถึงแชร์ไม่ได้</string>
+    <string name="smb_save_not_configured">ยังไม่ได้ตั้งค่า %1$s</string>
+    <string name="gallery_download_target_title">บันทึกไว้ที่ไหน?</string>
+    <string name="gallery_download_target_local">ลงโทรศัพท์</string>
+    <string name="gallery_download_target_smb">ลงแชร์ %1$s</string>
+    <string name="download_move_to_smb">ย้ายไปยังแชร์ %1$s</string>
+    <string name="download_moving_to_smb">กำลังคัดลอกไปยังแชร์ %1$s…</string>
+    <string name="settings_smb_enable_auto_download">ดาวน์โหลดอัตโนมัติไปยังที่เก็บข้อมูลเครือข่าย</string>
+    <string name="settings_smb_enable_auto_download_summary">เมื่อเปิดใช้งาน การเปิดหน้าแรกของแกลเลอรีจะเพิ่มการดาวน์โหลดเบื้องหลังไปยังที่เก็บข้อมูลเครือข่ายเข้าคิวโดยอัตโนมัติ เมื่อปิด ปุ่มดาวน์โหลดจะถามทุกครั้ง</string>
+    <string name="settings_smb_device_name">ชื่อของอุปกรณ์นี้</string>
+    <string name="settings_smb_device_name_summary">แสดงให้อุปกรณ์เครื่องอื่นของคุณเห็นข้างแกลเลอรีที่เครื่องนี้กำลังดาวน์โหลด ค่าเริ่มต้นคือชื่อรุ่น</string>
+    <string name="settings_smb_disable_signing">ปิดใช้งานการลงชื่อ SMB</string>
+    <string name="settings_about_upstream">โปรเจกต์ต้นทาง / Upstream</string>
+    <string name="settings_about_version_debug">%1$s · DEBUG</string>
+    <string name="settings_smb_metadata_concurrency">อ่านข้อมูลเมตาพร้อมกัน</string>
+    <string name="settings_smb_metadata_concurrency_summary">ครั้งละ %s รายการ การอ่านบันทึกแกลเลอรีทีละรายการคือสิ่งที่ทำให้คลังขนาดใหญ่เรียงลำดับช้า มากเกินไปมีแต่จะแย่งกันเอง</string>
+    <string name="settings_smb_image_concurrency">อ่านรูปภาพพร้อมกัน</string>
+    <string name="settings_smb_image_concurrency_summary">ครั้งละ %s รายการ รูปภาพหน้ามีขนาดใหญ่ เกินจุดหนึ่งลิงก์จะเต็มและตัวอ่านที่เพิ่มมาก็ได้แต่รอกันเอง</string>
+    <string name="settings_smb_benchmark">วัดประสิทธิภาพแชร์นี้</string>
+    <string name="settings_smb_benchmark_summary">จับเวลาการแสดงรายการไดเรกทอรี บันทึกแกลเลอรีหนึ่งชุด และรูปภาพหน้าไม่กี่รูป โดยใช้การตั้งค่าสองข้อด้านบน อ่านอย่างเดียว — ไม่มีการเขียนอะไรลงแชร์</string>
+    <string name="settings_smb_benchmark_running">กำลังวัด…</string>
+    <string name="settings_smb_benchmark_title">ประสิทธิภาพของแชร์</string>
+    <string name="settings_smb_benchmark_empty">ยังไม่มีแกลเลอรีในแชร์ จึงไม่มีอะไรให้วัด บันทึกสักรายการแล้วลองอีกครั้ง</string>
+    <string name="settings_smb_benchmark_unconfigured">กรอกโฮสต์และชื่อแชร์ก่อน</string>
+    <string name="settings_smb_benchmark_result">แสดงรายการแกลเลอรี %1$d รายการ: %2$d ms\n\nบันทึกแกลเลอรี ครั้งละ %3$d:\nอ่าน %4$d รายการใน %5$d ms (รายการละ %6$s ms)\n\nรูปภาพหน้า ครั้งละ %7$d:\nอ่าน %8$d รูปใน %9$d ms (%10$s MB/s)</string>
+    <string name="settings_smb_benchmark_hint">เปลี่ยนการตั้งค่าด้านบนแล้ววัดอีกครั้งเพื่อเปรียบเทียบ ตัวเลขจะแกว่งเล็กน้อยในแต่ละรอบ ดังนั้นให้ถือว่าความต่างเล็กน้อยคือไม่ต่างกัน</string>
+    <string name="settings_smb_autotune">หาค่าการทำงานพร้อมกันที่เร็วที่สุด</string>
+    <string name="settings_smb_autotune_summary">ไล่ทดสอบตัวทำงาน 1–128 ตัวกับแชร์นี้ — อ่านแกลเลอรีของคุณจริง ไม่ใช้แคช — แล้วใช้ค่าที่เร็วที่สุด ในคลังขนาดใหญ่ ขั้นตอนรูปภาพจะย้ายข้อมูลจริง อาจใช้เวลาหลายนาที</string>
+    <string name="settings_smb_autotune_running">กำลังวัด %1$s ที่ %2$d…</string>
+    <string name="settings_smb_autotune_stage_metadata">บันทึกแกลเลอรี</string>
+    <string name="settings_smb_autotune_stage_image">รูปภาพหน้า</string>
+    <string name="settings_smb_autotune_applied">ใช้แล้ว: %1$d สำหรับบันทึกแกลเลอรี %2$d สำหรับรูปภาพ</string>
+    <string name="settings_smb_autotune_meta_header">บันทึกแกลเลอรี (%1$d รายการในแชร์):</string>
+    <string name="settings_smb_autotune_image_header">รูปภาพหน้า (สุ่มตัวอย่าง %1$d รูป):</string>
+    <string name="settings_smb_autotune_collecting">กำลังรวบรวมหน้าตัวอย่าง…</string>
+    <string name="settings_storage">ที่เก็บข้อมูลเครือข่าย</string>
+    <string name="settings_storage_enable_save">บันทึกแกลเลอรีไปยังที่เก็บข้อมูลเครือข่าย</string>
+    <string name="settings_storage_enable_save_summary">สวิตช์หลักของที่เก็บข้อมูลเครือข่าย เมื่อปิด ฟีเจอร์ที่เก็บข้อมูลเครือข่ายทั้งหมดจะถูกปิดใช้งาน</string>
+    <string name="settings_storage_protocol">โปรโตคอล</string>
+    <string name="settings_storage_checking">กำลังทดสอบ…</string>
+    <string name="settings_storage_check_connect">เชื่อมต่อ</string>
+    <string name="settings_storage_check_read">อ่าน</string>
+    <string name="settings_storage_check_write">เขียน</string>
+    <string name="settings_storage_readonly_question">แชร์นี้อ่านได้แต่เขียนไม่ได้ บันทึกต่อหรือไม่? การเรียกดูจะใช้ได้ แต่การดาวน์โหลดจะใช้ไม่ได้</string>
+    <string name="settings_storage_readonly_save">บันทึกแบบอ่านอย่างเดียว</string>
+    <string name="settings_storage_connection">การเชื่อมต่อ SMB</string>
+    <string name="settings_storage_connection_unconfigured">ยังไม่ได้ตั้งค่า แตะเพื่อตั้งค่า</string>
+    <string name="settings_storage_save">บันทึก</string>
+    <string name="settings_storage_stage_pass">ผ่าน</string>
+    <string name="settings_storage_stage_fail">ล้มเหลว</string>
+    <string name="settings_storage_stage_skipped">ไม่ได้ทดสอบ</string>
+    <string name="settings_storage_access_read_write">อ่านและเขียนได้</string>
+    <string name="settings_storage_access_read_only">อ่านได้ เขียนไม่ได้</string>
+    <string name="settings_storage_access_untested">ยังไม่ได้ทดสอบ</string>
+    <string name="settings_storage_section_server">เซิร์ฟเวอร์</string>
+    <string name="settings_storage_section_account">บัญชี</string>
+    <string name="settings_storage_hint_host">โฮสต์</string>
+    <string name="settings_storage_hint_port">พอร์ต</string>
+    <string name="settings_storage_hint_share">ชื่อแชร์</string>
+    <string name="settings_storage_hint_path">เส้นทางในแชร์</string>
+    <string name="settings_storage_hint_username">ชื่อผู้ใช้ เว้นว่างสำหรับเข้าแบบ Guest</string>
+    <string name="settings_storage_hint_password">รหัสผ่าน</string>
+    <string name="smb_error_auth">ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง</string>
+    <string name="smb_error_share_not_found">ไม่มีแชร์นี้บนโฮสต์</string>
+    <string name="smb_error_access_denied">โฮสต์ปฏิเสธการเข้าถึง</string>
+    <string name="notifications_disabled_hint">การแจ้งเตือนปิดอยู่ — การดาวน์โหลดจะทำงานเงียบ ๆ ในเบื้องหลัง</string>
+</resources>

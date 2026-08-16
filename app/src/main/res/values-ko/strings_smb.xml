@@ -1,0 +1,125 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  ~ Copyright 2026 Ehviewer SMB Saver fork
+  ~
+  ~ Licensed under the Apache License, Version 2.0 (the "License");
+  ~ you may not use this file except in compliance with the License.
+  -->
+
+<!-- The fork's own strings (#95). Everything here is fork-added; resource merging folds it into
+     the same table as strings.xml, so names and call sites are untouched. Upstream strings that
+     the fork MODIFIES stay in strings.xml — only additions live here, so that upstream merges of
+     strings.xml stop colliding with fork copy. Add new fork strings here, not there. -->
+<resources>
+    <string name="local_inventory">%1$s 라이브러리</string>
+    <string name="local_inventory_empty">%1$s 공유에 아직 갤러리가 없습니다</string>
+    <string name="local_inventory_disabled">설정에서 ‘갤러리를 네트워크 저장소에 저장’을 켜고 구성하세요</string>
+    <string name="local_inventory_timeout">%1$s 공유가 7초 안에 응답하지 않았습니다</string>
+    <string name="local_inventory_sort_title">정렬 기준</string>
+    <string name="local_inventory_sort_download_date">다운로드 날짜 (최신순)</string>
+    <string name="local_inventory_sort_posted_date">게시 날짜 (최신순)</string>
+    <string name="local_inventory_sort_title_az">제목 (A–Z)</string>
+    <string name="local_inventory_sort_category">카테고리</string>
+    <string name="local_inventory_delete">%1$s 공유에서 삭제</string>
+    <string name="local_inventory_delete_confirm_title">이 갤러리를 삭제할까요?</string>
+    <string name="local_inventory_delete_confirm_title_many">갤러리 %1$d개를 삭제할까요?</string>
+    <string name="local_inventory_delete_confirm_message">‘%1$s’이(가) %2$s 공유에서 지워집니다. 되돌릴 수 없습니다.</string>
+    <string name="local_inventory_delete_failed">%1$s 공유에서 삭제하지 못했습니다</string>
+    <string name="local_inventory_resync_title">이 갤러리 다시 동기화</string>
+    <string name="local_inventory_resync_metadata">갤러리 정보</string>
+    <string name="local_inventory_resync_pages">누락된 페이지만</string>
+    <string name="local_inventory_resync_both">정보와 누락된 페이지</string>
+    <string name="local_inventory_resync_running">다시 동기화하는 중…</string>
+    <string name="local_inventory_resync_done">갤러리 정보가 업데이트되었습니다</string>
+    <string name="local_inventory_resync_failed">e-hentai에 연결할 수 없습니다. 아무것도 변경되지 않았습니다.</string>
+    <string name="local_inventory_resync_queued">대기열에 추가되었습니다. 누락된 페이지가 다운로드됩니다.</string>
+    <string name="local_inventory_delete_confirm_many">갤러리 %1$d개가 %2$s 공유에서 지워집니다. 되돌릴 수 없습니다.</string>
+    <string name="local_inventory_delete_many_done">%2$d개 중 %1$d개 삭제됨</string>
+    <string name="local_inventory_resync_many_done">%2$d개 중 %1$d개 업데이트됨</string>
+    <string name="smb_page_repair_failed">페이지를 다시 불러왔지만 %1$s 공유에 다시 쓰지 못했습니다</string>
+    <string name="smb_download_notif_title">%1$s에 저장 중</string>
+    <string name="smb_download_notif_preparing">준비 중…</string>
+    <string name="smb_notif_queue_title">%1$s 저장</string>
+    <string name="smb_notif_queue_waiting">%d개 대기 중</string>
+    <string name="smb_notif_extra_waiting">  (+%d개 대기 중)</string>
+    <string name="smb_notif_progress_starting">시작하는 중…%s</string>
+    <string name="smb_notif_progress_count">%1$d/%2$d%3$s</string>
+    <string name="smb_save_started">%1$s 저장 시작: %2$s</string>
+    <string name="smb_save_already_complete">이미 %1$s에 저장되어 있어 건너뜁니다</string>
+    <string name="smb_save_claimed_elsewhere">다른 기기가 이미 이 갤러리를 %1$s 공유에 다운로드하고 있습니다</string>
+    <string name="smb_task_action_cancel">다운로드 취소</string>
+    <string name="smb_task_cancel_message">‘%1$s’을(를) 대기열에서 뺄까요? 이미 공유에 저장된 페이지는 삭제됩니다.</string>
+    <string name="smb_task_owner_offline">기기 오프라인</string>
+    <string name="smb_task_owner_last_seen">%1$s · 마지막 응답 %2$s</string>
+    <string name="smb_take_over_title">이 다운로드를 이어받을까요?</string>
+    <string name="smb_take_over_message">‘%1$s’이(가) 응답하지 않습니다. ‘%2$s’을(를) 이어받아 이 기기에서 계속할까요?</string>
+    <string name="smb_take_over_confirm">이어받기</string>
+    <string name="smb_take_over_owner_returned">해당 기기가 다시 온라인 상태가 되어 그 다운로드는 그대로 두었습니다</string>
+    <string name="smb_take_over_failed">다운로드를 이어받지 못했습니다</string>
+    <string name="smb_save_failed">%1$s 저장을 시작할 수 없습니다. 공유에 연결할 수 없는 것 같습니다</string>
+    <string name="smb_save_not_configured">%1$s이(가) 구성되지 않았습니다</string>
+    <string name="gallery_download_target_title">어디에 저장할까요?</string>
+    <string name="gallery_download_target_local">휴대폰에 저장</string>
+    <string name="gallery_download_target_smb">%1$s 공유에 저장</string>
+    <string name="download_move_to_smb">%1$s 공유로 이동</string>
+    <string name="download_moving_to_smb">%1$s 공유로 복사하는 중…</string>
+    <string name="settings_smb_enable_auto_download">네트워크 저장소에 자동 다운로드</string>
+    <string name="settings_smb_enable_auto_download_summary">켜면 갤러리의 첫 페이지를 열 때 네트워크 저장소로의 백그라운드 다운로드가 자동으로 대기열에 추가됩니다. 끄면 다운로드 버튼을 누를 때마다 물어봅니다.</string>
+    <string name="settings_smb_device_name">이 기기의 이름</string>
+    <string name="settings_smb_device_name_summary">이 기기가 다운로드 중인 갤러리 옆에 다른 기기에서 표시되는 이름입니다. 기본값은 모델명입니다.</string>
+    <string name="settings_smb_disable_signing">SMB 서명 사용 안 함</string>
+    <string name="settings_about_upstream">업스트림 / 원본 프로젝트</string>
+    <string name="settings_about_version_debug">%1$s · 디버그</string>
+    <string name="settings_smb_metadata_concurrency">메타데이터 동시 읽기 수</string>
+    <string name="settings_smb_metadata_concurrency_summary">한 번에 %s개. 갤러리 기록을 하나씩 읽는 것이 큰 라이브러리의 정렬을 느리게 만드는 원인입니다. 너무 많으면 경합만 늘어납니다.</string>
+    <string name="settings_smb_image_concurrency">이미지 동시 읽기 수</string>
+    <string name="settings_smb_image_concurrency_summary">한 번에 %s개. 페이지 이미지는 크기 때문에 일정 수준을 넘으면 회선이 가득 차서 읽기를 늘려도 서로 기다리기만 합니다.</string>
+    <string name="settings_smb_benchmark">이 공유 측정</string>
+    <string name="settings_smb_benchmark_summary">위의 두 설정을 사용해 디렉터리 목록, 갤러리 기록 일괄 읽기, 페이지 이미지 몇 장의 소요 시간을 잽니다. 읽기 전용이며 공유에는 아무것도 쓰지 않습니다.</string>
+    <string name="settings_smb_benchmark_running">측정 중…</string>
+    <string name="settings_smb_benchmark_title">공유 성능</string>
+    <string name="settings_smb_benchmark_empty">공유에 아직 갤러리가 없어 측정할 것이 없습니다. 하나 저장한 뒤 다시 시도하세요.</string>
+    <string name="settings_smb_benchmark_unconfigured">먼저 호스트와 공유 이름을 입력하세요.</string>
+    <string name="settings_smb_benchmark_result">갤러리 %1$d개 목록: %2$d ms\n\n갤러리 기록, 동시 %3$d개:\n%4$d개를 %5$d ms에 읽음 (개당 %6$s ms)\n\n페이지 이미지, 동시 %7$d개:\n%8$d장을 %9$d ms에 읽음 (%10$s MB/s)</string>
+    <string name="settings_smb_benchmark_hint">위 설정을 바꾸고 다시 측정해 비교하세요. 수치는 실행할 때마다 조금씩 달라지므로 작은 차이는 차이가 없는 것으로 보세요.</string>
+    <string name="settings_smb_autotune">가장 빠른 동시성 찾기</string>
+    <string name="settings_smb_autotune_summary">이 공유에 대해 워커 1–128개를 차례로 시험합니다. 캐시 없이 실제 갤러리를 읽고, 가장 빠른 값을 적용합니다. 큰 라이브러리에서는 이미지 단계가 실제 데이터를 전송하므로 몇 분 정도 걸릴 수 있습니다.</string>
+    <string name="settings_smb_autotune_running">%1$s을(를) 동시 %2$d개로 측정 중…</string>
+    <string name="settings_smb_autotune_stage_metadata">갤러리 기록</string>
+    <string name="settings_smb_autotune_stage_image">페이지 이미지</string>
+    <string name="settings_smb_autotune_applied">적용됨: 갤러리 기록 %1$d개, 이미지 %2$d개.</string>
+    <string name="settings_smb_autotune_meta_header">갤러리 기록 (공유에 %1$d개):</string>
+    <string name="settings_smb_autotune_image_header">페이지 이미지 (%1$d장 샘플):</string>
+    <string name="settings_smb_autotune_collecting">샘플 페이지 수집 중…</string>
+    <string name="settings_storage">네트워크 저장소</string>
+    <string name="settings_storage_enable_save">갤러리를 네트워크 저장소에 저장</string>
+    <string name="settings_storage_enable_save_summary">네트워크 저장소의 주 스위치입니다. 끄면 네트워크 저장소 관련 기능이 모두 비활성화됩니다.</string>
+    <string name="settings_storage_protocol">프로토콜</string>
+    <string name="settings_storage_checking">테스트 중…</string>
+    <string name="settings_storage_check_connect">연결</string>
+    <string name="settings_storage_check_read">읽기</string>
+    <string name="settings_storage_check_write">쓰기</string>
+    <string name="settings_storage_readonly_question">공유를 읽을 수는 있지만 쓸 수는 없습니다. 그래도 저장할까요? 탐색은 가능하지만 다운로드는 되지 않습니다.</string>
+    <string name="settings_storage_readonly_save">읽기 전용으로 저장</string>
+    <string name="settings_storage_connection">SMB 연결</string>
+    <string name="settings_storage_connection_unconfigured">구성되지 않았습니다. 눌러서 설정하세요.</string>
+    <string name="settings_storage_save">저장</string>
+    <string name="settings_storage_stage_pass">통과</string>
+    <string name="settings_storage_stage_fail">실패</string>
+    <string name="settings_storage_stage_skipped">테스트 안 함</string>
+    <string name="settings_storage_access_read_write">읽기와 쓰기 가능</string>
+    <string name="settings_storage_access_read_only">읽기만 가능, 쓰기 불가</string>
+    <string name="settings_storage_access_untested">아직 테스트하지 않음</string>
+    <string name="settings_storage_section_server">서버</string>
+    <string name="settings_storage_section_account">계정</string>
+    <string name="settings_storage_hint_host">호스트</string>
+    <string name="settings_storage_hint_port">포트</string>
+    <string name="settings_storage_hint_share">공유 이름</string>
+    <string name="settings_storage_hint_path">공유 내 경로</string>
+    <string name="settings_storage_hint_username">사용자 이름, 비우면 게스트</string>
+    <string name="settings_storage_hint_password">비밀번호</string>
+    <string name="smb_error_auth">사용자 이름 또는 비밀번호가 잘못되었습니다</string>
+    <string name="smb_error_share_not_found">호스트에 그런 공유가 없습니다</string>
+    <string name="smb_error_access_denied">호스트가 접근을 거부했습니다</string>
+    <string name="notifications_disabled_hint">알림이 꺼져 있어 다운로드가 백그라운드에서 조용히 진행됩니다</string>
+</resources>

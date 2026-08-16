@@ -1,0 +1,125 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  ~ Copyright 2026 Ehviewer SMB Saver fork
+  ~
+  ~ Licensed under the Apache License, Version 2.0 (the "License");
+  ~ you may not use this file except in compliance with the License.
+  -->
+
+<!-- The fork's own strings (#95). Everything here is fork-added; resource merging folds it into
+     the same table as strings.xml, so names and call sites are untouched. Upstream strings that
+     the fork MODIFIES stay in strings.xml — only additions live here, so that upstream merges of
+     strings.xml stop colliding with fork copy. Add new fork strings here, not there. -->
+<resources>
+    <string name="local_inventory">%1$s-Bibliothek</string>
+    <string name="local_inventory_empty">Noch keine Galerien auf der %1$s-Freigabe</string>
+    <string name="local_inventory_disabled">Aktiviere „Galerien auf Netzwerkspeicher speichern“ in den Einstellungen und richte es ein</string>
+    <string name="local_inventory_timeout">Die %1$s-Freigabe hat innerhalb von 7 Sekunden nicht geantwortet</string>
+    <string name="local_inventory_sort_title">Sortieren nach</string>
+    <string name="local_inventory_sort_download_date">Download-Datum (neueste zuerst)</string>
+    <string name="local_inventory_sort_posted_date">Veröffentlichungsdatum (neueste zuerst)</string>
+    <string name="local_inventory_sort_title_az">Titel (A–Z)</string>
+    <string name="local_inventory_sort_category">Kategorie</string>
+    <string name="local_inventory_delete">Von der %1$s-Freigabe löschen</string>
+    <string name="local_inventory_delete_confirm_title">Diese Galerie löschen?</string>
+    <string name="local_inventory_delete_confirm_title_many">%1$d Galerien löschen?</string>
+    <string name="local_inventory_delete_confirm_message">„%1$s“ wird von der %2$s-Freigabe gelöscht. Das kann nicht rückgängig gemacht werden.</string>
+    <string name="local_inventory_delete_failed">Konnte nicht von der %1$s-Freigabe gelöscht werden</string>
+    <string name="local_inventory_resync_title">Diese Galerie neu synchronisieren</string>
+    <string name="local_inventory_resync_metadata">Galerie-Infos</string>
+    <string name="local_inventory_resync_pages">Nur fehlende Seiten</string>
+    <string name="local_inventory_resync_both">Infos und fehlende Seiten</string>
+    <string name="local_inventory_resync_running">Synchronisiere…</string>
+    <string name="local_inventory_resync_done">Galerie-Infos aktualisiert</string>
+    <string name="local_inventory_resync_failed">e-hentai ist nicht erreichbar. Nichts wurde geändert.</string>
+    <string name="local_inventory_resync_queued">In die Warteschlange eingereiht. Fehlende Seiten werden heruntergeladen.</string>
+    <string name="local_inventory_delete_confirm_many">%1$d Galerien werden von der %2$s-Freigabe gelöscht. Das kann nicht rückgängig gemacht werden.</string>
+    <string name="local_inventory_delete_many_done">%1$d von %2$d gelöscht</string>
+    <string name="local_inventory_resync_many_done">%1$d von %2$d aktualisiert</string>
+    <string name="smb_page_repair_failed">Die Seite wurde neu geladen, konnte aber nicht auf die %1$s-Freigabe zurückgeschrieben werden</string>
+    <string name="smb_download_notif_title">Speichern auf %1$s</string>
+    <string name="smb_download_notif_preparing">Vorbereiten…</string>
+    <string name="smb_notif_queue_title">%1$s-Speicherung</string>
+    <string name="smb_notif_queue_waiting">%d wartend</string>
+    <string name="smb_notif_extra_waiting">  (+%d wartend)</string>
+    <string name="smb_notif_progress_starting">Starte…%s</string>
+    <string name="smb_notif_progress_count">%1$d/%2$d%3$s</string>
+    <string name="smb_save_started">Speichern auf %1$s gestartet: %2$s</string>
+    <string name="smb_save_already_complete">Bereits auf %1$s gespeichert, wird übersprungen</string>
+    <string name="smb_save_claimed_elsewhere">Ein anderes Gerät lädt dies bereits auf die %1$s-Freigabe herunter</string>
+    <string name="smb_task_action_cancel">Download abbrechen</string>
+    <string name="smb_task_cancel_message">„%1$s“ aus der Warteschlange nehmen? Bereits auf der Freigabe gespeicherte Seiten werden gelöscht.</string>
+    <string name="smb_task_owner_offline">Gerät offline</string>
+    <string name="smb_task_owner_last_seen">%1$s · zuletzt gesehen %2$s</string>
+    <string name="smb_take_over_title">Diesen Download übernehmen?</string>
+    <string name="smb_take_over_message">„%1$s“ antwortet nicht mehr. „%2$s“ übernehmen und auf diesem Gerät fortsetzen?</string>
+    <string name="smb_take_over_confirm">Übernehmen</string>
+    <string name="smb_take_over_owner_returned">Das Gerät ist wieder online, sein Download wurde daher nicht angetastet</string>
+    <string name="smb_take_over_failed">Der Download konnte nicht übernommen werden</string>
+    <string name="smb_save_failed">Die %1$s-Speicherung konnte nicht gestartet werden — die Freigabe ist möglicherweise nicht erreichbar</string>
+    <string name="smb_save_not_configured">%1$s ist nicht eingerichtet</string>
+    <string name="gallery_download_target_title">Wohin speichern?</string>
+    <string name="gallery_download_target_local">Auf das Telefon</string>
+    <string name="gallery_download_target_smb">Auf die %1$s-Freigabe</string>
+    <string name="download_move_to_smb">Auf die %1$s-Freigabe verschieben</string>
+    <string name="download_moving_to_smb">Kopiere auf die %1$s-Freigabe…</string>
+    <string name="settings_smb_enable_auto_download">Automatisch auf Netzwerkspeicher herunterladen</string>
+    <string name="settings_smb_enable_auto_download_summary">Wenn aktiviert, stellt das Öffnen der ersten Seite einer Galerie automatisch einen Hintergrund-Download auf den Netzwerkspeicher in die Warteschlange. Wenn deaktiviert, fragt der Download-Button jedes Mal nach.</string>
+    <string name="settings_smb_device_name">Name dieses Geräts</string>
+    <string name="settings_smb_device_name_summary">Wird deinen anderen Geräten neben den Galerien angezeigt, die dieses Gerät herunterlädt. Standard ist der Modellname.</string>
+    <string name="settings_smb_disable_signing">SMB-Signierung deaktivieren</string>
+    <string name="settings_about_upstream">Upstream / Ursprung</string>
+    <string name="settings_about_version_debug">%1$s · DEBUG</string>
+    <string name="settings_smb_metadata_concurrency">Gleichzeitige Metadaten-Lesevorgänge</string>
+    <string name="settings_smb_metadata_concurrency_summary">%s gleichzeitig. Galerie-Einträge einzeln zu lesen macht das Sortieren einer großen Bibliothek langsam; zu viele erzeugen nur Konkurrenz.</string>
+    <string name="settings_smb_image_concurrency">Gleichzeitige Bild-Lesevorgänge</string>
+    <string name="settings_smb_image_concurrency_summary">%s gleichzeitig. Seitenbilder sind groß — ab einem gewissen Punkt ist die Leitung voll und weitere Leser warten nur aufeinander.</string>
+    <string name="settings_smb_benchmark">Diese Freigabe messen</string>
+    <string name="settings_smb_benchmark_summary">Misst mit den beiden obigen Einstellungen die Zeit für eine Verzeichnisauflistung, einen Stapel Galerie-Einträge und einige Seitenbilder. Nur Lesezugriffe — auf die Freigabe wird nichts geschrieben.</string>
+    <string name="settings_smb_benchmark_running">Messe…</string>
+    <string name="settings_smb_benchmark_title">Freigabe-Leistung</string>
+    <string name="settings_smb_benchmark_empty">Es sind noch keine Galerien auf der Freigabe, also gibt es nichts zu messen. Speichere eine und versuche es erneut.</string>
+    <string name="settings_smb_benchmark_unconfigured">Trage zuerst Host und Freigabename ein.</string>
+    <string name="settings_smb_benchmark_result">Auflistung von %1$d Galerien: %2$d ms\n\nGalerie-Einträge, %3$d gleichzeitig:\n%4$d gelesen in %5$d ms (%6$s ms pro Eintrag)\n\nSeitenbilder, %7$d gleichzeitig:\n%8$d gelesen in %9$d ms (%10$s MB/s)</string>
+    <string name="settings_smb_benchmark_hint">Ändere oben eine Einstellung und miss erneut, um zu vergleichen. Die Werte schwanken von Lauf zu Lauf ein wenig, betrachte einen kleinen Unterschied also als keinen Unterschied.</string>
+    <string name="settings_smb_autotune">Schnellste Parallelität finden</string>
+    <string name="settings_smb_autotune_summary">Testet 1–128 Worker gegen diese Freigabe — echte Lesezugriffe auf deine Galerien, nichts aus dem Cache — und übernimmt den schnellsten Wert. Bei einer großen Bibliothek bewegt der Bild-Durchlauf echte Daten; rechne mit einigen Minuten.</string>
+    <string name="settings_smb_autotune_running">Messe %1$s mit %2$d…</string>
+    <string name="settings_smb_autotune_stage_metadata">Galerie-Einträge</string>
+    <string name="settings_smb_autotune_stage_image">Seitenbilder</string>
+    <string name="settings_smb_autotune_applied">Übernommen: %1$d für Galerie-Einträge, %2$d für Bilder.</string>
+    <string name="settings_smb_autotune_meta_header">Galerie-Einträge (%1$d auf der Freigabe):</string>
+    <string name="settings_smb_autotune_image_header">Seitenbilder (%1$d Stichproben):</string>
+    <string name="settings_smb_autotune_collecting">Sammle Beispielseiten…</string>
+    <string name="settings_storage">Netzwerkspeicher</string>
+    <string name="settings_storage_enable_save">Galerien auf Netzwerkspeicher speichern</string>
+    <string name="settings_storage_enable_save_summary">Hauptschalter für den Netzwerkspeicher. Wenn deaktiviert, sind alle Netzwerkspeicher-Funktionen abgeschaltet.</string>
+    <string name="settings_storage_protocol">Protokoll</string>
+    <string name="settings_storage_checking">Teste…</string>
+    <string name="settings_storage_check_connect">Verbinden</string>
+    <string name="settings_storage_check_read">Lesen</string>
+    <string name="settings_storage_check_write">Schreiben</string>
+    <string name="settings_storage_readonly_question">Die Freigabe ist lesbar, aber nicht beschreibbar. Trotzdem speichern? Durchsuchen wird funktionieren, Downloads nicht.</string>
+    <string name="settings_storage_readonly_save">Schreibgeschützt speichern</string>
+    <string name="settings_storage_connection">SMB-Verbindung</string>
+    <string name="settings_storage_connection_unconfigured">Nicht eingerichtet. Zum Einrichten tippen.</string>
+    <string name="settings_storage_save">Speichern</string>
+    <string name="settings_storage_stage_pass">bestanden</string>
+    <string name="settings_storage_stage_fail">fehlgeschlagen</string>
+    <string name="settings_storage_stage_skipped">nicht getestet</string>
+    <string name="settings_storage_access_read_write">lesbar und beschreibbar</string>
+    <string name="settings_storage_access_read_only">lesbar, nicht beschreibbar</string>
+    <string name="settings_storage_access_untested">noch nicht getestet</string>
+    <string name="settings_storage_section_server">Server</string>
+    <string name="settings_storage_section_account">Konto</string>
+    <string name="settings_storage_hint_host">Host</string>
+    <string name="settings_storage_hint_port">Port</string>
+    <string name="settings_storage_hint_share">Freigabename</string>
+    <string name="settings_storage_hint_path">Pfad auf der Freigabe</string>
+    <string name="settings_storage_hint_username">Benutzername, leer für Gast</string>
+    <string name="settings_storage_hint_password">Passwort</string>
+    <string name="smb_error_auth">Falscher Benutzername oder falsches Passwort</string>
+    <string name="smb_error_share_not_found">Keine solche Freigabe auf dem Host</string>
+    <string name="smb_error_access_denied">Zugriff vom Host verweigert</string>
+    <string name="notifications_disabled_hint">Benachrichtigungen sind aus — Downloads laufen still im Hintergrund</string>
+</resources>
