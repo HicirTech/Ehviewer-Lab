@@ -44,10 +44,37 @@ public class SmbConnectionPreference extends DialogPreference {
     @Nullable private CheckBox mSigning;
     @Nullable private TextView mResult;
 
-    private boolean mChecking;
     /** Armed after a readable-but-not-writable result; the next save accepts read-only. */
     private boolean mAcceptReadOnly;
     @Nullable private AlertDialog mShownDialog;
+    /**
+     * Latched by onDetached: the dialog-close it triggers arrives a message later (Dialog posts
+     * its dismiss callback), so a transient flag cannot tell that close from a user cancel.
+     */
+    private boolean mDetached;
+
+    /**
+     * The in-flight probe (#142). Static because rotation replaces the preference instance while
+     * the check is still on the IO pool: the result must land in whichever dialog is alive by
+     * then, or — for a full pass with no dialog left at all — still honour the save.
+     */
+    private static final class PendingProbe {
+        @NonNull final ConnectionDraft draft;
+        @NonNull final Context app;
+        @Nullable volatile SelfCheck result;
+        volatile long resultAt;
+
+        PendingProbe(@NonNull ConnectionDraft draft, @NonNull Context app) {
+            this.draft = draft;
+            this.app = app;
+        }
+    }
+
+    /** How long an undelivered result stays worth showing; past this a reopened dialog is clean. */
+    private static final long RESULT_FRESH_MS = 60_000L;
+
+    @Nullable private static PendingProbe sProbe;
+    @Nullable private static java.lang.ref.WeakReference<SmbConnectionPreference> sLive;
 
     public SmbConnectionPreference(Context context) {
         super(context);
@@ -96,7 +123,6 @@ public class SmbConnectionPreference extends DialogPreference {
         if (mSigning != null) {
             mSigning.setChecked(Settings.getSmbSigningDisabled());
         }
-        mChecking = false;
         mAcceptReadOnly = false;
     }
 
@@ -115,7 +141,23 @@ public class SmbConnectionPreference extends DialogPreference {
     @Override
     protected void onDialogCreated(AlertDialog dialog) {
         mShownDialog = dialog;
+        sLive = new java.lang.ref.WeakReference<>(this);
         dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v -> save(dialog));
+        if (sProbe != null && sProbe.result != null
+                && android.os.SystemClock.elapsedRealtime() - sProbe.resultAt > RESULT_FRESH_MS) {
+            // A failure nobody was around to see, from a session long gone — start clean.
+            sProbe = null;
+        }
+        if (sProbe != null) {
+            // Restored over a still-running (or just-finished) probe: rebuild the in-progress
+            // face, then let deliver() land the result the moment it exists.
+            dialog.getButton(AlertDialog.BUTTON_POSITIVE).setEnabled(false);
+            if (mResult != null) {
+                mResult.setVisibility(View.VISIBLE);
+                mResult.setText(R.string.settings_storage_checking);
+            }
+            deliver();
+        }
         // A read-only acceptance answers one exact draft; editing anything revokes it (#140).
         android.text.TextWatcher disarm = new android.text.TextWatcher() {
             @Override public void beforeTextChanged(CharSequence s, int a, int b, int c) {}
@@ -149,32 +191,53 @@ public class SmbConnectionPreference extends DialogPreference {
     }
 
     private void save(@NonNull AlertDialog dialog) {
-        if (mChecking) {
+        if (sProbe != null) {
             return;
         }
-        mChecking = true;
-        final ConnectionDraft draft = new ConnectionDraft(
+        final PendingProbe probe = new PendingProbe(new ConnectionDraft(
                 text(mHost).trim(), text(mPort).trim(),
                 text(mShareName).trim(), text(mSharePath).trim(),
                 text(mUsername), text(mPassword),
-                mSigning != null && mSigning.isChecked());
+                mSigning != null && mSigning.isChecked()),
+                getContext().getApplicationContext());
+        sProbe = probe;
         dialog.getButton(AlertDialog.BUTTON_POSITIVE).setEnabled(false);
         if (mResult != null) {
             mResult.setVisibility(View.VISIBLE);
             mResult.setText(R.string.settings_storage_checking);
         }
         IoThreadPoolExecutor.Companion.getInstance().execute(() -> {
-            final SelfCheck result = NetworkStorage.active().selfCheck(draft);
-            SimpleHandler.getInstance().post(() -> onChecked(dialog, draft, result));
+            SelfCheck result = NetworkStorage.active().selfCheck(probe.draft);
+            probe.resultAt = android.os.SystemClock.elapsedRealtime();
+            probe.result = result;
+            SimpleHandler.getInstance().post(SmbConnectionPreference::deliver);
         });
+    }
+
+    /** Lands the finished probe wherever it can: the live dialog, or straight into Settings. */
+    private static void deliver() {
+        PendingProbe probe = sProbe;
+        SelfCheck result = probe == null ? null : probe.result;
+        if (probe == null || result == null) {
+            return; // abandoned by cancel, or still running
+        }
+        SmbConnectionPreference live = sLive == null ? null : sLive.get();
+        AlertDialog dialog = live == null ? null : live.mShownDialog;
+        if (live != null && dialog != null && dialog.isShowing()) {
+            sProbe = null;
+            live.onChecked(dialog, probe.draft, result);
+            return;
+        }
+        // No dialog anywhere (mid-rotation, or the screen is gone). A full pass still honours
+        // the save the user asked for; anything else waits for a restored dialog to show it.
+        if (result.allOk()) {
+            sProbe = null;
+            commitInto(probe.app, probe.draft, true);
+        }
     }
 
     private void onChecked(@NonNull AlertDialog dialog, @NonNull ConnectionDraft draft,
                            @NonNull SelfCheck result) {
-        mChecking = false;
-        if (!dialog.isShowing()) {
-            return;
-        }
         dialog.getButton(AlertDialog.BUTTON_POSITIVE).setEnabled(true);
         if (result.allOk()) {
             commit(draft, true);
@@ -200,6 +263,28 @@ public class SmbConnectionPreference extends DialogPreference {
         }
     }
 
+    @Override
+    public void onAttached() {
+        super.onAttached();
+        mDetached = false;
+    }
+
+    @Override
+    public void onDetached() {
+        mDetached = true;
+        super.onDetached();
+    }
+
+    @Override
+    protected void onDialogClosed(boolean positiveResult) {
+        super.onDialogClosed(positiveResult);
+        if (!mDetached) {
+            // A real close by the user while the probe runs abandons it: its result must
+            // neither commit nor surface later.
+            sProbe = null;
+        }
+    }
+
     /** Stage words only — the app's copy carries no symbols. */
     @NonNull
     private String stagesText(@NonNull SelfCheck r) {
@@ -222,8 +307,14 @@ public class SmbConnectionPreference extends DialogPreference {
 
     /** The one place the connection reaches the live configuration — as a whole. */
     private void commit(@NonNull ConnectionDraft draft, boolean writable) {
+        commitInto(getContext(), draft, writable);
+        updateSummary();
+    }
+
+    private static void commitInto(@NonNull Context context, @NonNull ConnectionDraft draft,
+                                   boolean writable) {
         androidx.preference.PreferenceManager
-                .getDefaultSharedPreferences(getContext())
+                .getDefaultSharedPreferences(context)
                 .edit()
                 .putString(Settings.KEY_SMB_HOST, draft.host)
                 .putString(Settings.KEY_SMB_PORT, draft.port)
@@ -235,7 +326,6 @@ public class SmbConnectionPreference extends DialogPreference {
                 .putString(Settings.KEY_STORAGE_LAST_CHECK,
                         writable ? Settings.LAST_CHECK_READ_WRITE : Settings.LAST_CHECK_READ_ONLY)
                 .apply();
-        updateSummary();
     }
 
     /** Protocol, address, and what the last save's probe established — words, no symbols. */
