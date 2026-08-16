@@ -37,7 +37,6 @@
     <string name="local_inventory_delete_many_done">已刪除 %1$d / %2$d</string>
     <string name="local_inventory_resync_many_done">已更新 %1$d / %2$d</string>
     <string name="smb_page_repair_failed">這一頁已重新載入,但沒能寫回 %1$s 共享</string>
-    <string name="smb_download_channel_name">%1$s 儲存</string>
     <string name="smb_download_notif_title">正在儲存至 %1$s</string>
     <string name="smb_download_notif_preparing">準備中…</string>
     <string name="smb_notif_queue_title">%1$s 儲存</string>
@@ -128,4 +127,5 @@
     <string name="smb_error_auth">使用者名稱或密碼不正確</string>
     <string name="smb_error_share_not_found">主機上沒有這個共享</string>
     <string name="smb_error_access_denied">主機拒絕了存取</string>
+    <string name="notifications_disabled_hint">通知已關閉,下載將在背景靜默進行</string>
 </resources>

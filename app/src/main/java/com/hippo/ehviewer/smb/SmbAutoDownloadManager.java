@@ -50,6 +50,7 @@ public final class SmbAutoDownloadManager {
     }
 
     private void enqueueInternal(@NonNull Context context, @NonNull GalleryInfo galleryInfo) {
+        com.hippo.ehviewer.ui.NotificationPermission.onDownloadStart(context);
         final Context appContext = context.getApplicationContext();
 
         IoThreadPoolExecutor.Companion.getInstance().execute(() -> {

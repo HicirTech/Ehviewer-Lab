@@ -29,7 +29,10 @@ public final class SmbDownloadService extends Service {
     // Bumped from "smb_download" to force a channel re-create on devices that had the
     // previous IMPORTANCE_LOW channel cached (the old channel hid the progress bar in
     // OEM "silent" notification groups).
-    private static final String CHANNEL_ID = "smb_download_v2";
+    // Upstream DownloadService's channel: one "download" channel for both pipelines (#103).
+    private String channelId() {
+        return getPackageName() + ".download";
+    }
     private static final int NOTIFICATION_ID = 0x536D6244; // 'SmbD'
 
     public static final String ACTION_STOP = "com.hippo.ehviewer.smb.STOP";
@@ -119,7 +122,7 @@ public final class SmbDownloadService extends Service {
     }
 
     private Notification buildNotification(String title, String text, int max, int progress, boolean indeterminate) {
-        NotificationCompat.Builder b = new NotificationCompat.Builder(this, CHANNEL_ID)
+        NotificationCompat.Builder b = new NotificationCompat.Builder(this, channelId())
                 .setSmallIcon(android.R.drawable.stat_sys_upload)
                 .setContentTitle(title)
                 .setContentText(text)
@@ -145,10 +148,10 @@ public final class SmbDownloadService extends Service {
     private void ensureChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             NotificationManager nm = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
-            if (nm != null && nm.getNotificationChannel(CHANNEL_ID) == null) {
+            if (nm != null && nm.getNotificationChannel(channelId()) == null) {
                 NotificationChannel channel = new NotificationChannel(
-                        CHANNEL_ID,
-                        getString(R.string.smb_download_channel_name, NetworkStorage.active().displayName()),
+                        channelId(),
+                        getString(R.string.download_service),
                         NotificationManager.IMPORTANCE_DEFAULT);
                 channel.setSound(null, null);
                 channel.enableVibration(false);
