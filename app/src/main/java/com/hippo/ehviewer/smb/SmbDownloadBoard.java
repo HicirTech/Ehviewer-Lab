@@ -208,7 +208,14 @@ public final class SmbDownloadBoard {
     // Row extras come from the gallery's own metadata.json (one authoritative record). Cached
     // per gid; misses are not cached (the skeleton may land any moment).
     private final Map<Long, GalleryInfo> metadataCache =
-            java.util.Collections.synchronizedMap(new HashMap<>());
+            java.util.Collections.synchronizedMap(new java.util.LinkedHashMap<Long, GalleryInfo>(
+                    16, 0.75f, true) {
+                @Override
+                protected boolean removeEldestEntry(Map.Entry<Long, GalleryInfo> eldest) {
+                    // Far above any real task list; an evicted row just re-reads its metadata.
+                    return size() > 128;
+                }
+            });
 
     @Nullable
     private GalleryInfo galleryMetadata(@NonNull DownloadState.Task task) {

@@ -37,6 +37,7 @@ public final class SmbGalleryLifecycle {
 
     /** Deletes the gallery folder recursively. True when deleted or never there. */
     public static boolean deleteGalleryFolder(@NonNull GalleryInfo info) {
+        SmbGalleryFiles.forgetGallery(info.gid);
         try {
             SmbFile galleryDir = SmbGalleryDirectory.resolveGalleryDir(info);
             if (!galleryDir.exists()) {

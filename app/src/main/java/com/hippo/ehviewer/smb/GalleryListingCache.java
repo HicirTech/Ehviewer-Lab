@@ -18,6 +18,12 @@ final class GalleryListingCache {
 
     private final long ttlMs;
     private final Map<Long, Entry> entries = new ConcurrentHashMap<>();
+    /**
+     * Confirmed writes since the last put, kept aside: a list() spans a network round trip, and
+     * a page published inside that window is missing from the snapshot the put installs. The
+     * union is always safe — every name here was confirmed by the share.
+     */
+    private final Map<Long, Set<String>> pending = new ConcurrentHashMap<>();
 
     GalleryListingCache(long ttlMs) {
         this.ttlMs = ttlMs;
@@ -44,6 +50,11 @@ final class GalleryListingCache {
     }
 
     void put(long gid, @NonNull Set<String> names, long nowMillis) {
+        Set<String> noted = pending.remove(gid);
+        if (noted != null) {
+            names = new java.util.HashSet<>(names);
+            names.addAll(noted);
+        }
         entries.put(gid, new Entry(nowMillis, names));
     }
 
@@ -53,6 +64,8 @@ final class GalleryListingCache {
      */
     void invalidate(long gid) {
         entries.remove(gid);
+        // Anything noted so far predates the next listing, which will see it on the share.
+        pending.remove(gid);
     }
 
     /**
@@ -61,6 +74,7 @@ final class GalleryListingCache {
      * Incremental change only ever adds a name; everything uncertain goes through invalidate.
      */
     void noteWritten(long gid, @NonNull String name) {
+        pending.computeIfAbsent(gid, key -> ConcurrentHashMap.newKeySet()).add(name);
         entries.computeIfPresent(gid, (key, e) -> {
             Set<String> names = new java.util.HashSet<>(e.names);
             names.add(name);

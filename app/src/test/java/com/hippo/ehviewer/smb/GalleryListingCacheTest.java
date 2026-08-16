@@ -119,6 +119,32 @@ public class GalleryListingCacheTest {
         assertNull("the snapshot must still age from fetch time", c.get(GID, NOW + TTL));
     }
 
+    /**
+     * The #143 race: a page published while a list() is in flight. The put installs the
+     * pre-write snapshot — the aside-noted name must be merged in, not lost for a TTL.
+     */
+    @Test
+    public void aWriteConfirmedDuringAListingSurvivesThePut() {
+        GalleryListingCache c = cache();
+
+        c.noteWritten(GID, "00000002.jpg");
+        c.put(GID, names("00000001.jpg"), NOW);
+
+        assertEquals(names("00000001.jpg", "00000002.jpg"), c.get(GID, NOW));
+    }
+
+    /** Invalidation drops the aside notes too: the next listing starts later and sees them. */
+    @Test
+    public void invalidatingDropsTheAsideNotes() {
+        GalleryListingCache c = cache();
+        c.noteWritten(GID, "00000002.jpg");
+
+        c.invalidate(GID);
+        c.put(GID, names("00000001.jpg"), NOW);
+
+        assertEquals(names("00000001.jpg"), c.get(GID, NOW));
+    }
+
     /** The handed-out set must not change under a reader mid-iteration (copy-on-write). */
     @Test
     public void aHandedOutListingIsNotMutatedByLaterNotes() {
