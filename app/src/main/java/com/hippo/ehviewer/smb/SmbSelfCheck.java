@@ -38,6 +38,16 @@ final class SmbSelfCheck {
 
     @NonNull
     static SelfCheck run(@NonNull ConnectionDraft draft) {
+        long t0 = android.os.SystemClock.elapsedRealtime();
+        SelfCheck out = probe(draft);
+        Log.i(TAG, "probe host=" + draft.host + " connect=" + out.connectOk + " read="
+                + out.readOk + " write=" + out.writeOk
+                + " " + (android.os.SystemClock.elapsedRealtime() - t0) + "ms");
+        return out;
+    }
+
+    @NonNull
+    private static SelfCheck probe(@NonNull ConnectionDraft draft) {
         if (TextUtils.isEmpty(draft.host) || TextUtils.isEmpty(draft.shareName)) {
             return SelfCheck.failedToConnect(null);
         }
@@ -102,22 +112,27 @@ final class SmbSelfCheck {
         }
     }
 
-    /** A one-off context from the draft's own credentials and signing choice. */
+    /**
+     * A one-off context from the draft's own credentials and signing choice, with tight
+     * timeouts: a probe must come back while the user is still watching the dialog — jcifs
+     * defaults let a black-holed address spin for many minutes (#142).
+     */
     @NonNull
     private static CIFSContext contextFor(@NonNull ConnectionDraft draft) {
         CIFSContext base;
-        if (draft.signingDisabled) {
-            try {
-                Properties props = new Properties();
+        try {
+            Properties props = new Properties();
+            props.setProperty("jcifs.smb.client.connTimeout", "10000");
+            props.setProperty("jcifs.smb.client.responseTimeout", "10000");
+            props.setProperty("jcifs.smb.client.sessionTimeout", "10000");
+            if (draft.signingDisabled) {
                 props.setProperty("jcifs.smb.client.signingPreferred", "false");
                 props.setProperty("jcifs.smb.client.signingEnforced", "false");
                 props.setProperty("jcifs.smb.client.ipcSigningEnforced", "false");
-                base = new BaseContext(new PropertyConfiguration(props));
-            } catch (Throwable e) {
-                Log.w(TAG, "Failed to build a no-signing context for the probe", e);
-                base = jcifs.context.SingletonContext.getInstance();
             }
-        } else {
+            base = new BaseContext(new PropertyConfiguration(props));
+        } catch (Throwable e) {
+            Log.w(TAG, "Failed to build the probe context", e);
             base = jcifs.context.SingletonContext.getInstance();
         }
         if (TextUtils.isEmpty(draft.username)) {
