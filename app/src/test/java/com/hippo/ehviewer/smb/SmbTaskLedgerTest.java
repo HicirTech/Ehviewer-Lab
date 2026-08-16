@@ -7,6 +7,7 @@
 package com.hippo.ehviewer.smb;
 
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 
 import com.hippo.ehviewer.client.data.GalleryInfo;
@@ -63,6 +64,20 @@ public class SmbTaskLedgerTest {
         ledger.yield(gallery.gid);
         assertTrue(ledger.enqueue(gallery, false));
         assertFalse(ledger.finish(gallery).wasMove);
+    }
+
+    /** A start that failed after leaving the queue must not linger as a claim (#151). */
+    @Test
+    public void aFailedStartRetiresAndForgetsItsClaim() {
+        SmbTaskLedger ledger = new SmbTaskLedger();
+        assertTrue(ledger.enqueue(gallery, false));
+        assertNotNull(ledger.nextToStart(3));
+
+        ledger.forgetFailedStart(gallery.gid);
+
+        assertTrue("a failed start retires the gid", ledger.stillRetired(gallery.gid));
+        assertTrue("and the gid can be enqueued fresh afterwards",
+                ledger.enqueue(gallery, false));
     }
 
     /** Pause is not cancel: the user still wants the move once it resumes and finishes. */

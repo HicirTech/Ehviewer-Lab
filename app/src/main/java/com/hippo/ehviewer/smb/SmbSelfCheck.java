@@ -51,7 +51,25 @@ final class SmbSelfCheck {
         if (TextUtils.isEmpty(draft.host) || TextUtils.isEmpty(draft.shareName)) {
             return SelfCheck.failedToConnect(null);
         }
-        CIFSContext ctx = contextFor(draft);
+        CIFSContext owned = ownedBase(draft);
+        CIFSContext ctx = withCredentials(
+                owned != null ? owned : jcifs.context.SingletonContext.getInstance(), draft);
+        try {
+            return stages(draft, ctx);
+        } finally {
+            if (owned != null) {
+                try {
+                    // The one-off transport pool holds real sockets; jcifs idle reaping is
+                    // a fallback, not a plan (#151).
+                    owned.close();
+                } catch (Throwable ignored) {
+                }
+            }
+        }
+    }
+
+    @NonNull
+    private static SelfCheck stages(@NonNull ConnectionDraft draft, @NonNull CIFSContext ctx) {
         String shareUrl = SmbPaths.buildShareUrl(
                 draft.host, draft.port, draft.shareName, draft.sharePath);
 
@@ -113,13 +131,13 @@ final class SmbSelfCheck {
     }
 
     /**
-     * A one-off context from the draft's own credentials and signing choice, with tight
-     * timeouts: a probe must come back while the user is still watching the dialog — jcifs
-     * defaults let a black-holed address spin for many minutes (#142).
+     * A one-off context with tight timeouts: a probe must come back while the user is still
+     * watching the dialog — jcifs defaults let a black-holed address spin for many minutes
+     * (#142). Null when the build failed and the shared SingletonContext (never closed) is
+     * the fallback.
      */
-    @NonNull
-    private static CIFSContext contextFor(@NonNull ConnectionDraft draft) {
-        CIFSContext base;
+    @Nullable
+    private static CIFSContext ownedBase(@NonNull ConnectionDraft draft) {
         try {
             Properties props = new Properties();
             props.setProperty("jcifs.smb.client.connTimeout", "10000");
@@ -130,11 +148,16 @@ final class SmbSelfCheck {
                 props.setProperty("jcifs.smb.client.signingEnforced", "false");
                 props.setProperty("jcifs.smb.client.ipcSigningEnforced", "false");
             }
-            base = new BaseContext(new PropertyConfiguration(props));
+            return new BaseContext(new PropertyConfiguration(props));
         } catch (Throwable e) {
             Log.w(TAG, "Failed to build the probe context", e);
-            base = jcifs.context.SingletonContext.getInstance();
+            return null;
         }
+    }
+
+    @NonNull
+    private static CIFSContext withCredentials(@NonNull CIFSContext base,
+                                               @NonNull ConnectionDraft draft) {
         if (TextUtils.isEmpty(draft.username)) {
             return base;
         }

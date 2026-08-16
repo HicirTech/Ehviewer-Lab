@@ -13,7 +13,7 @@
 <resources>
     <string name="local_inventory">%1$s Library</string>
     <string name="local_inventory_empty">No galleries on the %1$s share yet</string>
-    <string name="local_inventory_disabled">Enable "Save Galleries To Network Storage" in Settings and configure it</string>
+    <string name="local_inventory_disabled">Enable \"Save Galleries To Network Storage\" in Settings and configure it</string>
     <string name="local_inventory_timeout">%1$s share did not respond within 7 seconds</string>
     <string name="local_inventory_sort_title">Sort by</string>
     <string name="local_inventory_sort_download_date">Download date (newest first)</string>

@@ -260,10 +260,20 @@ public final class SmbDirectDownloader {
             // A phone download already runs this gid; leaving the mark would re-route it mid-flight.
             GalleryTargets.unmark(info.gid);
             Log.w(TAG, "SMB direct download skipped for gid=" + info.gid + ": " + e.getMessage());
+            forgetFailedStart(info.gid);
         } catch (Throwable e) {
             GalleryTargets.unmark(info.gid);
             Log.e(TAG, "Failed to start SMB direct download gid=" + info.gid, e);
+            forgetFailedStart(info.gid);
         }
+    }
+
+    /** The gid left the queue but never became a job: clear its bookkeeping and say so (#151). */
+    private void forgetFailedStart(long gid) {
+        ledger.forgetFailedStart(gid);
+        notifyObservers();
+        updateNotification();
+        publishState();
     }
 
     private void onJobFinish(@NonNull GalleryInfo info) {

@@ -152,6 +152,15 @@ final class SmbTaskLedger {
         return new FinishOutcome(job, movingFromPhone.remove(info.gid));
     }
 
+    /** A start that failed after leaving the queue: drop its bookkeeping and retire it (#151). */
+    void forgetFailedStart(long gid) {
+        synchronized (lock) {
+            claimedAt.remove(gid);
+            takenOverFrom.remove(gid);
+            retired.add(gid);
+        }
+    }
+
     /** Pause: active or queued moves to held; returns the job the caller must release, if any. */
     @Nullable
     ActiveJob pause(long gid) {
