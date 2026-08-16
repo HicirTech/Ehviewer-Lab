@@ -28,6 +28,12 @@ public class SmbTaskLedgerTest {
 
     private final GalleryInfo gallery = NetworkStorage.lookupKey(42L, "Answer");
 
+    @org.junit.Before
+    public void setUp() {
+        // clientState reads the client id and device name from Settings.
+        com.hippo.ehviewer.Settings.initialize(org.robolectric.RuntimeEnvironment.getApplication());
+    }
+
     /** The positive control: an untouched move does drop the phone copy. */
     @Test
     public void aCompletedMoveIsAMove() {
@@ -66,18 +72,24 @@ public class SmbTaskLedgerTest {
         assertFalse(ledger.finish(gallery).wasMove);
     }
 
-    /** A start that failed after leaving the queue must not linger as a claim (#151). */
+    /**
+     * A start that failed after leaving the queue must not linger as a claim (#151): a later
+     * re-enqueue gets a FRESH claim time, not the leaked one — claim times arbitrate takeovers
+     * across devices, and an ancient one skews them.
+     */
     @Test
-    public void aFailedStartRetiresAndForgetsItsClaim() {
+    public void aFailedStartForgetsItsClaim() throws Exception {
         SmbTaskLedger ledger = new SmbTaskLedger();
         assertTrue(ledger.enqueue(gallery, false));
         assertNotNull(ledger.nextToStart(3));
 
         ledger.forgetFailedStart(gallery.gid);
 
-        assertTrue("a failed start retires the gid", ledger.stillRetired(gallery.gid));
-        assertTrue("and the gid can be enqueued fresh afterwards",
-                ledger.enqueue(gallery, false));
+        Thread.sleep(5);
+        long beforeRetry = System.currentTimeMillis();
+        assertTrue(ledger.enqueue(gallery, false));
+        assertTrue("the retry must claim afresh, not inherit the failed start's stamp",
+                ledger.clientState().tasks.get(0).claimedAt >= beforeRetry);
     }
 
     /** Pause is not cancel: the user still wants the move once it resumes and finishes. */
