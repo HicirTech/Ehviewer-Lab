@@ -1,0 +1,125 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  ~ Copyright 2026 Ehviewer SMB Saver fork
+  ~
+  ~ Licensed under the Apache License, Version 2.0 (the "License");
+  ~ you may not use this file except in compliance with the License.
+  -->
+
+<!-- The fork's own strings (#95). Everything here is fork-added; resource merging folds it into
+     the same table as strings.xml, so names and call sites are untouched. Upstream strings that
+     the fork MODIFIES stay in strings.xml — only additions live here, so that upstream merges of
+     strings.xml stop colliding with fork copy. Add new fork strings here, not there. -->
+<resources>
+    <string name="local_inventory">Biblioteca de %1$s</string>
+    <string name="local_inventory_empty">Aún no hay galerías en el recurso compartido %1$s</string>
+    <string name="local_inventory_disabled">Activa «Guardar galerías en almacenamiento de red» en los ajustes y configúralo</string>
+    <string name="local_inventory_timeout">El recurso compartido %1$s no respondió en 7 segundos</string>
+    <string name="local_inventory_sort_title">Ordenar por</string>
+    <string name="local_inventory_sort_download_date">Fecha de descarga (más recientes primero)</string>
+    <string name="local_inventory_sort_posted_date">Fecha de publicación (más recientes primero)</string>
+    <string name="local_inventory_sort_title_az">Título (A–Z)</string>
+    <string name="local_inventory_sort_category">Categoría</string>
+    <string name="local_inventory_delete">Eliminar del recurso compartido %1$s</string>
+    <string name="local_inventory_delete_confirm_title">¿Eliminar esta galería?</string>
+    <string name="local_inventory_delete_confirm_title_many">¿Eliminar %1$d galerías?</string>
+    <string name="local_inventory_delete_confirm_message">«%1$s» se borrará del recurso compartido %2$s. Esto no se puede deshacer.</string>
+    <string name="local_inventory_delete_failed">No se pudo eliminar del recurso compartido %1$s</string>
+    <string name="local_inventory_resync_title">Volver a sincronizar esta galería</string>
+    <string name="local_inventory_resync_metadata">Información de la galería</string>
+    <string name="local_inventory_resync_pages">Solo las páginas que faltan</string>
+    <string name="local_inventory_resync_both">Información y páginas que faltan</string>
+    <string name="local_inventory_resync_running">Sincronizando…</string>
+    <string name="local_inventory_resync_done">Información de la galería actualizada</string>
+    <string name="local_inventory_resync_failed">No se pudo conectar con e-hentai. No se cambió nada.</string>
+    <string name="local_inventory_resync_queued">En cola. Se descargarán las páginas que faltan.</string>
+    <string name="local_inventory_delete_confirm_many">%1$d galerías se borrarán del recurso compartido %2$s. Esto no se puede deshacer.</string>
+    <string name="local_inventory_delete_many_done">Eliminadas %1$d de %2$d</string>
+    <string name="local_inventory_resync_many_done">Actualizadas %1$d de %2$d</string>
+    <string name="smb_page_repair_failed">La página se volvió a cargar, pero no se pudo escribir de vuelta en el recurso compartido %1$s</string>
+    <string name="smb_download_notif_title">Guardando en %1$s</string>
+    <string name="smb_download_notif_preparing">Preparando…</string>
+    <string name="smb_notif_queue_title">Guardado en %1$s</string>
+    <string name="smb_notif_queue_waiting">%d en espera</string>
+    <string name="smb_notif_extra_waiting">  (+%d en espera)</string>
+    <string name="smb_notif_progress_starting">Iniciando…%s</string>
+    <string name="smb_notif_progress_count">%1$d/%2$d%3$s</string>
+    <string name="smb_save_started">Guardado en %1$s iniciado: %2$s</string>
+    <string name="smb_save_already_complete">Ya está guardado en %1$s, se omite</string>
+    <string name="smb_save_claimed_elsewhere">Otro dispositivo ya está descargando esto al recurso compartido %1$s</string>
+    <string name="smb_task_action_cancel">Cancelar descarga</string>
+    <string name="smb_task_cancel_message">¿Quitar «%1$s» de la cola? Las páginas ya guardadas en el recurso compartido se eliminarán.</string>
+    <string name="smb_task_owner_offline">Dispositivo sin conexión</string>
+    <string name="smb_task_owner_last_seen">%1$s · visto por última vez %2$s</string>
+    <string name="smb_take_over_title">¿Tomar el control de esta descarga?</string>
+    <string name="smb_take_over_message">«%1$s» ha dejado de responder. ¿Tomar el control de «%2$s» y continuarla en este dispositivo?</string>
+    <string name="smb_take_over_confirm">Tomar el control</string>
+    <string name="smb_take_over_owner_returned">Ese dispositivo volvió a conectarse, así que su descarga se dejó intacta</string>
+    <string name="smb_take_over_failed">No se pudo tomar el control de la descarga</string>
+    <string name="smb_save_failed">No se pudo iniciar el guardado en %1$s; puede que el recurso compartido no esté accesible</string>
+    <string name="smb_save_not_configured">%1$s no está configurado</string>
+    <string name="gallery_download_target_title">¿Dónde guardar?</string>
+    <string name="gallery_download_target_local">En el teléfono</string>
+    <string name="gallery_download_target_smb">En el recurso compartido %1$s</string>
+    <string name="download_move_to_smb">Mover al recurso compartido %1$s</string>
+    <string name="download_moving_to_smb">Copiando al recurso compartido %1$s…</string>
+    <string name="settings_smb_enable_auto_download">Descarga automática a almacenamiento de red</string>
+    <string name="settings_smb_enable_auto_download_summary">Si está activado, abrir la primera página de una galería pone en cola automáticamente una descarga en segundo plano al almacenamiento de red. Si está desactivado, el botón de descarga pregunta cada vez.</string>
+    <string name="settings_smb_device_name">Nombre de este dispositivo</string>
+    <string name="settings_smb_device_name_summary">Se muestra a tus otros dispositivos junto a las galerías que este está descargando. Por defecto es el nombre del modelo.</string>
+    <string name="settings_smb_disable_signing">Desactivar la firma SMB</string>
+    <string name="settings_about_upstream">Proyecto original / Upstream</string>
+    <string name="settings_about_version_debug">%1$s · DEBUG</string>
+    <string name="settings_smb_metadata_concurrency">Lecturas de metadatos simultáneas</string>
+    <string name="settings_smb_metadata_concurrency_summary">%s a la vez. Leer los registros de galería uno por uno es lo que hace lenta la ordenación de una biblioteca grande; demasiados solo añaden contención.</string>
+    <string name="settings_smb_image_concurrency">Lecturas de imágenes simultáneas</string>
+    <string name="settings_smb_image_concurrency_summary">%s a la vez. Las imágenes de página son grandes, así que a partir de cierto punto el enlace está lleno y más lectores solo se esperan entre sí.</string>
+    <string name="settings_smb_benchmark">Medir este recurso compartido</string>
+    <string name="settings_smb_benchmark_summary">Cronometra un listado de directorio, un lote de registros de galería y algunas imágenes de página, usando los dos ajustes de arriba. Solo lecturas: no se escribe nada en el recurso compartido.</string>
+    <string name="settings_smb_benchmark_running">Midiendo…</string>
+    <string name="settings_smb_benchmark_title">Rendimiento del recurso compartido</string>
+    <string name="settings_smb_benchmark_empty">Aún no hay galerías en el recurso compartido, así que no hay nada que medir. Guarda una e inténtalo de nuevo.</string>
+    <string name="settings_smb_benchmark_unconfigured">Rellena primero el host y el nombre del recurso compartido.</string>
+    <string name="settings_smb_benchmark_result">Listado de %1$d galerías: %2$d ms\n\nRegistros de galería, %3$d a la vez:\n%4$d leídos en %5$d ms (%6$s ms cada uno)\n\nImágenes de página, %7$d a la vez:\n%8$d leídas en %9$d ms (%10$s MB/s)</string>
+    <string name="settings_smb_benchmark_hint">Cambia un ajuste de arriba y vuelve a medir para comparar. Las cifras varían un poco entre ejecuciones, así que trata una diferencia pequeña como si no hubiera diferencia.</string>
+    <string name="settings_smb_autotune">Encontrar la concurrencia más rápida</string>
+    <string name="settings_smb_autotune_summary">Recorre de 1 a 128 trabajadores contra este recurso compartido — lecturas reales de tus galerías, nada en caché — y aplica el más rápido. En una biblioteca grande la pasada de imágenes mueve datos reales; espera unos minutos.</string>
+    <string name="settings_smb_autotune_running">Midiendo %1$s con %2$d…</string>
+    <string name="settings_smb_autotune_stage_metadata">registros de galería</string>
+    <string name="settings_smb_autotune_stage_image">imágenes de página</string>
+    <string name="settings_smb_autotune_applied">Aplicado: %1$d para registros de galería, %2$d para imágenes.</string>
+    <string name="settings_smb_autotune_meta_header">Registros de galería (%1$d en el recurso compartido):</string>
+    <string name="settings_smb_autotune_image_header">Imágenes de página (%1$d muestreadas):</string>
+    <string name="settings_smb_autotune_collecting">Recopilando páginas de muestra…</string>
+    <string name="settings_storage">Almacenamiento de red</string>
+    <string name="settings_storage_enable_save">Guardar galerías en almacenamiento de red</string>
+    <string name="settings_storage_enable_save_summary">Interruptor principal del almacenamiento de red. Si está desactivado, todas las funciones de almacenamiento de red quedan deshabilitadas.</string>
+    <string name="settings_storage_protocol">Protocolo</string>
+    <string name="settings_storage_checking">Probando…</string>
+    <string name="settings_storage_check_connect">Conexión</string>
+    <string name="settings_storage_check_read">Lectura</string>
+    <string name="settings_storage_check_write">Escritura</string>
+    <string name="settings_storage_readonly_question">El recurso compartido se puede leer pero no escribir. ¿Guardar de todos modos? La navegación funcionará; las descargas no.</string>
+    <string name="settings_storage_readonly_save">Guardar como solo lectura</string>
+    <string name="settings_storage_connection">Conexión SMB</string>
+    <string name="settings_storage_connection_unconfigured">Sin configurar. Toca para configurarlo.</string>
+    <string name="settings_storage_save">Guardar</string>
+    <string name="settings_storage_stage_pass">correcto</string>
+    <string name="settings_storage_stage_fail">fallido</string>
+    <string name="settings_storage_stage_skipped">sin probar</string>
+    <string name="settings_storage_access_read_write">se puede leer y escribir</string>
+    <string name="settings_storage_access_read_only">se puede leer, no escribir</string>
+    <string name="settings_storage_access_untested">aún sin probar</string>
+    <string name="settings_storage_section_server">Servidor</string>
+    <string name="settings_storage_section_account">Cuenta</string>
+    <string name="settings_storage_hint_host">Host</string>
+    <string name="settings_storage_hint_port">Puerto</string>
+    <string name="settings_storage_hint_share">Nombre del recurso compartido</string>
+    <string name="settings_storage_hint_path">Ruta en el recurso compartido</string>
+    <string name="settings_storage_hint_username">Usuario, vacío para invitado</string>
+    <string name="settings_storage_hint_password">Contraseña</string>
+    <string name="smb_error_auth">Usuario o contraseña incorrectos</string>
+    <string name="smb_error_share_not_found">No existe ese recurso compartido en el host</string>
+    <string name="smb_error_access_denied">El host denegó el acceso</string>
+    <string name="notifications_disabled_hint">Las notificaciones están desactivadas: las descargas se ejecutarán silenciosamente en segundo plano</string>
+</resources>

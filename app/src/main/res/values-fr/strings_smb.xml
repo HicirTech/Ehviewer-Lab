@@ -1,0 +1,125 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  ~ Copyright 2026 Ehviewer SMB Saver fork
+  ~
+  ~ Licensed under the Apache License, Version 2.0 (the "License");
+  ~ you may not use this file except in compliance with the License.
+  -->
+
+<!-- The fork's own strings (#95). Everything here is fork-added; resource merging folds it into
+     the same table as strings.xml, so names and call sites are untouched. Upstream strings that
+     the fork MODIFIES stay in strings.xml — only additions live here, so that upstream merges of
+     strings.xml stop colliding with fork copy. Add new fork strings here, not there. -->
+<resources>
+    <string name="local_inventory">Bibliothèque %1$s</string>
+    <string name="local_inventory_empty">Aucune galerie sur le partage %1$s pour l\'instant</string>
+    <string name="local_inventory_disabled">Activez « Enregistrer les galeries sur le stockage réseau » dans les paramètres et configurez-le</string>
+    <string name="local_inventory_timeout">Le partage %1$s n\'a pas répondu dans les 7 secondes</string>
+    <string name="local_inventory_sort_title">Trier par</string>
+    <string name="local_inventory_sort_download_date">Date de téléchargement (plus récentes d\'abord)</string>
+    <string name="local_inventory_sort_posted_date">Date de publication (plus récentes d\'abord)</string>
+    <string name="local_inventory_sort_title_az">Titre (A–Z)</string>
+    <string name="local_inventory_sort_category">Catégorie</string>
+    <string name="local_inventory_delete">Supprimer du partage %1$s</string>
+    <string name="local_inventory_delete_confirm_title">Supprimer cette galerie ?</string>
+    <string name="local_inventory_delete_confirm_title_many">Supprimer %1$d galeries ?</string>
+    <string name="local_inventory_delete_confirm_message">« %1$s » sera effacée du partage %2$s. Cette action est irréversible.</string>
+    <string name="local_inventory_delete_failed">Impossible de la supprimer du partage %1$s</string>
+    <string name="local_inventory_resync_title">Resynchroniser cette galerie</string>
+    <string name="local_inventory_resync_metadata">Infos de la galerie</string>
+    <string name="local_inventory_resync_pages">Pages manquantes uniquement</string>
+    <string name="local_inventory_resync_both">Infos et pages manquantes</string>
+    <string name="local_inventory_resync_running">Resynchronisation…</string>
+    <string name="local_inventory_resync_done">Infos de la galerie mises à jour</string>
+    <string name="local_inventory_resync_failed">Impossible de joindre e-hentai. Rien n\'a été modifié.</string>
+    <string name="local_inventory_resync_queued">Mis en file d\'attente. Les pages manquantes seront téléchargées.</string>
+    <string name="local_inventory_delete_confirm_many">%1$d galeries seront effacées du partage %2$s. Cette action est irréversible.</string>
+    <string name="local_inventory_delete_many_done">%1$d sur %2$d supprimées</string>
+    <string name="local_inventory_resync_many_done">%1$d sur %2$d mises à jour</string>
+    <string name="smb_page_repair_failed">La page a été rechargée, mais elle n\'a pas pu être réécrite sur le partage %1$s</string>
+    <string name="smb_download_notif_title">Enregistrement sur %1$s</string>
+    <string name="smb_download_notif_preparing">Préparation…</string>
+    <string name="smb_notif_queue_title">Enregistrement %1$s</string>
+    <string name="smb_notif_queue_waiting">%d en attente</string>
+    <string name="smb_notif_extra_waiting">  (+%d en attente)</string>
+    <string name="smb_notif_progress_starting">Démarrage…%s</string>
+    <string name="smb_notif_progress_count">%1$d/%2$d%3$s</string>
+    <string name="smb_save_started">Enregistrement sur %1$s démarré : %2$s</string>
+    <string name="smb_save_already_complete">Déjà enregistrée sur %1$s, ignorée</string>
+    <string name="smb_save_claimed_elsewhere">Un autre appareil télécharge déjà cette galerie sur le partage %1$s</string>
+    <string name="smb_task_action_cancel">Annuler le téléchargement</string>
+    <string name="smb_task_cancel_message">Retirer « %1$s » de la file d\'attente ? Les pages déjà enregistrées sur le partage seront supprimées.</string>
+    <string name="smb_task_owner_offline">Appareil hors ligne</string>
+    <string name="smb_task_owner_last_seen">%1$s · vu pour la dernière fois %2$s</string>
+    <string name="smb_take_over_title">Reprendre ce téléchargement ?</string>
+    <string name="smb_take_over_message">« %1$s » ne répond plus. Reprendre « %2$s » et le poursuivre sur cet appareil ?</string>
+    <string name="smb_take_over_confirm">Reprendre</string>
+    <string name="smb_take_over_owner_returned">Cet appareil est de retour en ligne, son téléchargement n\'a donc pas été touché</string>
+    <string name="smb_take_over_failed">Impossible de reprendre le téléchargement</string>
+    <string name="smb_save_failed">Impossible de démarrer l\'enregistrement sur %1$s — le partage est peut-être injoignable</string>
+    <string name="smb_save_not_configured">%1$s n\'est pas configuré</string>
+    <string name="gallery_download_target_title">Où enregistrer ?</string>
+    <string name="gallery_download_target_local">Sur le téléphone</string>
+    <string name="gallery_download_target_smb">Sur le partage %1$s</string>
+    <string name="download_move_to_smb">Déplacer vers le partage %1$s</string>
+    <string name="download_moving_to_smb">Copie vers le partage %1$s…</string>
+    <string name="settings_smb_enable_auto_download">Téléchargement automatique vers le stockage réseau</string>
+    <string name="settings_smb_enable_auto_download_summary">Si activé, ouvrir la première page d\'une galerie met automatiquement en file d\'attente un téléchargement en arrière-plan vers le stockage réseau. Si désactivé, le bouton de téléchargement demande à chaque fois.</string>
+    <string name="settings_smb_device_name">Nom de cet appareil</string>
+    <string name="settings_smb_device_name_summary">Affiché sur vos autres appareils à côté des galeries que celui-ci télécharge. Par défaut, le nom du modèle.</string>
+    <string name="settings_smb_disable_signing">Désactiver la signature SMB</string>
+    <string name="settings_about_upstream">Projet d\'origine / Upstream</string>
+    <string name="settings_about_version_debug">%1$s · DEBUG</string>
+    <string name="settings_smb_metadata_concurrency">Lectures de métadonnées simultanées</string>
+    <string name="settings_smb_metadata_concurrency_summary">%s à la fois. Lire les fiches de galerie une par une est ce qui rend le tri d\'une grande bibliothèque lent ; trop nombreuses, elles ne font qu\'ajouter de la contention.</string>
+    <string name="settings_smb_image_concurrency">Lectures d\'images simultanées</string>
+    <string name="settings_smb_image_concurrency_summary">%s à la fois. Les images de page sont volumineuses : passé un certain point, la liaison est saturée et les lecteurs supplémentaires ne font que s\'attendre les uns les autres.</string>
+    <string name="settings_smb_benchmark">Mesurer ce partage</string>
+    <string name="settings_smb_benchmark_summary">Chronomètre un listage de répertoire, un lot de fiches de galerie et quelques images de page, avec les deux réglages ci-dessus. Lectures uniquement — rien n\'est écrit sur le partage.</string>
+    <string name="settings_smb_benchmark_running">Mesure en cours…</string>
+    <string name="settings_smb_benchmark_title">Performances du partage</string>
+    <string name="settings_smb_benchmark_empty">Il n\'y a pas encore de galeries sur le partage, il n\'y a donc rien à mesurer. Enregistrez-en une et réessayez.</string>
+    <string name="settings_smb_benchmark_unconfigured">Renseignez d\'abord l\'hôte et le nom du partage.</string>
+    <string name="settings_smb_benchmark_result">Listage de %1$d galeries : %2$d ms\n\nFiches de galerie, %3$d à la fois :\n%4$d lues en %5$d ms (%6$s ms chacune)\n\nImages de page, %7$d à la fois :\n%8$d lues en %9$d ms (%10$s Mo/s)</string>
+    <string name="settings_smb_benchmark_hint">Modifiez un réglage ci-dessus et mesurez à nouveau pour comparer. Les chiffres varient un peu d\'une exécution à l\'autre : considérez une petite différence comme aucune différence.</string>
+    <string name="settings_smb_autotune">Trouver la concurrence la plus rapide</string>
+    <string name="settings_smb_autotune_summary">Balaye 1–128 travailleurs sur ce partage — lectures réelles de vos galeries, rien en cache — et applique le plus rapide. Sur une grande bibliothèque, la passe des images déplace de vraies données ; comptez quelques minutes.</string>
+    <string name="settings_smb_autotune_running">Mesure de %1$s à %2$d…</string>
+    <string name="settings_smb_autotune_stage_metadata">fiches de galerie</string>
+    <string name="settings_smb_autotune_stage_image">images de page</string>
+    <string name="settings_smb_autotune_applied">Appliqué : %1$d pour les fiches de galerie, %2$d pour les images.</string>
+    <string name="settings_smb_autotune_meta_header">Fiches de galerie (%1$d sur le partage) :</string>
+    <string name="settings_smb_autotune_image_header">Images de page (%1$d échantillonnées) :</string>
+    <string name="settings_smb_autotune_collecting">Collecte de pages d\'échantillon…</string>
+    <string name="settings_storage">Stockage réseau</string>
+    <string name="settings_storage_enable_save">Enregistrer les galeries sur le stockage réseau</string>
+    <string name="settings_storage_enable_save_summary">Interrupteur principal du stockage réseau. Si désactivé, toutes les fonctions de stockage réseau sont désactivées.</string>
+    <string name="settings_storage_protocol">Protocole</string>
+    <string name="settings_storage_checking">Test en cours…</string>
+    <string name="settings_storage_check_connect">Connexion</string>
+    <string name="settings_storage_check_read">Lecture</string>
+    <string name="settings_storage_check_write">Écriture</string>
+    <string name="settings_storage_readonly_question">Le partage est lisible mais pas inscriptible. Enregistrer quand même ? La navigation fonctionnera ; les téléchargements non.</string>
+    <string name="settings_storage_readonly_save">Enregistrer en lecture seule</string>
+    <string name="settings_storage_connection">Connexion SMB</string>
+    <string name="settings_storage_connection_unconfigured">Non configuré. Appuyez pour configurer.</string>
+    <string name="settings_storage_save">Enregistrer</string>
+    <string name="settings_storage_stage_pass">réussi</string>
+    <string name="settings_storage_stage_fail">échoué</string>
+    <string name="settings_storage_stage_skipped">non testé</string>
+    <string name="settings_storage_access_read_write">lisible et inscriptible</string>
+    <string name="settings_storage_access_read_only">lisible, non inscriptible</string>
+    <string name="settings_storage_access_untested">pas encore testé</string>
+    <string name="settings_storage_section_server">Serveur</string>
+    <string name="settings_storage_section_account">Compte</string>
+    <string name="settings_storage_hint_host">Hôte</string>
+    <string name="settings_storage_hint_port">Port</string>
+    <string name="settings_storage_hint_share">Nom du partage</string>
+    <string name="settings_storage_hint_path">Chemin sur le partage</string>
+    <string name="settings_storage_hint_username">Nom d\'utilisateur, vide pour invité</string>
+    <string name="settings_storage_hint_password">Mot de passe</string>
+    <string name="smb_error_auth">Nom d\'utilisateur ou mot de passe incorrect</string>
+    <string name="smb_error_share_not_found">Aucun partage de ce nom sur l\'hôte</string>
+    <string name="smb_error_access_denied">Accès refusé par l\'hôte</string>
+    <string name="notifications_disabled_hint">Les notifications sont désactivées — les téléchargements s\'exécuteront silencieusement en arrière-plan</string>
+</resources>

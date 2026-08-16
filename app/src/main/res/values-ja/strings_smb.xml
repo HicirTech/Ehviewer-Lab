@@ -1,0 +1,125 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  ~ Copyright 2026 Ehviewer SMB Saver fork
+  ~
+  ~ Licensed under the Apache License, Version 2.0 (the "License");
+  ~ you may not use this file except in compliance with the License.
+  -->
+
+<!-- The fork's own strings (#95). Everything here is fork-added; resource merging folds it into
+     the same table as strings.xml, so names and call sites are untouched. Upstream strings that
+     the fork MODIFIES stay in strings.xml — only additions live here, so that upstream merges of
+     strings.xml stop colliding with fork copy. Add new fork strings here, not there. -->
+<resources>
+    <string name="local_inventory">%1$s ライブラリ</string>
+    <string name="local_inventory_empty">%1$s 共有にはまだギャラリーがありません</string>
+    <string name="local_inventory_disabled">設定で「ギャラリーをネットワークストレージに保存」を有効にして設定してください</string>
+    <string name="local_inventory_timeout">%1$s 共有が 7 秒以内に応答しませんでした</string>
+    <string name="local_inventory_sort_title">並べ替え</string>
+    <string name="local_inventory_sort_download_date">ダウンロード日 (新しい順)</string>
+    <string name="local_inventory_sort_posted_date">投稿日 (新しい順)</string>
+    <string name="local_inventory_sort_title_az">タイトル (A–Z)</string>
+    <string name="local_inventory_sort_category">カテゴリ</string>
+    <string name="local_inventory_delete">%1$s 共有から削除</string>
+    <string name="local_inventory_delete_confirm_title">このギャラリーを削除しますか？</string>
+    <string name="local_inventory_delete_confirm_title_many">%1$d 件のギャラリーを削除しますか？</string>
+    <string name="local_inventory_delete_confirm_message">「%1$s」は %2$s 共有から消去されます。元に戻すことはできません。</string>
+    <string name="local_inventory_delete_failed">%1$s 共有から削除できませんでした</string>
+    <string name="local_inventory_resync_title">このギャラリーを再同期</string>
+    <string name="local_inventory_resync_metadata">ギャラリー情報</string>
+    <string name="local_inventory_resync_pages">不足ページのみ</string>
+    <string name="local_inventory_resync_both">情報と不足ページ</string>
+    <string name="local_inventory_resync_running">再同期中…</string>
+    <string name="local_inventory_resync_done">ギャラリー情報を更新しました</string>
+    <string name="local_inventory_resync_failed">e-hentai に接続できませんでした。何も変更されていません。</string>
+    <string name="local_inventory_resync_queued">キューに追加しました。不足ページがダウンロードされます。</string>
+    <string name="local_inventory_delete_confirm_many">%1$d 件のギャラリーが %2$s 共有から消去されます。元に戻すことはできません。</string>
+    <string name="local_inventory_delete_many_done">%1$d/%2$d 件を削除しました</string>
+    <string name="local_inventory_resync_many_done">%1$d/%2$d 件を更新しました</string>
+    <string name="smb_page_repair_failed">ページを再読み込みしましたが、%1$s 共有に書き戻せませんでした</string>
+    <string name="smb_download_notif_title">%1$s に保存中</string>
+    <string name="smb_download_notif_preparing">準備中…</string>
+    <string name="smb_notif_queue_title">%1$s への保存</string>
+    <string name="smb_notif_queue_waiting">%d 件待機中</string>
+    <string name="smb_notif_extra_waiting">  (+%d 件待機中)</string>
+    <string name="smb_notif_progress_starting">開始中…%s</string>
+    <string name="smb_notif_progress_count">%1$d/%2$d%3$s</string>
+    <string name="smb_save_started">%1$s への保存を開始しました: %2$s</string>
+    <string name="smb_save_already_complete">%1$s に保存済みのためスキップします</string>
+    <string name="smb_save_claimed_elsewhere">別の端末がすでにこれを %1$s 共有にダウンロードしています</string>
+    <string name="smb_task_action_cancel">ダウンロードをキャンセル</string>
+    <string name="smb_task_cancel_message">「%1$s」をキューから外しますか？共有に保存済みのページも削除されます。</string>
+    <string name="smb_task_owner_offline">端末はオフラインです</string>
+    <string name="smb_task_owner_last_seen">%1$s · 最終応答 %2$s</string>
+    <string name="smb_take_over_title">このダウンロードを引き継ぎますか？</string>
+    <string name="smb_take_over_message">「%1$s」が応答しなくなりました。「%2$s」を引き継いでこの端末で続行しますか？</string>
+    <string name="smb_take_over_confirm">引き継ぐ</string>
+    <string name="smb_take_over_owner_returned">その端末がオンラインに戻ったため、そのダウンロードには手を付けていません</string>
+    <string name="smb_take_over_failed">ダウンロードを引き継げませんでした</string>
+    <string name="smb_save_failed">%1$s への保存を開始できませんでした — 共有に接続できない可能性があります</string>
+    <string name="smb_save_not_configured">%1$s は設定されていません</string>
+    <string name="gallery_download_target_title">どこに保存しますか？</string>
+    <string name="gallery_download_target_local">本体に保存</string>
+    <string name="gallery_download_target_smb">%1$s 共有に保存</string>
+    <string name="download_move_to_smb">%1$s 共有へ移動</string>
+    <string name="download_moving_to_smb">%1$s 共有へコピー中…</string>
+    <string name="settings_smb_enable_auto_download">ネットワークストレージへ自動ダウンロード</string>
+    <string name="settings_smb_enable_auto_download_summary">有効にすると、ギャラリーの最初のページを開いたときに、ネットワークストレージへのバックグラウンドダウンロードが自動的にキューに入ります。無効の場合は、ダウンロードボタンを押すたびに確認します。</string>
+    <string name="settings_smb_device_name">この端末の名前</string>
+    <string name="settings_smb_device_name_summary">この端末がダウンロード中のギャラリーの横に、他の端末から見える名前です。既定ではモデル名になります。</string>
+    <string name="settings_smb_disable_signing">SMB 署名を無効にする</string>
+    <string name="settings_about_upstream">アップストリーム / 元プロジェクト</string>
+    <string name="settings_about_version_debug">%1$s · デバッグ版</string>
+    <string name="settings_smb_metadata_concurrency">メタデータの同時読み取り数</string>
+    <string name="settings_smb_metadata_concurrency_summary">現在 %s 並列。ギャラリー記録を 1 件ずつ読むことが、大きなライブラリの並べ替えを遅くする原因です。多すぎても競合が増えるだけです。</string>
+    <string name="settings_smb_image_concurrency">画像の同時読み取り数</string>
+    <string name="settings_smb_image_concurrency_summary">現在 %s 並列。ページ画像は大きいため、ある程度を超えると回線が飽和し、それ以上増やしても互いに待つだけになります。</string>
+    <string name="settings_smb_benchmark">この共有を計測</string>
+    <string name="settings_smb_benchmark_summary">上の 2 つの設定を使って、ディレクトリ一覧、ギャラリー記録のまとめ読み、数枚のページ画像の所要時間を計ります。読み取りのみで、共有には何も書き込みません。</string>
+    <string name="settings_smb_benchmark_running">計測中…</string>
+    <string name="settings_smb_benchmark_title">共有のパフォーマンス</string>
+    <string name="settings_smb_benchmark_empty">共有にはまだギャラリーがないため、計測できるものがありません。1 件保存してからやり直してください。</string>
+    <string name="settings_smb_benchmark_unconfigured">先にホストと共有名を入力してください。</string>
+    <string name="settings_smb_benchmark_result">%1$d 件のギャラリーの一覧: %2$d ms\n\nギャラリー記録、%3$d 並列:\n%4$d 件を %5$d ms で読み取り (1 件あたり %6$s ms)\n\nページ画像、%7$d 並列:\n%8$d 枚を %9$d ms で読み取り (%10$s MB/s)</string>
+    <string name="settings_smb_benchmark_hint">上の設定を変えてもう一度計測すると比較できます。数値は実行のたびに多少揺れるので、わずかな差は差がないものとして扱ってください。</string>
+    <string name="settings_smb_autotune">最速の並列数を自動測定</string>
+    <string name="settings_smb_autotune_summary">この共有に対して 1–128 ワーカーを順に試し — 実際にギャラリーを読み取り、キャッシュは使いません — 最速の値を適用します。大きなライブラリでは画像パスが実データを転送するため、数分かかることがあります。</string>
+    <string name="settings_smb_autotune_running">%1$s を並列数 %2$d で計測中…</string>
+    <string name="settings_smb_autotune_stage_metadata">ギャラリー記録</string>
+    <string name="settings_smb_autotune_stage_image">ページ画像</string>
+    <string name="settings_smb_autotune_applied">適用しました: ギャラリー記録は %1$d、画像は %2$d。</string>
+    <string name="settings_smb_autotune_meta_header">ギャラリー記録 (共有上に %1$d 件):</string>
+    <string name="settings_smb_autotune_image_header">ページ画像 (%1$d 枚サンプル):</string>
+    <string name="settings_smb_autotune_collecting">サンプルページを収集中…</string>
+    <string name="settings_storage">ネットワークストレージ</string>
+    <string name="settings_storage_enable_save">ギャラリーをネットワークストレージに保存</string>
+    <string name="settings_storage_enable_save_summary">ネットワークストレージの主スイッチです。オフにすると、ネットワークストレージ関連の機能はすべて無効になります。</string>
+    <string name="settings_storage_protocol">プロトコル</string>
+    <string name="settings_storage_checking">接続テスト中…</string>
+    <string name="settings_storage_check_connect">接続</string>
+    <string name="settings_storage_check_read">読み取り</string>
+    <string name="settings_storage_check_write">書き込み</string>
+    <string name="settings_storage_readonly_question">共有は読み取り可能ですが書き込みできません。それでも保存しますか？閲覧はできますが、ダウンロードはできません。</string>
+    <string name="settings_storage_readonly_save">読み取り専用で保存</string>
+    <string name="settings_storage_connection">SMB 接続</string>
+    <string name="settings_storage_connection_unconfigured">未設定です。タップして設定してください。</string>
+    <string name="settings_storage_save">保存</string>
+    <string name="settings_storage_stage_pass">成功</string>
+    <string name="settings_storage_stage_fail">失敗</string>
+    <string name="settings_storage_stage_skipped">未テスト</string>
+    <string name="settings_storage_access_read_write">読み書き可能</string>
+    <string name="settings_storage_access_read_only">読み取り可、書き込み不可</string>
+    <string name="settings_storage_access_untested">まだテストしていません</string>
+    <string name="settings_storage_section_server">サーバー</string>
+    <string name="settings_storage_section_account">アカウント</string>
+    <string name="settings_storage_hint_host">ホスト</string>
+    <string name="settings_storage_hint_port">ポート</string>
+    <string name="settings_storage_hint_share">共有名</string>
+    <string name="settings_storage_hint_path">共有内のパス</string>
+    <string name="settings_storage_hint_username">ユーザー名 (空欄でゲスト)</string>
+    <string name="settings_storage_hint_password">パスワード</string>
+    <string name="smb_error_auth">ユーザー名またはパスワードが違います</string>
+    <string name="smb_error_share_not_found">ホストにその共有はありません</string>
+    <string name="smb_error_access_denied">ホストにアクセスを拒否されました</string>
+    <string name="notifications_disabled_hint">通知がオフのため、ダウンロードはバックグラウンドで静かに実行されます</string>
+</resources>
