@@ -61,13 +61,13 @@ public final class SmbSpiderStorage implements GallerySpiderStorage {
     }
 
     /**
-     * Deliberate no-op (#102). The one caller removes "the failed download's partial file" — but
-     * writes here are atomic, so a failed download leaves no partial file, and the name it would
-     * delete is the previous complete page.
+     * The failed-download cleanup (#140). The atomic pipe publishes on close whether the source
+     * finished or not, so a failed page IS on the share, truncated — it must be deleted or it
+     * reads as saved forever. Deleting a good page merely costs a re-download.
      */
     @Override
     public boolean removeImage(int index) {
-        return false;
+        return SmbGalleryFiles.deleteImage(info, index);
     }
 
     @Nullable

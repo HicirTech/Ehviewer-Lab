@@ -965,10 +965,8 @@ public final class SpiderQueen implements Runnable {
     }
 
     private void runInternal() {
-        long tPerf = android.os.SystemClock.elapsedRealtime();
         // Read spider info
         SpiderInfo spiderInfo = readSpiderInfoFromLocal();
-        Log.i("SmbPerf", "queen readSpiderInfoFromLocal " + (android.os.SystemClock.elapsedRealtime() - tPerf) + "ms null=" + (spiderInfo == null));
 
         // Check interrupted
         if (Thread.currentThread().isInterrupted()) {
@@ -992,9 +990,7 @@ public final class SpiderQueen implements Runnable {
         }
 
         // Write spider info to file
-        tPerf = android.os.SystemClock.elapsedRealtime();
         writeSpiderInfoToLocal(spiderInfo);
-        Log.i("SmbPerf", "queen writeSpiderInfoToLocal " + (android.os.SystemClock.elapsedRealtime() - tPerf) + "ms");
 
         // Check interrupted
         if (Thread.currentThread().isInterrupted()) {
@@ -1855,14 +1851,13 @@ public final class SpiderQueen implements Runnable {
                 InputStreamPipe pipe = mSpiderDen.openInputStreamPipe(index);
                 if (pipe == null) {
                     resetDecodeIndex();
-                    // Resetting to STATE_NONE and re-requesting only makes sense when the page
-                    // genuinely went away (a cache eviction race). If storage still claims the
-                    // page is there, or we already retried, the pipe will not start working on
-                    // its own: re-requesting just marks it finished again and re-queues this
-                    // decode, spinning forever while the reader shows an endless spinner.
+                    // Bounded retries end the endless-spinner loop (re-request marks the page
+                    // finished again and re-queues this decode forever). contain() is called for
+                    // its side effect — in download mode it restores a missing page from cache or
+                    // phone — but must not fail the page: "present" may mean "just repaired".
                     boolean claimsPresent = mSpiderDen.contain(index);
                     int tries = mDecodeRetryMap.merge(index, 1, Integer::sum);
-                    if (claimsPresent || tries > MAX_DECODE_RETRY) {
+                    if (tries > MAX_DECODE_RETRY) {
                         Log.w(TAG, "openInputStreamPipe returned null for index " + index
                                 + " (contain=" + claimsPresent + ", tries=" + tries
                                 + "); failing the page instead of retrying");

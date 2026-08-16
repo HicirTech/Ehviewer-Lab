@@ -65,16 +65,9 @@
     <string name="download_moving_to_smb">Copying to %1$s share…</string>
     <string name="settings_smb_enable_auto_download">Auto Download To Network Storage</string>
     <string name="settings_smb_enable_auto_download_summary">When enabled, opening the first page of a gallery automatically queues a background download to network storage. When off, the Download button asks each time.</string>
-    <string name="settings_smb_share_path">SMB Share Path</string>
-    <string name="settings_smb_host">SMB Host</string>
-    <string name="settings_smb_port">SMB Port</string>
-    <string name="settings_smb_share_name">SMB Share Name</string>
-    <string name="settings_smb_username">SMB Username</string>
-    <string name="settings_smb_password">SMB Password</string>
     <string name="settings_smb_device_name">This device\'s name</string>
     <string name="settings_smb_device_name_summary">Shown to your other devices next to the galleries this one is downloading. Defaults to the model name.</string>
     <string name="settings_smb_disable_signing">Disable SMB Signing</string>
-    <string name="settings_smb_disable_signing_summary">Skip per-packet signing for faster transfers on slow CPUs (e.g. some MediaTek SoCs). Leave off (auto) unless transfers feel slow; applies on the next connection.</string>
     <string name="settings_about_upstream">Upstream / Origin</string>
     <string name="settings_about_upstream_summary" translatable="false">xiaojieonly/Ehviewer_CN_SXJ</string>
     <string name="settings_about_version_debug">%1$s · DEBUG</string>

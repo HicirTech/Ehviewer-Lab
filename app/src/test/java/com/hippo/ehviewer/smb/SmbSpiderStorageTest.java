@@ -2,6 +2,7 @@ package com.hippo.ehviewer.smb;
 
 import com.hippo.ehviewer.storage.GalleryTargets;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 
@@ -86,18 +87,18 @@ public class SmbSpiderStorageTest {
     }
 
     /**
-     * removeImage is a deliberate no-op (#102): its one caller cleans up "the failed download's
-     * partial file", but atomic writes leave none — the name it would delete is the previous
-     * complete page. The old implementation consulted the listing first; that consult is the
-     * mutation this test kills.
+     * removeImage is the failed-download cleanup (#140): the atomic pipe publishes on close even
+     * when the source failed, so the truncated page IS on the share and must be looked up and
+     * deleted. The listing consult is the delegation this test pins; the deletion itself is
+     * covered by SmbGalleryFilesTest.
      */
     @Test
-    public void removeImageTouchesNothing() {
+    public void removeImageConsultsTheListingToDelete() {
         GalleryTargets.mark(GID);
         listingConsulted = false;
 
-        assertFalse(SmbSpiderStorage.createIfTarget(info(), GID).removeImage(0));
+        SmbSpiderStorage.createIfTarget(info(), GID).removeImage(0);
 
-        assertFalse("a no-op must not even ask what the folder contains", listingConsulted);
+        assertTrue("the cleanup must look the published page up", listingConsulted);
     }
 }

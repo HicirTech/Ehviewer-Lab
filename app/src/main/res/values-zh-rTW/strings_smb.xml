@@ -65,16 +65,9 @@
     <string name="download_moving_to_smb">正在複製到 %1$s 共享…</string>
     <string name="settings_smb_enable_auto_download">自動下載至網路儲存</string>
     <string name="settings_smb_enable_auto_download_summary">啟用後，開啟畫廊的第一頁會自動在背景排隊下載至網路儲存。關閉時，按下載按鈕會每次詢問。</string>
-    <string name="settings_smb_share_path">SMB 共享路徑</string>
-    <string name="settings_smb_host">SMB 主機</string>
-    <string name="settings_smb_port">SMB 埠</string>
-    <string name="settings_smb_share_name">SMB 共享名稱</string>
-    <string name="settings_smb_username">SMB 使用者名稱</string>
-    <string name="settings_smb_password">SMB 密碼</string>
     <string name="settings_smb_device_name">本機名稱</string>
     <string name="settings_smb_device_name_summary">你的其它裝置會在這台正在下載的畫廊旁看到這個名字。預設使用機型名。</string>
     <string name="settings_smb_disable_signing">停用 SMB 簽署</string>
-    <string name="settings_smb_disable_signing_summary">略過逐封包簽署，在慢 CPU（例如部分聯發科晶片）上加快傳輸。除非傳輸明顯變慢，否則保持關閉（自動）；下次連線時生效。</string>
     <string name="settings_about_upstream">上游 / 原專案</string>
     <string name="settings_smb_metadata_concurrency">元數據並發數</string>
     <string name="settings_smb_metadata_concurrency_summary">目前 %s 個並發。逐個讀取畫廊記錄正是大庫存排序緩慢的原因;過多則只會互相爭搶。</string>

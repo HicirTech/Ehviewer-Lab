@@ -66,16 +66,9 @@
     <string name="download_moving_to_smb">正在复制到 %1$s 共享…</string>
     <string name="settings_smb_enable_auto_download">自动下载到网络存储</string>
     <string name="settings_smb_enable_auto_download_summary">开启后，打开画廊的第一页会自动在后台排队下载到网络存储。关闭时，按下载按钮会每次询问。</string>
-    <string name="settings_smb_share_path">SMB 共享路径</string>
-    <string name="settings_smb_host">SMB 主机</string>
-    <string name="settings_smb_port">SMB 端口</string>
-    <string name="settings_smb_share_name">SMB 共享名</string>
-    <string name="settings_smb_username">SMB 用户名</string>
-    <string name="settings_smb_password">SMB 密码</string>
     <string name="settings_smb_device_name">本机名称</string>
     <string name="settings_smb_device_name_summary">你的其它设备会在这台正在下载的画廊旁看到这个名字。默认使用机型名。</string>
     <string name="settings_smb_disable_signing">禁用 SMB 签名</string>
-    <string name="settings_smb_disable_signing_summary">跳过逐包签名，在慢 CPU（如部分联发科芯片）上加快传输。除非传输明显变慢，否则保持关闭（自动）；下次连接时生效。</string>
     <string name="settings_about_upstream">上游 / 原项目</string>
     <string name="settings_smb_metadata_concurrency">元数据并发数</string>
     <string name="settings_smb_metadata_concurrency_summary">当前 %s 个并发。逐个读取画廊记录正是大库存排序缓慢的原因;过多则只会互相争抢。</string>

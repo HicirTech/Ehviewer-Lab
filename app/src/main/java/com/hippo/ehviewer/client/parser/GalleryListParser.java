@@ -461,29 +461,15 @@ public class GalleryListParser {
     private static void parserTag(final GalleryInfo gi, final Element e) {
         Elements gts = JsoupUtils.getElementsByClass(e, "gt");
         if (gts != null) {
-            gi.tgList = filterNulls(gts.eachAttr("title"));
+            gi.tgList = (ArrayList<String>) gts.eachAttr("title");
         }
         Elements gtl = JsoupUtils.getElementsByClass(e, "gtl");
         if (gtl != null) {
             if (gi.tgList == null) {
                 gi.tgList = new ArrayList<>();
             }
-            for (String tag : gtl.eachAttr("title")) {
-                if (tag != null) {
-                    gi.tgList.add(tag);
-                }
-            }
+            gi.tgList.addAll(gtl.eachAttr("title"));
         }
-    }
-
-    private static ArrayList<String> filterNulls(java.util.List<String> source) {
-        ArrayList<String> out = new ArrayList<>(source.size());
-        for (String s : source) {
-            if (s != null) {
-                out.add(s);
-            }
-        }
-        return out;
     }
 
 }

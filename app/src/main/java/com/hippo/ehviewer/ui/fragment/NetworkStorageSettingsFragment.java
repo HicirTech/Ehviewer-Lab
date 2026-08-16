@@ -151,9 +151,12 @@ public class NetworkStorageSettingsFragment extends BasePreferenceFragmentCompat
             return true;
         }
         if (preference == mDeviceName) {
-            // Clearing it falls back to the model name, so show that rather than the empty value.
-            updateTextSummary(mDeviceName,
-                    value.trim().isEmpty() ? Settings.getSmbDeviceName() : value);
+            // This runs before persistence, so Settings still holds the value being replaced;
+            // compute the cleared-field fallback (the model name) directly (#140).
+            String model = android.os.Build.MODEL;
+            updateTextSummary(mDeviceName, value.trim().isEmpty()
+                    ? (model == null || model.trim().isEmpty() ? "Android" : model.trim())
+                    : value);
         }
         return true;
     }
@@ -233,21 +236,31 @@ public class NetworkStorageSettingsFragment extends BasePreferenceFragmentCompat
             final com.hippo.ehviewer.smb.SmbAutoTune.Result result =
                     com.hippo.ehviewer.smb.SmbAutoTune.run((stage, conc) ->
                             SimpleHandler.getInstance().post(() -> {
+                                // appContext, not Fragment.getString(): the sweep outlives
+                                // back-navigation, and a detached fragment throws (#140).
                                 if (mAutoTune != null) {
                                     if ("collect".equals(stage)) {
-                                        mAutoTune.setSummary(getString(
+                                        mAutoTune.setSummary(appContext.getString(
                                                 R.string.settings_smb_autotune_collecting));
                                     } else {
-                                        mAutoTune.setSummary(getString(
+                                        mAutoTune.setSummary(appContext.getString(
                                                 R.string.settings_smb_autotune_running,
                                                 "metadata".equals(stage)
-                                                        ? getString(R.string.settings_smb_autotune_stage_metadata)
-                                                        : getString(R.string.settings_smb_autotune_stage_image),
+                                                        ? appContext.getString(R.string.settings_smb_autotune_stage_metadata)
+                                                        : appContext.getString(R.string.settings_smb_autotune_stage_image),
                                                 conc));
                                     }
                                 }
                             }));
             SimpleHandler.getInstance().post(() -> {
+                // Minutes of measurement must land even if the user left the screen (#140);
+                // only the dialog and the row updates below need a live fragment.
+                if (result.ok) {
+                    Settings.putString(Settings.KEY_SMB_METADATA_CONCURRENCY,
+                            String.valueOf(result.bestMetadata));
+                    Settings.putString(Settings.KEY_SMB_IMAGE_CONCURRENCY,
+                            String.valueOf(result.bestImage));
+                }
                 if (mAutoTune != null) {
                     mAutoTune.setEnabled(true);
                     mAutoTune.setSummary(idleSummary);
@@ -265,11 +278,7 @@ public class NetworkStorageSettingsFragment extends BasePreferenceFragmentCompat
                             .show();
                     return;
                 }
-                // Apply, then let the boxes above reflect it immediately.
-                Settings.putString(Settings.KEY_SMB_METADATA_CONCURRENCY,
-                        String.valueOf(result.bestMetadata));
-                Settings.putString(Settings.KEY_SMB_IMAGE_CONCURRENCY,
-                        String.valueOf(result.bestImage));
+                // The boxes above reflect the freshly-applied values immediately.
                 if (mMetadataConcurrency != null) {
                     mMetadataConcurrency.setText(String.valueOf(result.bestMetadata));
                 }
