@@ -171,6 +171,29 @@ public final class SmbGalleryFiles {
         return null;
     }
 
+    /**
+     * Deletes page {@code index}'s published file — the failed-download cleanup (#140). A
+     * source-side failure still publishes whatever bytes arrived (the pipe's close cannot tell
+     * success from failure), so the name must go or the truncated page reads as saved forever.
+     */
+    public static boolean deleteImage(@NonNull GalleryInfo info, int index) {
+        consumeWrite(info.gid, index);
+        try {
+            SmbFile file = findSmbImageFile(info, index);
+            if (file == null) {
+                return false;
+            }
+            file.delete();
+            // Deletion is rare; re-listing on the next read beats patching the cache.
+            SmbGalleryDirectory.invalidateListing(info.gid);
+            return true;
+        } catch (Throwable e) {
+            SmbGalleryDirectory.invalidateListing(info.gid);
+            Log.e(TAG, "Failed to delete page gid=" + info.gid + ", index=" + index, e);
+            return false;
+        }
+    }
+
     /** Package-visible accessor used by {@link SmbPreviewCache} for parallel prefetch. */
     @Nullable
     static SmbFile findSmbImageFileForPreview(@NonNull GalleryInfo info, int index) {

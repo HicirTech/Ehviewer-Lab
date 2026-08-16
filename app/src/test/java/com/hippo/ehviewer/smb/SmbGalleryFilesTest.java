@@ -233,6 +233,38 @@ public class SmbGalleryFilesTest {
         assertNull(SmbGalleryFiles.openSmbInputStreamPipe(failed, 0));
     }
 
+    /**
+     * The failed-download cleanup (#140): the atomic pipe publishes on close whether the source
+     * finished or not, so the truncated page IS on the share under its final name — deleteImage
+     * must remove it and invalidate the listing, or it reads as saved forever.
+     */
+    @Test
+    public void deletingAPageRemovesThePublishedFileAndForgetsTheListing() throws Exception {
+        filenames.add("00000001.jpg");
+        assertTrue(SmbGalleryFiles.deleteImage(gallery, 0));
+        assertTrue("the published file must be deleted: " + events,
+                events.contains("delete:00000001.jpg"));
+        assertTrue("the listing must be invalidated: " + events,
+                events.contains("invalidate:42"));
+    }
+
+    /** A page that was never published deletes nothing and reports so. */
+    @Test
+    public void deletingAnAbsentPageIsANoOp() {
+        assertFalse(SmbGalleryFiles.deleteImage(gallery, 0));
+        assertTrue(events.isEmpty());
+    }
+
+    /** The failed page's echo must die with it — stale bytes must not answer a later read. */
+    @Test
+    public void deletingAPagePurgesItsEcho() throws Exception {
+        GalleryInfo purged = com.hippo.ehviewer.storage.NetworkStorage.lookupKey(45L, "Purged");
+        writePageThroughPipe(purged, 0, "truncated bytes");
+        SmbGalleryFiles.deleteImage(purged, 0);
+        assertNull("the echo must not survive the delete",
+                SmbGalleryFiles.openSmbInputStreamPipe(purged, 0));
+    }
+
     private static void writePageThroughPipe(GalleryInfo info, int index, String payload)
             throws Exception {
         com.hippo.streampipe.OutputStreamPipe pipe =

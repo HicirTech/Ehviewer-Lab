@@ -95,12 +95,14 @@ final class SmbTaskLedger {
 
     /** Queues a gallery. False when it is already queued or running (nothing changed). */
     boolean enqueue(@NonNull GalleryInfo info, boolean asMove) {
-        if (asMove) {
-            movingFromPhone.add(info.gid);
-        }
         synchronized (lock) {
             if (active.containsKey(info.gid) || queue.containsKey(info.gid)) {
+                // Nothing changed — in particular a rejected move must not flag the gid, or the
+                // already-running plain save would delete the phone copy on finish (#140).
                 return false;
+            }
+            if (asMove) {
+                movingFromPhone.add(info.gid);
             }
             // Pulling a paused job back is treated as "enqueue".
             paused.remove(info.gid);
@@ -182,6 +184,8 @@ final class SmbTaskLedger {
             progress.remove(gid);
             claimedAt.remove(gid);
             takenOverFrom.remove(gid);
+            // A cancelled move is fully off: a later plain save must not inherit the deletion (#140).
+            movingFromPhone.remove(gid);
             retired.add(gid);
             GalleryInfo infoForDelete =
                     job != null ? job.info : (wasPaused != null ? wasPaused : queued);
@@ -198,6 +202,8 @@ final class SmbTaskLedger {
             progress.remove(gid);
             claimedAt.remove(gid);
             takenOverFrom.remove(gid);
+            // The other device finishes this task; a yielded move degrades to a copy (#140).
+            movingFromPhone.remove(gid);
             return active.remove(gid);
         }
     }
