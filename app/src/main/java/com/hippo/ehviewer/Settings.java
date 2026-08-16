@@ -16,7 +16,6 @@
 
 package com.hippo.ehviewer;
 
-import com.hippo.ehviewer.storage.SortMode;
 import static com.hippo.ehviewer.client.EhConfig.IMAGE_SIZE_780X;
 import static com.hippo.ehviewer.client.EhConfig.IMAGE_SIZE_980X;
 

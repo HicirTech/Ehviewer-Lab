@@ -77,7 +77,6 @@ import com.hippo.ehviewer.client.EhTagDatabase;
 import com.hippo.ehviewer.client.EhUrl;
 import com.hippo.ehviewer.client.EhUrlOpener;
 import com.hippo.ehviewer.client.EhUtils;
-import com.hippo.ehviewer.client.data.FavListUrlBuilder;
 import com.hippo.ehviewer.client.data.ListUrlBuilder;
 import com.hippo.ehviewer.ui.main.UserImageChange;
 import com.hippo.ehviewer.ui.scene.AnalyticsScene;
