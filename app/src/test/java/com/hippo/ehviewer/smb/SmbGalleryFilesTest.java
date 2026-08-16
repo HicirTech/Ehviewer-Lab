@@ -77,6 +77,11 @@ public class SmbGalleryFilesTest {
         @RealObject SmbFile real;
 
         @Implementation
+        protected boolean exists() {
+            return true;
+        }
+
+        @Implementation
         protected OutputStream getOutputStream() {
             ByteArrayOutputStream sink = new ByteArrayOutputStream();
             written.put(real.getPath(), sink);
@@ -190,6 +195,53 @@ public class SmbGalleryFilesTest {
         out.close();
         out.close();
         assertEquals(2, events.size());
+    }
+
+    /**
+     * The #138 fix: the plain-text check's read of a just-downloaded page is answered from the
+     * in-memory echo — no share access. Provable here because the listing fixture is empty, so
+     * the real lookup path could only return null.
+     */
+    @Test
+    public void theReadAfterAWriteIsServedFromMemory() throws Exception {
+        writePageThroughPipe(gallery, 0, "page bytes");
+        com.hippo.streampipe.InputStreamPipe pipe =
+                SmbGalleryFiles.openSmbInputStreamPipe(gallery, 0);
+        assertNotNull("the echo must answer without the share", pipe);
+        pipe.obtain();
+        assertEquals("page bytes", SmbGalleryFiles.readAll(pipe.open()));
+        pipe.close();
+        pipe.release();
+    }
+
+    /** The echo is one-shot: its first read consumes it; later reads take the real path. */
+    @Test
+    public void theEchoIsConsumedByItsFirstRead() throws Exception {
+        GalleryInfo other = com.hippo.ehviewer.storage.NetworkStorage.lookupKey(43L, "Other");
+        writePageThroughPipe(other, 1, "once");
+        assertNotNull(SmbGalleryFiles.openSmbInputStreamPipe(other, 1));
+        // Consumed: with nothing on the (empty-fixture) share, the second open finds nothing.
+        assertNull(SmbGalleryFiles.openSmbInputStreamPipe(other, 1));
+    }
+
+    /** Only a published page may echo — a failed rename must leave nothing to serve. */
+    @Test
+    public void aFailedPublishLeavesNoEcho() throws Exception {
+        GalleryInfo failed = com.hippo.ehviewer.storage.NetworkStorage.lookupKey(44L, "Failed");
+        ShadowSmbFile.renameFails = true;
+        writePageThroughPipe(failed, 0, "never published");
+        assertNull(SmbGalleryFiles.openSmbInputStreamPipe(failed, 0));
+    }
+
+    private static void writePageThroughPipe(GalleryInfo info, int index, String payload)
+            throws Exception {
+        com.hippo.streampipe.OutputStreamPipe pipe =
+                SmbGalleryFiles.openSmbOutputStreamPipe(info, index, ".jpg");
+        assertNotNull(pipe);
+        pipe.obtain();
+        pipe.open().write(payload.getBytes(StandardCharsets.UTF_8));
+        pipe.close();
+        pipe.release();
     }
 
     /** The bytes written go to the temporary name, not the target. */
