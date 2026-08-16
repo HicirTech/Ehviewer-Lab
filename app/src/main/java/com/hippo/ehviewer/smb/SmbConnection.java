@@ -46,24 +46,58 @@ public final class SmbConnection {
     }
 
     // One cached base context so jcifs' connection pool stays shared; rebuilt only when the
-    // signing setting flips (the no-signing path needs its own PropertyConfiguration).
-    private static volatile CIFSContext sBaseContext;
-    private static volatile boolean sBaseSigningDisabled;
+    // signing setting flips (the no-signing path needs its own PropertyConfiguration). Context
+    // and flag travel as one volatile pair — read separately, a mid-flip caller could pair the
+    // new context with the stale flag and get the wrong signing mode (#143).
+    private static final class Base {
+        @NonNull final CIFSContext ctx;
+        final boolean signingDisabled;
+
+        Base(@NonNull CIFSContext ctx, boolean signingDisabled) {
+            this.ctx = ctx;
+            this.signingDisabled = signingDisabled;
+        }
+    }
+
+    private static volatile Base sBase;
 
     @NonNull
     private static CIFSContext baseContext() {
         boolean signingDisabled = Settings.getSmbSigningDisabled();
-        CIFSContext base = sBaseContext;
-        if (base != null && sBaseSigningDisabled == signingDisabled) {
-            return base;
+        Base base = sBase;
+        if (base != null && base.signingDisabled == signingDisabled) {
+            return base.ctx;
         }
         synchronized (SmbConnection.class) {
-            if (sBaseContext == null || sBaseSigningDisabled != signingDisabled) {
-                sBaseContext = signingDisabled ? buildNoSigningContext() : SingletonContext.getInstance();
-                sBaseSigningDisabled = signingDisabled;
+            base = sBase;
+            if (base == null || base.signingDisabled != signingDisabled) {
+                CIFSContext previous = base == null ? null : base.ctx;
+                base = new Base(signingDisabled
+                        ? buildNoSigningContext() : SingletonContext.getInstance(), signingDisabled);
+                sBase = base;
+                closeLater(previous);
             }
-            return sBaseContext;
+            return base.ctx;
         }
+    }
+
+    /**
+     * The replaced context's transport pool held real sockets that used to leak. Closed after a
+     * grace period so requests already running on it finish rather than die mid-call; the shared
+     * SingletonContext is never closed.
+     */
+    private static void closeLater(@Nullable CIFSContext previous) {
+        if (previous == null || previous == SingletonContext.getInstance()) {
+            return;
+        }
+        com.hippo.lib.yorozuya.SimpleHandler.getInstance().postDelayed(() ->
+                com.hippo.util.IoThreadPoolExecutor.Companion.getInstance().execute(() -> {
+                    try {
+                        previous.close();
+                    } catch (Throwable e) {
+                        Log.w(TAG, "Failed to close the replaced CIFS context", e);
+                    }
+                }), 30_000L);
     }
 
     @NonNull

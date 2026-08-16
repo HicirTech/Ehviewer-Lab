@@ -71,9 +71,15 @@ public final class SmbPreviewCache {
             new LinkedHashMap<>(64, 0.75f, true);
     private static int sBufferedBytes;
 
-    /** Galleries we have already kicked off a prefetch for in this process. */
-    private static final Set<Long> PREFETCHED_GIDS =
-            Collections.synchronizedSet(new HashSet<>());
+    /** Galleries we have already kicked off a prefetch for in this process. LRU-bounded: an
+     * evicted gid merely allows a redundant (and idempotent) prefetch much later. */
+    private static final Set<Long> PREFETCHED_GIDS = Collections.synchronizedSet(
+            Collections.newSetFromMap(new LinkedHashMap<Long, Boolean>(16, 0.75f, true) {
+                @Override
+                protected boolean removeEldestEntry(java.util.Map.Entry<Long, Boolean> eldest) {
+                    return size() > 256;
+                }
+            }));
 
     /**
      * Outstanding prefetch tasks per gid (the dispatch task + one per page), so a gallery's

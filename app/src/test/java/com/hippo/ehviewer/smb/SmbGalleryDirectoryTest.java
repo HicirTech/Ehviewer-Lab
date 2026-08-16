@@ -45,6 +45,9 @@ public class SmbGalleryDirectoryTest {
     static final Map<String, String[]> listings = new HashMap<>();
     static final List<String> wireCalls = new ArrayList<>();
 
+    static boolean listFails;
+    static boolean mkdirsFails;
+
     @Implements(SmbFile.class)
     public static class ShadowSmbFile {
         @RealObject SmbFile real;
@@ -56,14 +59,22 @@ public class SmbGalleryDirectoryTest {
         }
 
         @Implementation
-        protected void mkdirs() {
+        protected void mkdirs() throws jcifs.smb.SmbException {
             wireCalls.add("mkdirs:" + real.getPath());
+            if (mkdirsFails) {
+                // The lost race: someone else created it between exists() and mkdirs().
+                existing.add(real.getPath());
+                throw new jcifs.smb.SmbException(0xC0000035, false); // OBJECT_NAME_COLLISION
+            }
             existing.add(real.getPath());
         }
 
         @Implementation
-        protected String[] list() {
+        protected String[] list() throws jcifs.smb.SmbException {
             wireCalls.add("list:" + real.getPath());
+            if (listFails) {
+                throw new jcifs.smb.SmbException(0xC00000B5, false); // IO_TIMEOUT: transient
+            }
             return listings.get(real.getPath());
         }
     }
@@ -80,6 +91,8 @@ public class SmbGalleryDirectoryTest {
         existing.clear();
         listings.clear();
         wireCalls.clear();
+        listFails = false;
+        mkdirsFails = false;
         clearListingCache();
     }
 
@@ -91,6 +104,9 @@ public class SmbGalleryDirectoryTest {
         Field entries = cache.getClass().getDeclaredField("entries");
         entries.setAccessible(true);
         ((Map<?, ?>) entries.get(cache)).clear();
+        Field pending = cache.getClass().getDeclaredField("pending");
+        pending.setAccessible(true);
+        ((Map<?, ?>) pending.get(cache)).clear();
     }
 
     @Test
@@ -145,5 +161,32 @@ public class SmbGalleryDirectoryTest {
         assertTrue(names.isEmpty());
         SmbGalleryDirectory.galleryFilenames(gallery);
         assertEquals(1, wireCalls.stream().filter(c -> c.startsWith("list:")).count());
+    }
+
+    /**
+     * A transient failure is weather, not a fact about the folder (#143): it answers empty this
+     * once but must NOT be cached — a cached miss reads the whole gallery as absent for a TTL.
+     */
+    @Test
+    public void aTransientListingFailureIsNotCached() {
+        listFails = true;
+        assertTrue(SmbGalleryDirectory.galleryFilenames(gallery).isEmpty());
+        SmbGalleryDirectory.galleryFilenames(gallery);
+        assertEquals("every call while failing must go back to the share",
+                2, wireCalls.stream().filter(c -> c.startsWith("list:")).count());
+
+        listFails = false;
+        listings.put(wireCalls.get(0).substring("list:".length()),
+                new String[]{"00000001.jpg"});
+        assertEquals(1, SmbGalleryDirectory.galleryFilenames(gallery).size());
+    }
+
+    /** Losing the mkdirs race to a concurrent creator must not fail the job (#143). */
+    @Test
+    public void aLostMkdirsRaceIsNotAFailure() throws Exception {
+        mkdirsFails = true;
+        SmbGalleryDirectory.getGalleryDir(gallery);
+        assertTrue("the winner's folder is good enough",
+                wireCalls.stream().anyMatch(c -> c.startsWith("mkdirs:")));
     }
 }

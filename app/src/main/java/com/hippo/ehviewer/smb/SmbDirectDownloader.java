@@ -86,11 +86,25 @@ public final class SmbDirectDownloader {
             if (outcome.infoForDelete != null) {
                 final GalleryInfo info = outcome.infoForDelete;
                 IoThreadPoolExecutor.Companion.getInstance().execute(() -> {
-                    try {
-                        NetworkStorage.active().lifecycle().deleteGalleryFolder(info);
-                    } catch (Throwable e) {
-                        Log.w(TAG, "Failed to delete SMB folder on cancel gid=" + gid, e);
+                    // The queen's interrupt is asynchronous: an in-flight page write can hold a
+                    // handle that fails the first delete and leaves a ghost folder the
+                    // inventory then counts as saved. Retried over ~9s.
+                    for (int attempt = 0; attempt < 3; attempt++) {
+                        try {
+                            if (NetworkStorage.active().lifecycle().deleteGalleryFolder(info)) {
+                                return;
+                            }
+                        } catch (Throwable e) {
+                            Log.w(TAG, "Failed to delete SMB folder on cancel gid=" + gid, e);
+                        }
+                        try {
+                            Thread.sleep(3000);
+                        } catch (InterruptedException e) {
+                            Thread.currentThread().interrupt();
+                            return;
+                        }
                     }
+                    Log.w(TAG, "Gave up deleting SMB folder on cancel gid=" + gid);
                 });
             }
             GalleryTargets.unmark(gid);
@@ -208,7 +222,13 @@ public final class SmbDirectDownloader {
             startJob(next);
         }
         updateNotification();
-        foreground.stopIfIdle(ledger.isIdle(), appContext);
+        if (ledger.isIdle()) {
+            foreground.stopIfIdle(true, appContext);
+        } else {
+            // Re-asserted on every pump: an idle-observed stop can cross a concurrent enqueue,
+            // and active work must not keep running without its foreground service.
+            foreground.ensureStarted(appContext);
+        }
     }
 
     private void startJob(@NonNull GalleryInfo info) {
@@ -359,6 +379,13 @@ public final class SmbDirectDownloader {
 
     void detachService() {
         foreground.detach();
+        // A stop that crossed a concurrent enqueue lands here with work still queued or
+        // running; bring the service straight back for it.
+        SimpleHandler.getInstance().post(() -> {
+            if (appContext != null && !ledger.isIdle()) {
+                foreground.ensureStarted(appContext);
+            }
+        });
     }
 
     private void updateNotification() {

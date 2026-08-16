@@ -45,7 +45,7 @@ public class SmbConnectionTest {
 
     /** The cache is static and the suite shares one JVM; every test starts from a cold one. */
     private static void resetBaseContextCache() throws Exception {
-        Field ctx = SmbConnection.class.getDeclaredField("sBaseContext");
+        Field ctx = SmbConnection.class.getDeclaredField("sBase");
         ctx.setAccessible(true);
         ctx.set(null, null);
     }

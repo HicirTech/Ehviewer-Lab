@@ -171,6 +171,22 @@ public final class SmbGalleryFiles {
         return null;
     }
 
+    /** Drops every echo of this gallery — deletion must not leave bytes to serve (#143). */
+    static void forgetGallery(long gid) {
+        String prefix = gid + ":";
+        synchronized (RECENT_WRITES) {
+            java.util.Iterator<java.util.Map.Entry<String, byte[]>> it =
+                    RECENT_WRITES.entrySet().iterator();
+            while (it.hasNext()) {
+                java.util.Map.Entry<String, byte[]> e = it.next();
+                if (e.getKey().startsWith(prefix)) {
+                    sEchoBytes -= e.getValue().length;
+                    it.remove();
+                }
+            }
+        }
+    }
+
     /**
      * Deletes page {@code index}'s published file — the failed-download cleanup (#140). A
      * source-side failure still publishes whatever bytes arrived (the pipe's close cannot tell

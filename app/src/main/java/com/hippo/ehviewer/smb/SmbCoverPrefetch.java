@@ -49,7 +49,14 @@ public final class SmbCoverPrefetch {
     private static int sBufferedBytes;
 
     // Dedup for this process; deliberately separate from BUFFER so LRU-dropped entries stay deduped.
-    private static final Set<Long> REQUESTED = Collections.synchronizedSet(new HashSet<>());
+    // LRU-bounded: an evicted gid merely allows one redundant cover fetch much later.
+    private static final Set<Long> REQUESTED = Collections.synchronizedSet(
+            Collections.newSetFromMap(new java.util.LinkedHashMap<Long, Boolean>(16, 0.75f, true) {
+                @Override
+                protected boolean removeEldestEntry(java.util.Map.Entry<Long, Boolean> eldest) {
+                    return size() > 512;
+                }
+            }));
 
     /**
      * Where the hl.8 build staged covers as named files. Swept once per process so an upgrade does

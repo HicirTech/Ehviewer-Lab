@@ -265,6 +265,15 @@ public class SmbGalleryFilesTest {
                 SmbGalleryFiles.openSmbInputStreamPipe(purged, 0));
     }
 
+    /** Cancel or delete forgets the gallery's echoes — no bytes served for a gone gallery. */
+    @Test
+    public void forgettingAGalleryDropsItsEchoes() throws Exception {
+        GalleryInfo gone = com.hippo.ehviewer.storage.NetworkStorage.lookupKey(46L, "Gone");
+        writePageThroughPipe(gone, 0, "cancelled bytes");
+        SmbGalleryFiles.forgetGallery(gone.gid);
+        assertNull(SmbGalleryFiles.openSmbInputStreamPipe(gone, 0));
+    }
+
     private static void writePageThroughPipe(GalleryInfo info, int index, String payload)
             throws Exception {
         com.hippo.streampipe.OutputStreamPipe pipe =
