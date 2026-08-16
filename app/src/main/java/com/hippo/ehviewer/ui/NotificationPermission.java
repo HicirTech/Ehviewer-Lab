@@ -52,6 +52,11 @@ public final class NotificationPermission {
         }
         if (!Settings.getNotificationPermissionRequested()) {
             Activity activity = unwrap(context);
+            if (activity != null && (activity.isFinishing() || activity.isDestroyed())) {
+                // The main-thread hop can outlive its Activity; a dead host must not spend
+                // the one-time ask (#151) — same as having no Activity at all.
+                activity = null;
+            }
             if (activity != null) {
                 ActivityCompat.requestPermissions(activity,
                         new String[]{android.Manifest.permission.POST_NOTIFICATIONS}, REQUEST_CODE);

@@ -153,6 +153,15 @@ final class SmbTaskLedger {
         return new FinishOutcome(job, movingFromPhone.remove(info.gid));
     }
 
+    /** A start that failed after leaving the queue: drop its bookkeeping and retire it (#151). */
+    void forgetFailedStart(long gid) {
+        synchronized (lock) {
+            claimedAt.remove(gid);
+            takenOverFrom.remove(gid);
+            retired.add(gid);
+        }
+    }
+
     /** Bumped on every enqueue; never by finish or a failed start. See {@link #epochOf}. */
     private final Map<Long, Long> enqueueEpochs = new HashMap<>();
 

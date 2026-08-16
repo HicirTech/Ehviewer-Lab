@@ -207,7 +207,15 @@ public class SmbConnectionPreference extends DialogPreference {
             mResult.setText(R.string.settings_storage_checking);
         }
         IoThreadPoolExecutor.Companion.getInstance().execute(() -> {
-            SelfCheck result = NetworkStorage.active().selfCheck(probe.draft);
+            SelfCheck result;
+            try {
+                result = NetworkStorage.active().selfCheck(probe.draft);
+            } catch (Throwable e) {
+                // A probe that never resolves would lock the save UI in "checking" for the
+                // whole process lifetime (#151) — any escape becomes a failed connect.
+                result = SelfCheck.failedToConnect(
+                        com.hippo.util.ExceptionUtils.getReadableString(e));
+            }
             probe.resultAt = android.os.SystemClock.elapsedRealtime();
             probe.result = result;
             SimpleHandler.getInstance().post(SmbConnectionPreference::deliver);

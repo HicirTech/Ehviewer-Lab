@@ -50,12 +50,15 @@ final class GalleryListingCache {
     }
 
     void put(long gid, @NonNull Set<String> names, long nowMillis) {
+        // Entry first, drain second: a noteWritten racing this either lands in pending before
+        // the drain, or finds the installed entry — no ordering loses the name (#151).
+        entries.put(gid, new Entry(nowMillis, names));
         Set<String> noted = pending.remove(gid);
         if (noted != null) {
-            names = new java.util.HashSet<>(names);
-            names.addAll(noted);
+            for (String name : noted) {
+                noteEntry(gid, name);
+            }
         }
-        entries.put(gid, new Entry(nowMillis, names));
     }
 
     /**
@@ -75,6 +78,10 @@ final class GalleryListingCache {
      */
     void noteWritten(long gid, @NonNull String name) {
         pending.computeIfAbsent(gid, key -> ConcurrentHashMap.newKeySet()).add(name);
+        noteEntry(gid, name);
+    }
+
+    private void noteEntry(long gid, @NonNull String name) {
         entries.computeIfPresent(gid, (key, e) -> {
             Set<String> names = new java.util.HashSet<>(e.names);
             names.add(name);

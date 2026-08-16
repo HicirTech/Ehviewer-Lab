@@ -193,6 +193,13 @@ public final class SmbDownloadBoard {
             all.add(new DownloadState.Published(
                     device.snapshot(), true, System.currentTimeMillis()));
             List<DownloadState.OwnedTask> merged = DownloadState.merge(all);
+            // Cache entries live as long as their task: a completed (or renamed-away) gallery
+            // re-reads its metadata next time instead of showing the stale row forever (#151).
+            java.util.Set<Long> liveGids = new java.util.HashSet<>(merged.size() * 2);
+            for (DownloadState.OwnedTask o : merged) {
+                liveGids.add(o.task.gid);
+            }
+            metadataCache.keySet().retainAll(liveGids);
             List<SmbTaskInfo> out = new ArrayList<>(merged.size());
             for (DownloadState.OwnedTask o : merged) {
                 out.add(SmbTaskInfo.of(o, selfId, galleryMetadata(o.task), rowStateOf(o, selfId)));

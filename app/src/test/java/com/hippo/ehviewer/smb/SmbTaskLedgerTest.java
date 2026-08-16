@@ -7,6 +7,7 @@
 package com.hippo.ehviewer.smb;
 
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 
 import com.hippo.ehviewer.client.data.GalleryInfo;
@@ -26,6 +27,12 @@ import org.robolectric.annotation.Config;
 public class SmbTaskLedgerTest {
 
     private final GalleryInfo gallery = NetworkStorage.lookupKey(42L, "Answer");
+
+    @org.junit.Before
+    public void setUp() {
+        // clientState reads the client id and device name from Settings.
+        com.hippo.ehviewer.Settings.initialize(org.robolectric.RuntimeEnvironment.getApplication());
+    }
 
     /** The positive control: an untouched move does drop the phone copy. */
     @Test
@@ -63,6 +70,26 @@ public class SmbTaskLedgerTest {
         ledger.yield(gallery.gid);
         assertTrue(ledger.enqueue(gallery, false));
         assertFalse(ledger.finish(gallery).wasMove);
+    }
+
+    /**
+     * A start that failed after leaving the queue must not linger as a claim (#151): a later
+     * re-enqueue gets a FRESH claim time, not the leaked one — claim times arbitrate takeovers
+     * across devices, and an ancient one skews them.
+     */
+    @Test
+    public void aFailedStartForgetsItsClaim() throws Exception {
+        SmbTaskLedger ledger = new SmbTaskLedger();
+        assertTrue(ledger.enqueue(gallery, false));
+        assertNotNull(ledger.nextToStart(3));
+
+        ledger.forgetFailedStart(gallery.gid);
+
+        Thread.sleep(5);
+        long beforeRetry = System.currentTimeMillis();
+        assertTrue(ledger.enqueue(gallery, false));
+        assertTrue("the retry must claim afresh, not inherit the failed start's stamp",
+                ledger.clientState().tasks.get(0).claimedAt >= beforeRetry);
     }
 
     /** The cancel-path delete keys off the enqueue epoch: any re-enqueue stands it down (#150). */
