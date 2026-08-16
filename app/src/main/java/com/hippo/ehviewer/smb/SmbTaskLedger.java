@@ -152,6 +152,17 @@ final class SmbTaskLedger {
         return new FinishOutcome(job, movingFromPhone.remove(info.gid));
     }
 
+    /**
+     * Whether the gid is still retired — enqueue re-admits it, and the cancel path's delayed
+     * folder delete must stand down the moment that happens (#150).
+     */
+    boolean stillRetired(long gid) {
+        synchronized (lock) {
+            // enqueue removes the gid from retired the moment it re-admits it.
+            return retired.contains(gid);
+        }
+    }
+
     /** Pause: active or queued moves to held; returns the job the caller must release, if any. */
     @Nullable
     ActiveJob pause(long gid) {

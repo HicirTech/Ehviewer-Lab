@@ -90,6 +90,13 @@ public final class SmbDirectDownloader {
                     // handle that fails the first delete and leaves a ghost folder the
                     // inventory then counts as saved. Retried over ~9s.
                     for (int attempt = 0; attempt < 3; attempt++) {
+                        // The user can re-download this gallery inside the retry window; a
+                        // late attempt would then wipe the NEW job's folder (#150).
+                        if (!ledger.stillRetired(gid)) {
+                            Log.i(TAG, "Delete on cancel stood down, gid=" + gid
+                                    + " was re-enqueued");
+                            return;
+                        }
                         try {
                             if (NetworkStorage.active().lifecycle().deleteGalleryFolder(info)) {
                                 return;

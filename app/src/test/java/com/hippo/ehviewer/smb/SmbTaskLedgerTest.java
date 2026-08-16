@@ -65,6 +65,20 @@ public class SmbTaskLedgerTest {
         assertFalse(ledger.finish(gallery).wasMove);
     }
 
+    /** The cancel-path delete keys off this: retired until the gid is re-admitted (#150). */
+    @Test
+    public void retirementEndsTheMomentTheGidIsReEnqueued() {
+        SmbTaskLedger ledger = new SmbTaskLedger();
+        assertFalse("never seen, never retired", ledger.stillRetired(gallery.gid));
+
+        ledger.enqueue(gallery, false);
+        ledger.cancel(gallery.gid);
+        assertTrue(ledger.stillRetired(gallery.gid));
+
+        ledger.enqueue(gallery, false);
+        assertFalse("re-enqueue must end retirement at once", ledger.stillRetired(gallery.gid));
+    }
+
     /** Pause is not cancel: the user still wants the move once it resumes and finishes. */
     @Test
     public void aPausedMoveStaysAMove() {
