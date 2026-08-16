@@ -40,6 +40,44 @@ public final class SmbGalleryFiles {
      */
     static final int SMB_IO_BUFFER = 256 * 1024;
 
+    /**
+     * One-shot in-memory echo of the just-published page (#138): SpiderQueen re-reads every page
+     * it downloads (the plain-text check), which on this backend meant pulling the whole page
+     * back from the NAS while the NAS was still writing. The echo answers that one read from
+     * memory — consumed on read, hard-capped, never touching disk.
+     */
+    private static final int ECHO_MAX_BYTES = 32 * 1024 * 1024;
+    private static final java.util.LinkedHashMap<String, byte[]> RECENT_WRITES =
+            new java.util.LinkedHashMap<>(8, 0.75f, false);
+    private static int sEchoBytes;
+
+    private static void rememberWrite(long gid, int index, @NonNull byte[] bytes) {
+        synchronized (RECENT_WRITES) {
+            byte[] previous = RECENT_WRITES.put(gid + ":" + index, bytes);
+            if (previous != null) {
+                sEchoBytes -= previous.length;
+            }
+            sEchoBytes += bytes.length;
+            java.util.Iterator<java.util.Map.Entry<String, byte[]>> it =
+                    RECENT_WRITES.entrySet().iterator();
+            while (sEchoBytes > ECHO_MAX_BYTES && it.hasNext()) {
+                sEchoBytes -= it.next().getValue().length;
+                it.remove();
+            }
+        }
+    }
+
+    @Nullable
+    private static byte[] consumeWrite(long gid, int index) {
+        synchronized (RECENT_WRITES) {
+            byte[] bytes = RECENT_WRITES.remove(gid + ":" + index);
+            if (bytes != null) {
+                sEchoBytes -= bytes.length;
+            }
+            return bytes;
+        }
+    }
+
     private SmbGalleryFiles() {}
 
     /**
@@ -332,6 +370,7 @@ public final class SmbGalleryFiles {
             final String finalName = SpiderDen.generateImageFilename(index, ext);
             return new OutputStreamPipe() {
                 private OutputStream os;
+                private ByteArrayOutputStream tee;
 
                 @Override
                 public void obtain() {
@@ -350,13 +389,44 @@ public final class SmbGalleryFiles {
                     }
                     // Buffered here, not in SpiderQueen (upstream code, recurring merge conflict).
                     os = openAtomicOutputStream(finalGalleryDir, finalName, info.gid);
-                    return os;
+                    tee = new ByteArrayOutputStream();
+                    return new java.io.FilterOutputStream(os) {
+                        @Override
+                        public void write(int b) throws IOException {
+                            out.write(b);
+                            if (tee != null) {
+                                tee.write(b);
+                            }
+                        }
+
+                        @Override
+                        public void write(@NonNull byte[] b, int off, int len) throws IOException {
+                            out.write(b, off, len);
+                            if (tee != null) {
+                                tee.write(b, off, len);
+                            }
+                        }
+                    };
                 }
 
                 @Override
                 public void close() {
-                    IOUtils.closeQuietly(os);
+                    OutputStream stream = os;
+                    ByteArrayOutputStream copy = tee;
                     os = null;
+                    tee = null;
+                    if (stream == null) {
+                        return;
+                    }
+                    try {
+                        // The atomic publish happens inside close(); only a published page may echo.
+                        stream.close();
+                        if (copy != null && copy.size() > 0) {
+                            rememberWrite(info.gid, index, copy.toByteArray());
+                        }
+                    } catch (IOException e) {
+                        Log.w(TAG, "SMB page publish failed gid=" + info.gid + " idx=" + index, e);
+                    }
                 }
             };
         } catch (Throwable e) {
@@ -367,6 +437,25 @@ public final class SmbGalleryFiles {
 
     @Nullable
     public static InputStreamPipe openSmbInputStreamPipe(@NonNull GalleryInfo info, int index) {
+        // The read straight after the write (#138): answered from the one-shot echo, in memory,
+        // instead of pulling the page back off the NAS it is still being written to. Consumed
+        // here, so every later read takes the real path below.
+        final byte[] echo = consumeWrite(info.gid, index);
+        if (echo != null) {
+            Log.i("SmbPerf", "echo idx=" + index + " gid=" + info.gid + " bytes=" + echo.length);
+            return new InputStreamPipe() {
+                @Override public void obtain() {}
+
+                @Override public void release() {}
+
+                @Override
+                public InputStream open() {
+                    return new java.io.ByteArrayInputStream(echo);
+                }
+
+                @Override public void close() {}
+            };
+        }
         try {
             final SmbFile file = findSmbImageFile(info, index);
             if (file == null) {
