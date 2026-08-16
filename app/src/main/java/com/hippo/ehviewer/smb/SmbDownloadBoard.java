@@ -199,10 +199,7 @@ public final class SmbDownloadBoard {
             for (DownloadState.OwnedTask o : merged) {
                 liveGids.add(o.task.gid);
             }
-            synchronized (metadataCache) {
-                // The synchronized wrapper does not cover retainAll's iteration.
-                metadataCache.keySet().retainAll(liveGids);
-            }
+            metadataCache.keySet().retainAll(liveGids);
             List<SmbTaskInfo> out = new ArrayList<>(merged.size());
             for (DownloadState.OwnedTask o : merged) {
                 out.add(SmbTaskInfo.of(o, selfId, galleryMetadata(o.task), rowStateOf(o, selfId)));
