@@ -47,6 +47,7 @@ public class SmbConnectionPreference extends DialogPreference {
     private boolean mChecking;
     /** Armed after a readable-but-not-writable result; the next save accepts read-only. */
     private boolean mAcceptReadOnly;
+    @Nullable private AlertDialog mShownDialog;
 
     public SmbConnectionPreference(Context context) {
         super(context);
@@ -113,7 +114,38 @@ public class SmbConnectionPreference extends DialogPreference {
     /** Saving is the check: take over the positive button so failure keeps the dialog open. */
     @Override
     protected void onDialogCreated(AlertDialog dialog) {
+        mShownDialog = dialog;
         dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v -> save(dialog));
+        // A read-only acceptance answers one exact draft; editing anything revokes it (#140).
+        android.text.TextWatcher disarm = new android.text.TextWatcher() {
+            @Override public void beforeTextChanged(CharSequence s, int a, int b, int c) {}
+
+            @Override public void onTextChanged(CharSequence s, int a, int b, int c) {}
+
+            @Override public void afterTextChanged(android.text.Editable s) {
+                disarmReadOnly();
+            }
+        };
+        for (EditText field : new EditText[]{mHost, mPort, mShareName, mSharePath,
+                mUsername, mPassword}) {
+            if (field != null) {
+                field.addTextChangedListener(disarm);
+            }
+        }
+        if (mSigning != null) {
+            mSigning.setOnCheckedChangeListener((v, checked) -> disarmReadOnly());
+        }
+    }
+
+    private void disarmReadOnly() {
+        if (!mAcceptReadOnly) {
+            return;
+        }
+        mAcceptReadOnly = false;
+        if (mShownDialog != null && mShownDialog.isShowing()) {
+            mShownDialog.getButton(AlertDialog.BUTTON_POSITIVE)
+                    .setText(R.string.settings_storage_save);
+        }
     }
 
     private void save(@NonNull AlertDialog dialog) {
@@ -202,7 +234,7 @@ public class SmbConnectionPreference extends DialogPreference {
                 .putBoolean(Settings.KEY_SMB_SIGNING_DISABLED, draft.signingDisabled)
                 .putString(Settings.KEY_STORAGE_LAST_CHECK,
                         writable ? Settings.LAST_CHECK_READ_WRITE : Settings.LAST_CHECK_READ_ONLY)
-                .commit();
+                .apply();
         updateSummary();
     }
 
