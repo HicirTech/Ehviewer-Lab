@@ -104,6 +104,7 @@ final class SmbTaskLedger {
             if (asMove) {
                 movingFromPhone.add(info.gid);
             }
+            enqueueEpochs.merge(info.gid, 1L, Long::sum);
             // Pulling a paused job back is treated as "enqueue".
             paused.remove(info.gid);
             retired.remove(info.gid);
@@ -152,14 +153,19 @@ final class SmbTaskLedger {
         return new FinishOutcome(job, movingFromPhone.remove(info.gid));
     }
 
+    /** Bumped on every enqueue; never by finish or a failed start. See {@link #epochOf}. */
+    private final Map<Long, Long> enqueueEpochs = new HashMap<>();
+
     /**
-     * Whether the gid is still retired — enqueue re-admits it, and the cancel path's delayed
-     * folder delete must stand down the moment that happens (#150).
+     * The gid's enqueue count (#150). The cancel path's delayed folder delete captures this at
+     * cancel time and stands down the moment it changes — a re-enqueue is the user wanting the
+     * gallery again, and neither a later finish nor a failed start may re-arm the delete (both
+     * re-add {@code retired}, which is why retired membership cannot answer this question).
      */
-    boolean stillRetired(long gid) {
+    long epochOf(long gid) {
         synchronized (lock) {
-            // enqueue removes the gid from retired the moment it re-admits it.
-            return retired.contains(gid);
+            Long epoch = enqueueEpochs.get(gid);
+            return epoch == null ? 0L : epoch;
         }
     }
 

@@ -57,6 +57,7 @@ public class RemotePageBridgeTest {
     private static final class RecordingStorage implements GallerySpiderStorage {
         final List<String> calls = new ArrayList<>();
         boolean writeFails;
+        boolean openFails;
 
         @Override
         public boolean prepareDir() {
@@ -93,7 +94,10 @@ public class RemotePageBridgeTest {
                 @Override public void release() {}
 
                 @Override
-                public OutputStream open() {
+                public OutputStream open() throws IOException {
+                    if (openFails) {
+                        throw new IOException("could not even open");
+                    }
                     return new OutputStream() {
                         private int written;
 
@@ -143,6 +147,18 @@ public class RemotePageBridgeTest {
                 storage.calls.contains("remove:0"));
         assertTrue("delete must come after the publishing close",
                 storage.calls.indexOf("close:0") < storage.calls.indexOf("remove:0"));
+    }
+
+    /** A copy that failed before the pipe opened published nothing — and deletes nothing. */
+    @Test
+    public void aFailureBeforeOpeningDeletesNothing() {
+        storage.openFails = true;
+        RemotePageBridge bridge = new RemotePageBridge(gallery, gallery.gid);
+
+        assertFalse(bridge.copyFromPhone(0, storage));
+
+        assertEquals("nothing was published, nothing to take back: " + storage.calls,
+                -1, storage.calls.indexOf("remove:0"));
     }
 
     /** A finished copy is left alone. */

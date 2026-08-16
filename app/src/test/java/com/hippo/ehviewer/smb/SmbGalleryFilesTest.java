@@ -248,6 +248,19 @@ public class SmbGalleryFilesTest {
                 events.contains("invalidate:42"));
     }
 
+    /**
+     * A format-changing re-publish leaves two names for one page; the cleanup must take both,
+     * or the preferred extension shields the bad file (#150).
+     */
+    @Test
+    public void deletingAPageRemovesEveryExtensionItHas() {
+        filenames.add("00000001.jpg");
+        filenames.add("00000001.png");
+        assertTrue(SmbGalleryFiles.deleteImage(gallery, 0));
+        assertTrue("jpg must go: " + events, events.contains("delete:00000001.jpg"));
+        assertTrue("png must go too: " + events, events.contains("delete:00000001.png"));
+    }
+
     /** A page that was never published deletes nothing and reports so. */
     @Test
     public void deletingAnAbsentPageIsANoOp() {

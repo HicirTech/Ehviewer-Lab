@@ -85,14 +85,17 @@ public final class SmbDirectDownloader {
             // Delete AFTER the queen is released, on the IO pool — not racing its writes.
             if (outcome.infoForDelete != null) {
                 final GalleryInfo info = outcome.infoForDelete;
+                final long epochAtCancel = ledger.epochOf(gid);
                 IoThreadPoolExecutor.Companion.getInstance().execute(() -> {
                     // The queen's interrupt is asynchronous: an in-flight page write can hold a
                     // handle that fails the first delete and leaves a ghost folder the
                     // inventory then counts as saved. Retried over ~9s.
                     for (int attempt = 0; attempt < 3; attempt++) {
                         // The user can re-download this gallery inside the retry window; a
-                        // late attempt would then wipe the NEW job's folder (#150).
-                        if (!ledger.stillRetired(gid)) {
+                        // late attempt would then wipe the new job's folder — or, if that job
+                        // already finished, the completed gallery (#150). Any enqueue since the
+                        // cancel stands the delete down for good.
+                        if (ledger.epochOf(gid) != epochAtCancel) {
                             Log.i(TAG, "Delete on cancel stood down, gid=" + gid
                                     + " was re-enqueued");
                             return;
