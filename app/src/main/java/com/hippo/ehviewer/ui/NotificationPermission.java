@@ -39,6 +39,13 @@ public final class NotificationPermission {
         if (Build.VERSION.SDK_INT < 33 || context == null) {
             return;
         }
+        // Callers include background paths (the share repair): both the permission ask and the
+        // denial toast belong to the main thread — off it, the toast kills the process (#144).
+        if (android.os.Looper.myLooper() != android.os.Looper.getMainLooper()) {
+            final Context c = context;
+            com.hippo.lib.yorozuya.SimpleHandler.getInstance().post(() -> onDownloadStart(c));
+            return;
+        }
         if (ContextCompat.checkSelfPermission(context, android.Manifest.permission.POST_NOTIFICATIONS)
                 == PackageManager.PERMISSION_GRANTED) {
             return;
