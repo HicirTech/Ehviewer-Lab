@@ -56,6 +56,8 @@ public class SmbWorkflowTest {
     private ActivityScenario<MainActivity> mScenario;
 
     /** Installing the APK — which the connected-test task does on every run — drops the MANAGE_EXTERNAL_STORAGE appop, and the app answers its first launch w */
+    // MANAGE_EXTERNAL_STORAGE exists from API 30; on older images the shell command fails
+    // (harmlessly) and the legacy storage prompt path is simply not exercised by this suite.
     @org.junit.BeforeClass
     public static void grantAllFilesAccess() throws IOException {
         UiDevice.getInstance(InstrumentationRegistry.getInstrumentation()).executeShellCommand(
@@ -100,6 +102,7 @@ public class SmbWorkflowTest {
 
     @Test
     public void readerMaterialisesAPageOffTheShare() throws IOException {
+        assumeShareConfigured();
         launchMain();
         openFirstGalleryDetail();
         // The strong condition. A page "materialises" only by coming off the share (the app has
@@ -184,7 +187,18 @@ public class SmbWorkflowTest {
         throw last;
     }
 
+    /**
+     * The share-facing tests are meaningless on a device with no SMB share configured — skip
+     * them the way SmbReadWorkflowTest skips without eh.targets, instead of hard-failing (#144).
+     */
+    private static void assumeShareConfigured() {
+        org.junit.Assume.assumeTrue("no SMB share configured on this device; share tests skipped",
+                com.hippo.ehviewer.storage.NetworkStorage.active().isConfigured()
+                        && com.hippo.ehviewer.Settings.getNetworkStorageEnabled());
+    }
+
     private void openInventory() {
+        assumeShareConfigured();
         openFromDrawer(R.id.nav_local_inventory);
         assertTrue("no gallery rows appeared from the share",
                 Boolean.TRUE.equals(
@@ -218,10 +232,14 @@ public class SmbWorkflowTest {
                 By.res(mPkg, "accept"),       // WarningScene
                 By.res(mPkg, "guest_mode"),   // SignInScene — guest, never credentials
                 By.res(mPkg, "ok"),           // AnalyticsScene / SelectSiteScene
-                By.text("GOT IT"),            // showcase guide overlay
+                // The showcase overlay's button (button_guide.xml, textAllCaps): matched via
+                // the app's own string so a non-English device peels it too.
+                By.text(showcaseButtonText()),
                 // The POST_NOTIFICATIONS system dialog (#103): grant, or a fresh device
-                // wedges the whole suite on it.
+                // wedges the whole suite on it. The id is AOSP's; OEM permission dialogs may
+                // name it differently — the text fallback below covers the common ones.
                 By.res("com.android.permissioncontroller:id/permission_allow_button"),
+                By.text(Pattern.compile("Allow|ALLOW|允许")),
         };
         for (androidx.test.uiautomator.BySelector s : peelable) {
             UiObject2 o = mDevice.findObject(s);
@@ -231,6 +249,11 @@ public class SmbWorkflowTest {
                 return;
             }
         }
+    }
+
+    private static String showcaseButtonText() {
+        return InstrumentationRegistry.getInstrumentation().getTargetContext()
+                .getString(R.string.get_it).toUpperCase(java.util.Locale.getDefault());
     }
 
     private androidx.test.uiautomator.BySelector withTextOf(int resId) {

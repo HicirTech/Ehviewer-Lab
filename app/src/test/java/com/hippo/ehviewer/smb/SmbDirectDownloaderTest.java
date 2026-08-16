@@ -49,6 +49,8 @@ public class SmbDirectDownloaderTest {
     static boolean obtainThrows = false;
     /** Lets a test wait for the folder delete, which runs on the IO pool. */
     static CountDownLatch deleteLatch = new CountDownLatch(1);
+    /** The spider listeners the downloader registered; a test fires finish through these. */
+    static final List<SpiderQueen.OnSpiderListener> listeners = new ArrayList<>();
 
     /** Replaces the real fetch engine: no worker thread, no network. */
     @Implements(SpiderQueen.class)
@@ -74,9 +76,11 @@ public class SmbDirectDownloaderTest {
         }
 
         // The instance was created without running field initialisers, so the real listener
-        // list does not exist; these would NPE.
+        // list does not exist; recorded here so a test can fire spider events itself.
         @Implementation
-        protected void addOnSpiderListener(SpiderQueen.OnSpiderListener listener) {}
+        protected void addOnSpiderListener(SpiderQueen.OnSpiderListener listener) {
+            listeners.add(listener);
+        }
 
         @Implementation
         protected void removeOnSpiderListener(SpiderQueen.OnSpiderListener listener) {}
@@ -106,6 +110,11 @@ public class SmbDirectDownloaderTest {
             calls.add("delete:" + info.gid);
             deleteLatch.countDown();
             return true;
+        }
+
+        @Implementation
+        protected static void finalizeDownloadedGallery(Context context, GalleryInfo info) {
+            calls.add("finalize:" + info.gid);
         }
     }
 
@@ -145,6 +154,7 @@ public class SmbDirectDownloaderTest {
         com.hippo.ehviewer.Settings.putString(com.hippo.ehviewer.Settings.KEY_SMB_SHARE_NAME, "share");
         com.hippo.ehviewer.Settings.putBoolean(com.hippo.ehviewer.Settings.KEY_NETWORK_STORAGE_ENABLED, true);
         calls.clear();
+        listeners.clear();
         obtainThrows = false;
         deleteLatch = new CountDownLatch(1);
     }
@@ -275,20 +285,22 @@ public class SmbDirectDownloaderTest {
 
     /**
      * A natural finish keeps the mark, so reads from Local Inventory still resolve to the share
-     * without waiting for a process restart. Deliberately the opposite of cancel.
+     * without waiting for a process restart. Deliberately the opposite of cancel. The finish
+     * arrives the way the real one does: through the spider listener the downloader registered.
      */
     @Test
     public void finish_keepsTheSmbTargetMark() {
         SmbDirectDownloader.getInstance().start(context, gallery(1));
         drain();
+        assertTrue(GalleryTargets.isMarked(1));
+        assertEquals(1, listeners.size());
 
-        SmbDirectDownloader.getInstance().cancel(1);
+        listeners.get(0).onFinish(10, 10, 10);
         drain();
-        assertFalse(GalleryTargets.isMarked(1));
 
-        GalleryTargets.mark(1);
         assertTrue("a finished download must stay routed to the share",
                 GalleryTargets.isMarked(1));
+        assertTrue("the queen must be released: " + calls, calls.contains("stop"));
         GalleryTargets.unmark(1);
     }
 
