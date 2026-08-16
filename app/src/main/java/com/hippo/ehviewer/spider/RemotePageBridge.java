@@ -65,6 +65,8 @@ public final class RemotePageBridge {
             return false;
         }
         OutputStreamPipe osPipe = null;
+        boolean copied = false;
+        boolean opened = false;
         try {
             // Extension from the bytes: a re-download may come back in a different format.
             BitmapFactory.Options options = new BitmapFactory.Options();
@@ -84,7 +86,10 @@ public final class RemotePageBridge {
             }
             osPipe.obtain();
             pipe.obtain();
-            IOUtils.copy(pipe.open(), osPipe.open());
+            java.io.OutputStream os = osPipe.open();
+            opened = true;
+            IOUtils.copy(pipe.open(), os);
+            copied = true;
             return true;
         } catch (Throwable e) {
             Log.w(TAG, "Could not put the cached page on the share gid=" + info.gid
@@ -94,6 +99,12 @@ public final class RemotePageBridge {
             if (osPipe != null) {
                 osPipe.close();
                 osPipe.release();
+                if (opened && !copied) {
+                    // The pipe publishes on close whether the copy finished or not (#150): a
+                    // truncated page would read as saved forever. Take the name back off. A
+                    // failure before open published nothing and deletes nothing.
+                    remote.removeImage(index);
+                }
             }
             pipe.close();
             pipe.release();
@@ -132,6 +143,8 @@ public final class RemotePageBridge {
             }
             OutputStreamPipe osPipe = null;
             InputStream is = null;
+            boolean copied = false;
+            boolean opened = false;
             try {
                 osPipe = remote.openImageOutputStreamPipe(index, extension);
                 if (osPipe == null) {
@@ -139,7 +152,10 @@ public final class RemotePageBridge {
                 }
                 osPipe.obtain();
                 is = file.openInputStream();
-                IOUtils.copy(is, osPipe.open());
+                java.io.OutputStream os = osPipe.open();
+                opened = true;
+                IOUtils.copy(is, os);
+                copied = true;
                 return true;
             } catch (Throwable e) {
                 Log.w(TAG, "Could not put the phone's copy of page " + index
@@ -150,6 +166,10 @@ public final class RemotePageBridge {
                 if (osPipe != null) {
                     osPipe.close();
                     osPipe.release();
+                    if (opened && !copied) {
+                        // Same publish-on-close cleanup as the cache copy (#150).
+                        remote.removeImage(index);
+                    }
                 }
             }
         }
