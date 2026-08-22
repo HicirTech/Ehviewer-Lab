@@ -68,7 +68,6 @@ import com.hippo.lib.yorozuya.thread.PriorityThread;
 import com.hippo.lib.yorozuya.thread.PriorityThreadFactory;
 
 import java.io.BufferedInputStream;
-import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -1889,7 +1888,7 @@ public final class SpiderQueen implements Runnable {
 
                 if (is != null) {
                     try {
-                        image = Image.decode((FileInputStream) is, false);
+                        image = Image.decode(is, false);
                     } catch (OutOfMemoryError e){
                         Analytics.recordException(e);
                     } finally {
