@@ -18,7 +18,10 @@ import android.graphics.drawable.Drawable
 import android.os.Build
 import androidx.core.graphics.drawable.toDrawable
 import com.hippo.ehviewer.EhApplication
+import java.io.ByteArrayInputStream
 import java.io.FileInputStream
+import java.io.InputStream
+import java.nio.ByteBuffer
 import java.nio.channels.FileChannel
 import kotlin.math.max
 import kotlin.math.min
@@ -27,7 +30,7 @@ import com.hippo.ehviewer.Analytics
 
 
 class Image private constructor(
-    source: FileInputStream?,
+    source: InputStream?,
     drawable: Drawable? = null,
     val hardware: Boolean = false,
     val release: () -> Unit? = {},
@@ -39,15 +42,18 @@ class Image private constructor(
     init {
         mObtainedDrawable = null
         source?.let {
+            // 内存流(#155 回声页)没有 channel 可映射/回卷:一次读出字节,解码与回退共用
+            val memory: ByteArray? = if (source is FileInputStream) null else source.readBytes()
+            val total = memory?.size ?: source.available()
             var simpleSize: Int? = null
-            if (source.available() > 10485760) {
-                simpleSize = source.available() / 10485760 + 1
+            if (total > 10485760) {
+                simpleSize = total / 10485760 + 1
             }
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
                 val src = ImageDecoder.createSource(
-                    source.channel.map(
-                        FileChannel.MapMode.READ_ONLY, 0,
-                        source.available().toLong()
+                    if (memory != null) ByteBuffer.wrap(memory)
+                    else (source as FileInputStream).channel.map(
+                        FileChannel.MapMode.READ_ONLY, 0, total.toLong()
                     )
                 )
                 try {
@@ -69,20 +75,25 @@ class Image private constructor(
                 } catch (e: DecodeException) {
                     // ImageDecoder 失败时回退到 BitmapFactory
                     try {
-                        // 重置流位置以便重新读取
-                        source.channel.position(0)
+                        // 重置流位置以便重新读取;内存流直接重建
+                        val retry: InputStream = if (memory != null) {
+                            ByteArrayInputStream(memory)
+                        } else {
+                            (source as FileInputStream).channel.position(0)
+                            source
+                        }
                         if (simpleSize != null) {
                             val option = BitmapFactory.Options().apply {
                                 inSampleSize = simpleSize
                             }
-                            val bitmap = BitmapFactory.decodeStream(source, null, option)
+                            val bitmap = BitmapFactory.decodeStream(retry, null, option)
                             if (bitmap == null) {
                                 throw IllegalArgumentException("BitmapFactory.decodeStream 回退解码返回空")
                             }
                             mObtainedDrawable =
                                 bitmap.toDrawable(EhApplication.getInstance().resources)
                         } else {
-                            mObtainedDrawable = BitmapDrawable.createFromStream(source, null)
+                            mObtainedDrawable = BitmapDrawable.createFromStream(retry, null)
                                 ?: throw IllegalArgumentException("BitmapDrawable.createFromStream 回退解码返回空")
                         }
                     } catch (fallbackException: Exception) {
@@ -92,18 +103,19 @@ class Image private constructor(
                 }
                 // Should we lazy decode it?
             } else {
+                val direct: InputStream = if (memory != null) ByteArrayInputStream(memory) else source
                 if (simpleSize != null) {
                     val option = BitmapFactory.Options().apply {
                         inSampleSize = simpleSize
                     }
-                    val bitmap = BitmapFactory.decodeStream(source, null, option)
+                    val bitmap = BitmapFactory.decodeStream(direct, null, option)
                     if (bitmap == null) {
                         throw IllegalArgumentException("BitmapFactory.decodeStream 返回空")
                     }
                     mObtainedDrawable =
                         BitmapDrawable(EhApplication.getInstance().resources, bitmap)
                 } else {
-                    mObtainedDrawable = BitmapDrawable.createFromStream(source, null)
+                    mObtainedDrawable = BitmapDrawable.createFromStream(direct, null)
                         ?: throw IllegalArgumentException("BitmapDrawable.createFromStream 返回空")
                 }
             }
@@ -247,7 +259,7 @@ class Image private constructor(
         }
 
         @JvmStatic
-        fun decode(stream: FileInputStream, hardware: Boolean = true): Image? {
+        fun decode(stream: InputStream, hardware: Boolean = true): Image? {
             try {
                 return Image(stream, hardware = hardware)
             } catch (e: Exception) {
