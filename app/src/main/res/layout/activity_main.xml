@@ -55,7 +55,6 @@
                         android:background="?android:attr/windowBackground"
                         android:paddingBottom="48dip"
                         android:scrollbars="vertical"
-                        app:headerLayout="@layout/nav_header_main"
                         app:insetForeground="@android:color/transparent"
                         app:menu="@menu/nav_drawer_main" />
                 </FrameLayout>

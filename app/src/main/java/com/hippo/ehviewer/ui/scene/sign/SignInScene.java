@@ -381,7 +381,6 @@ public final class SignInScene extends SolidScene implements EditText.OnEditorAc
 
     public void onGetProfileEnd() {
         mSigningIn = false;
-        updateAvatar();
         redirectTo();
     }
 
