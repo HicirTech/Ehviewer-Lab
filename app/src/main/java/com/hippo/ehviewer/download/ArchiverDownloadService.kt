@@ -279,14 +279,25 @@ class ArchiverDownloadService : Service() {
             val intent = Intent(context, ArchiverDownloadService::class.java).apply {
                 action = ACTION_STOP
             }
-            context.startService(intent)
+            try {
+                context.startService(intent)
+            } catch (e: IllegalStateException) {
+                // Not running, and the app is in the background: nothing to stop.
+            }
         }
 
+        // Starts come from the background too: resumePending runs in Application.onCreate, and
+        // progress updates keep arriving after the user leaves. From API 31 such a start throws.
+        // The download is an OkHttp call and carries on regardless; only its notification is lost.
         private fun startServiceCompat(context: Context, intent: Intent) {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                context.startForegroundService(intent)
-            } else {
-                context.startService(intent)
+            try {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    context.startForegroundService(intent)
+                } else {
+                    context.startService(intent)
+                }
+            } catch (e: IllegalStateException) {
+                android.util.Log.w("ArchiverDownloadService", "Service start refused", e)
             }
         }
     }
