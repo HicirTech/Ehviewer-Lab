@@ -41,7 +41,6 @@ import com.hippo.lib.yorozuya.IOUtils;
 import com.hippo.lib.yorozuya.NumberUtils;
 
 import java.io.BufferedInputStream;
-import java.io.EOFException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -214,7 +213,9 @@ public class SpiderInfo {
             String line;
             try {
                 line = IOUtils.readAsciiLine(is, MAX_PTOKEN_FILE_LINE);
-            } catch (EOFException e) {
+            } catch (IOException e) {
+                // EOF, an over-long line, or a read failing mid-file (a network share): keep the
+                // header and the tokens so far. Returning null here loses the reading position.
                 break;
             }
             int[] indexOut = new int[1];
