@@ -177,7 +177,6 @@ public class EhApplication extends RecordingApplication {
         GetText.initialize(this);
         StatusCodeException.initialize(this);
         Settings.initialize(this);
-        ArchiverDownloader.resumePending(this);
         ReadableTime.initialize(this);
         Html.initialize(this);
         AppConfig.initialize(this);
@@ -195,6 +194,9 @@ public class EhApplication extends RecordingApplication {
         if (EhDB.needMerge()) {
             EhDB.mergeOldDB(this);
         }
+        // After everything it reaches: resolving the zip path needs AppConfig (an NPE here, before
+        // it, was a crash on every launch), and a finished zip is imported via SpiderDen, EhDB, A7Zip.
+        ArchiverDownloader.resumePending(this);
 
         if (Settings.getEnableAnalytics()) {
             Analytics.start(this);
