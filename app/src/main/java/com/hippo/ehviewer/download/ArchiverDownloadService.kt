@@ -45,15 +45,23 @@ class ArchiverDownloadService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        // Every stop names its startId: a start queued behind it (a re-download right after a stop
+        // or pause) was made with startForegroundService, and tearing the service down under it
+        // crashes the app with ForegroundServiceDidNotStartInTimeException.
         if (intent == null) {
-            stopSelfIfNeeded()
+            stopSelfIfNeeded(startId)
             return START_NOT_STICKY
         }
         when (intent.action) {
             ACTION_STOP -> {
-                stopForeground(STOP_FOREGROUND_REMOVE)
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                    stopForeground(STOP_FOREGROUND_REMOVE)
+                } else {
+                    @Suppress("DEPRECATION")
+                    stopForeground(true)
+                }
                 foregroundStarted = false
-                stopSelf()
+                stopSelf(startId)
                 return START_NOT_STICKY
             }
             ACTION_PAUSE -> {
@@ -83,7 +91,7 @@ class ArchiverDownloadService : Service() {
             title, gid, token, downloaded, total, speed, remaining, paused
         )
         if (paused) {
-            showPausedNotification(notification)
+            showPausedNotification(notification, startId)
             return START_NOT_STICKY
         }
         if (!foregroundStarted) {
@@ -97,7 +105,7 @@ class ArchiverDownloadService : Service() {
 
     override fun onBind(intent: Intent?): IBinder? = null
 
-    private fun showPausedNotification(notification: Notification) {
+    private fun showPausedNotification(notification: Notification, startId: Int) {
         if (!foregroundStarted) {
             startForegroundCompat(NOTIFICATION_ID, notification)
             foregroundStarted = true
@@ -110,7 +118,7 @@ class ArchiverDownloadService : Service() {
         }
         foregroundStarted = false
         notificationManager?.notify(NOTIFICATION_ID, notification)
-        stopSelf()
+        stopSelf(startId)
     }
 
     private fun buildNotification(
@@ -209,9 +217,9 @@ class ArchiverDownloadService : Service() {
         }
     }
 
-    private fun stopSelfIfNeeded() {
+    private fun stopSelfIfNeeded(startId: Int) {
         if (!foregroundStarted) {
-            stopSelf()
+            stopSelf(startId)
         }
     }
 
