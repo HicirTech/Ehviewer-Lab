@@ -76,6 +76,7 @@ import java.lang.annotation.RetentionPolicy;
 import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.NoSuchElementException;
 import java.util.Queue;
 import java.util.Timer;
 import java.util.TimerTask;
@@ -1383,7 +1384,7 @@ public final class SpiderQueen implements Runnable {
                     try {
                         response = call.execute();
                         targetImageUrl = response.header("location");
-                    } catch (IOException e) {
+                    } catch (IOException | NoSuchElementException e) {
                         error = "GP不足/Insufficient GP";
                         IOException ioException = new IOException("原图链接获取失败", e);
                         Analytics.recordException(ioException);
@@ -1586,7 +1587,7 @@ public final class SpiderQueen implements Runnable {
                         e.printStackTrace();
                     }
                     return true;
-                } catch (IOException e) {
+                } catch (IOException | NoSuchElementException e) {
                     e.printStackTrace();
                     error = GetText.getString(R.string.error_socket);
                     forceHtml = true;
