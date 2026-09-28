@@ -199,6 +199,7 @@ public class ArchiverDownloadDialog implements
                 return;
             }
 
+            com.hippo.ehviewer.ui.NotificationPermission.onDownloadStart(context);
             downloader.start(context, galleryDetail, downloadUrl, fileName);
             detailScene.bindArchiverProgress(galleryDetail);
         }
