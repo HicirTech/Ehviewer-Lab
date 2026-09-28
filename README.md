@@ -7,7 +7,9 @@
 > EhViewer@Lab is not affiliated with E-Hentai.org in any way.
 
 ## 本项目在和原装绿E的不同之处在哪里
-EhViewer@Lab在原版EhViewer的基础上，为 HomeLab/自托管环境持续提供更Geek的解决方案。本项目的初衷是希望能把本子快速的, 有效的, 无需用户手动操作地存进NAS里, 我是赛博仓鼠: 我坚信网络上的一切都是暂时的, 只有我NAS里的硬盘不会背叛我(除非它坏了)
+EhViewer@Lab在原版EhViewer的基础上，为 HomeLab/自托管环境持续提供更Geek的解决方案
+
+本项目的初衷是希望能把本子快速的, 有效的, 无需用户手动操作地存进NAS里, 我是赛博仓鼠: 我坚信网络上的一切都是暂时的, 只有我NAS里的硬盘不会背叛我(除非它坏了)
 
 #### 已实现
 - [x] 支持 SMB NAS 存储
