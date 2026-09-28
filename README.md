@@ -1,19 +1,44 @@
 # EhViewer@Lab
+<img width="575" height="387" alt="image" src="https://github.com/user-attachments/assets/2a9145fc-cf1a-4be5-ad93-f0b461bba05d" />
 
 一个基于原版EhViewer对HomeLab环境更为友好的Ehviewer
-
+> [!NOTE]  
+> EhViewer是一个Android平台的E-Hentai/ExHentai浏览器<br>
 > EhViewer@Lab is not affiliated with E-Hentai.org in any way.
 
-在原版 EhViewer 的基础上，为 HomeLab / 自托管环境持续提供更Geek的解决方案。
+## 本项目在和原装绿E的不同之处在哪里
+EhViewer@Lab在原版EhViewer的基础上，为 HomeLab/自托管环境持续提供更Geek的解决方案。本项目的初衷是希望能把本子快速的, 有效的, 无需用户手动操作地存进NAS里, 我是赛博仓鼠: 我坚信网络上的一切都是暂时的, 只有我NAS里的硬盘不会背叛我(除非它坏了)
 
-### 支持 SMB NAS 存储
-画廊直达NAS, 实现内网阅读, 内网搜索, 自动下载到NAS, 内网画廊管理等功能
+#### 已实现
+- [x] 支持 SMB NAS 存储
+- [x] 画廊直达NAS
+- [x] 内网阅读
+- [x] 内网搜索
+- [x] 自动下载到NAS
+- [x] 内网画廊管理
+- [x] 自动适配/检测最优网络线程数
+- [x] 多设备共享同一网络储存,并共享阅读进度
 
+#### 未来会实现
+这些也就是我想要些什么罢了, 如果你有更加好的Idea, 请务必在issue里提出, 任何idea都欢迎
+- [ ] NFS NAS储存
+- [ ] 基于HomeLab环境算力的图片优化,如超分
+- [ ] 基于HomeLab环境算力的图片翻译
+- [ ] 基于HomeLab环境下的图片去码(或许有)
+- [ ] 可调整的自动下载策略
 
 ## 版本策略 
+本项目是基于杰神(xiaojieonly)二次开发而来的下游版本, 所以版本基线和[https://github.com/xiaojieonly/Ehviewer_CN_SXJ](绿E)一致, 并在末尾标注 `-hl.N`
+例如 `2.0.2.3-hl.1` = 基于上游 2.0.2.3 的第 1 个 fork 迭代。
 
-`<上游版本基地>-hl.<N>`，例如 `2.0.2.3-hl.1` = 基于上游 2.0.2.3 的第 1 个 fork 迭代。
-merge 上游后基底随之更新、后缀归 1。
+### 上游版本更新
+本项目会不定期的吸取上游版本更新, merge 上游后基线版本随之更新、后缀归 1
+
+至于什么时候我会吸取上游的更新取决于我的精力(一般为一到两周内), 当然如果是紧急情况, 例如E绅士改变HTML结构导致的parse失效的问题, 我会立刻吸收任何pending change. 如果有必要: 我会在这个fork中修复导致无法使用的错误并对upstream提出PR
+
+### 项目的分离
+如果出现杰神不再对他的repo进行维护的情况, 或者是本项目实在是走的太远无力吸取上游的情况, 本项目将会从杰神的绿E中彻底脱离
+
 
 ## 构建 
 ```sh
