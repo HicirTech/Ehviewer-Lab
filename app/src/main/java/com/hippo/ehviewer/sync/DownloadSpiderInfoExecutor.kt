@@ -2,6 +2,7 @@ package com.hippo.ehviewer.sync
 
 import android.os.Handler
 import android.os.Looper
+import android.util.Log
 import com.hippo.ehviewer.callBack.SpiderInfoReadCallBack
 import com.hippo.ehviewer.client.data.GalleryInfo
 import com.hippo.ehviewer.dao.DownloadInfo
@@ -25,7 +26,15 @@ class DownloadSpiderInfoExecutor(
         service.execute(Runnable {
             for (i in mList.indices) {
                 val info = mList.get(i)
-                resultMap.put(info.gid, getSpiderInfo(info))
+                try {
+                    resultMap.put(info.gid, getSpiderInfo(info))
+                } catch (e: OutOfMemoryError) {
+                    Log.e(TAG, "OOM reading spider info header for gid=" + info.gid, e)
+                    resultMap.put(info.gid, null)
+                } catch (e: Exception) {
+                    Log.e(TAG, "Failed reading spider info header for gid=" + info.gid, e)
+                    resultMap.put(info.gid, null)
+                }
             }
             handler.post(Runnable {
                 if (callBack == null) {
@@ -45,14 +54,14 @@ class DownloadSpiderInfoExecutor(
         // invents a local download that does not exist.
         if (com.hippo.ehviewer.smb.SmbTaskInfo.isSmb(info as? DownloadInfo)) {
             return com.hippo.ehviewer.smb.SmbGalleryFiles.openSpiderInfoInputStream(info)
-                ?.use { SpiderInfo.read(it) }
+                ?.use { SpiderInfo.readHeader(it) }
                 ?.takeIf { it.gid == info.gid }
         }
         val spiderInfo: SpiderInfo?
         val mDownloadDir = SpiderDen.getGalleryDownloadDir(info)
         if (mDownloadDir != null && mDownloadDir.isDirectory()) {
             val file = mDownloadDir.findFile(SpiderQueen.SPIDER_INFO_FILENAME)
-            spiderInfo = SpiderInfo.read(file)
+            spiderInfo = SpiderInfo.readHeader(file)
             if (spiderInfo != null && spiderInfo.gid == info.gid &&
                 spiderInfo.token == info.token
             ) {
@@ -60,5 +69,9 @@ class DownloadSpiderInfoExecutor(
             }
         }
         return null
+    }
+
+    companion object {
+        private const val TAG = "DownloadSpiderInfoExec"
     }
 }
