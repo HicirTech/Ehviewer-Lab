@@ -54,7 +54,7 @@ class DownloadSpiderInfoExecutor(
         // invents a local download that does not exist.
         if (com.hippo.ehviewer.smb.SmbTaskInfo.isSmb(info as? DownloadInfo)) {
             return com.hippo.ehviewer.smb.SmbGalleryFiles.openSpiderInfoInputStream(info)
-                ?.use { SpiderInfo.read(it) }
+                ?.use { SpiderInfo.readHeader(it) }
                 ?.takeIf { it.gid == info.gid }
         }
         val spiderInfo: SpiderInfo?
