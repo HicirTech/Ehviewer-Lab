@@ -1,13 +1,17 @@
 {
-  "version": "2.0.2.3-hl.11",
-  "versionCode": 11,
+  "version": "2.0.2.4-hl.1",
+  "versionCode": 12,
   "mustUpdate": false,
   "updateContent": {
-    "fileDownloadUrl": "https://github.com/HicirTech/Ehviewer-Lab/releases/tag/v2.0.2.3-hl.11",
-    "title": "EhViewer@Lab 2.0.2.3-hl.11",
+    "fileDownloadUrl": "https://github.com/HicirTech/Ehviewer-Lab/releases/tag/v2.0.2.4-hl.1",
+    "title": "EhViewer@Lab 2.0.2.4-hl.1",
     "content": [
-      "修复在线与网络存储混合阅读时的闪退:阅读中自动下载刚写入共享的页面被读回解码时,解码器只接受文件流而拒绝内存中的页面,进程直接退出。表现为阅读一段时间后突然闪退,重开继续读又很快再崩。现在内存中的页面与文件一样能正常解码",
-      "本次为热修版本,除上述修复外无其他改动"
+      "跟进上游 EhViewer 2.0.2.4",
+      "归档下载改为应用内下载:支持断点续传、暂停与继续,并在通知栏显示进度",
+      "详情页点击封面可查看大图",
+      "阅读进度更稳:进度文件中某一行损坏、或从网络存储读取到一半中断时,不再丢失整本的阅读进度",
+      "在线读取遇到个别网络异常时,失败的页面会正常重试",
+      "下载列表显示网络存储画廊的阅读进度时只读取必要部分,减少网络流量"
     ]
   }
 }
