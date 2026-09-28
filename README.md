@@ -28,7 +28,7 @@ EhViewer@Lab在原版EhViewer的基础上，为 HomeLab/自托管环境持续提
 - [ ] 可调整的自动下载策略
 
 ## 版本策略 
-本项目是基于杰神(xiaojieonly)二次开发而来的下游版本, 所以版本基线和(https://github.com/xiaojieonly/Ehviewer_CN_SXJ)[绿E]一致, 并在末尾标注 `-hl.N`
+本项目是基于杰神(xiaojieonly)二次开发而来的下游版本, 所以版本基线和 [绿E](https://github.com/xiaojieonly/Ehviewer_CN_SXJ) 一致, 并在末尾标注 `-hl.N`
 例如 `2.0.2.3-hl.1` = 基于上游 2.0.2.3 的第 1 个 fork 迭代。
 
 ### 上游版本更新
