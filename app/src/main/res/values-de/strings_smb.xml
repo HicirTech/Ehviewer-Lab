@@ -63,6 +63,7 @@
     <string name="gallery_download_target_smb">Auf die %1$s-Freigabe</string>
     <string name="download_move_to_smb">Auf die %1$s-Freigabe verschieben</string>
     <string name="download_moving_to_smb">Kopiere auf die %1$s-Freigabe…</string>
+    <string name="download_move_to_smb_local_kept">Lokale Importe werden nicht auf die %1$s-Freigabe kopiert</string>
     <string name="settings_smb_enable_auto_download">Automatisch auf Netzwerkspeicher herunterladen</string>
     <string name="settings_smb_enable_auto_download_summary">Wenn aktiviert, stellt das Öffnen der ersten Seite einer Galerie automatisch einen Hintergrund-Download auf den Netzwerkspeicher in die Warteschlange. Wenn deaktiviert, fragt der Download-Button jedes Mal nach.</string>
     <string name="settings_smb_device_name">Name dieses Geräts</string>

@@ -9,6 +9,7 @@ import androidx.annotation.Nullable;
 import com.hippo.ehviewer.EhApplication;
 import com.hippo.ehviewer.EhDB;
 import com.hippo.ehviewer.client.data.GalleryInfo;
+import com.hippo.ehviewer.dao.DownloadInfo;
 import com.hippo.ehviewer.spider.SpiderDen;
 import com.hippo.ehviewer.spider.SpiderQueen;
 import com.hippo.ehviewer.storage.DownloadState;
@@ -61,6 +62,11 @@ public final class SmbDirectDownloader {
     /** Enqueue a gallery for SMB save. No-ops if it is already active or queued. */
     public void start(@NonNull Context context, @NonNull GalleryInfo info) {
         enqueue(context, info, false);
+    }
+
+    /** A local import (archive or album) has a made-up gid: nothing of it belongs on the share. */
+    public static boolean isLocalImport(@NonNull GalleryInfo info) {
+        return info instanceof DownloadInfo && ((DownloadInfo) info).archiveUri != null;
     }
 
     private void enqueue(@NonNull Context context, @NonNull GalleryInfo info, boolean asMove) {

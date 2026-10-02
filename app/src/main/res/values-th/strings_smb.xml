@@ -63,6 +63,7 @@
     <string name="gallery_download_target_smb">ลงแชร์ %1$s</string>
     <string name="download_move_to_smb">ย้ายไปยังแชร์ %1$s</string>
     <string name="download_moving_to_smb">กำลังคัดลอกไปยังแชร์ %1$s…</string>
+    <string name="download_move_to_smb_local_kept">รายการที่นำเข้าจากเครื่องจะไม่ถูกคัดลอกไปยังแชร์ %1$s</string>
     <string name="settings_smb_enable_auto_download">ดาวน์โหลดอัตโนมัติไปยังที่เก็บข้อมูลเครือข่าย</string>
     <string name="settings_smb_enable_auto_download_summary">เมื่อเปิดใช้งาน การเปิดหน้าแรกของแกลเลอรีจะเพิ่มการดาวน์โหลดเบื้องหลังไปยังที่เก็บข้อมูลเครือข่ายเข้าคิวโดยอัตโนมัติ เมื่อปิด ปุ่มดาวน์โหลดจะถามทุกครั้ง</string>
     <string name="settings_smb_device_name">ชื่อของอุปกรณ์นี้</string>

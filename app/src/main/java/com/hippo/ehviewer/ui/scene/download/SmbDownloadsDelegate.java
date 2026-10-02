@@ -226,9 +226,22 @@ public final class SmbDownloadsDelegate {
 
     /** Moves = enqueues (#88): claims, progress rows, resume — the pages come from the phone. */
     public void moveToShare(@NonNull Context context, @NonNull List<DownloadInfo> downloads) {
-        com.hippo.ehviewer.ui.NotificationPermission.onDownloadStart(context);
         final Context appContext = context.getApplicationContext();
+        List<DownloadInfo> movable = new ArrayList<>(downloads.size());
         for (DownloadInfo info : downloads) {
+            if (!SmbDirectDownloader.isLocalImport(info)) {
+                movable.add(info);
+            }
+        }
+        if (movable.size() < downloads.size()) {
+            Toast.makeText(appContext, appContext.getString(R.string.download_move_to_smb_local_kept,
+                    NetworkStorage.active().displayName()), Toast.LENGTH_SHORT).show();
+        }
+        if (movable.isEmpty()) {
+            return;
+        }
+        com.hippo.ehviewer.ui.NotificationPermission.onDownloadStart(context);
+        for (DownloadInfo info : movable) {
             SmbDirectDownloader.getInstance().startMove(appContext, info);
         }
         Toast.makeText(appContext, appContext.getString(R.string.download_moving_to_smb,

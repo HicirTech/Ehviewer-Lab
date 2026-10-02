@@ -63,6 +63,7 @@
     <string name="gallery_download_target_smb">To %1$s share</string>
     <string name="download_move_to_smb">Move to %1$s share</string>
     <string name="download_moving_to_smb">Copying to %1$s share…</string>
+    <string name="download_move_to_smb_local_kept">Local imports are not copied to the %1$s share</string>
     <string name="settings_smb_enable_auto_download">Auto Download To Network Storage</string>
     <string name="settings_smb_enable_auto_download_summary">When enabled, opening the first page of a gallery automatically queues a background download to network storage. When off, the Download button asks each time.</string>
     <string name="settings_smb_device_name">This device\'s name</string>
