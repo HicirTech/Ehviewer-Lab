@@ -1,17 +1,17 @@
 {
-  "version": "2.0.2.4-hl.1",
-  "versionCode": 12,
+  "version": "2.0.2.5-hl.1",
+  "versionCode": 13,
   "mustUpdate": false,
   "updateContent": {
-    "fileDownloadUrl": "https://github.com/HicirTech/Ehviewer-Lab/releases/tag/v2.0.2.4-hl.1",
-    "title": "EhViewer@Lab 2.0.2.4-hl.1",
+    "fileDownloadUrl": "https://github.com/HicirTech/Ehviewer-Lab/releases/tag/v2.0.2.5-hl.1",
+    "title": "EhViewer@Lab 2.0.2.5-hl.1",
     "content": [
-      "跟进上游 EhViewer 2.0.2.4",
-      "归档下载改为应用内下载:支持断点续传、暂停与继续,并在通知栏显示进度",
-      "详情页点击封面可查看大图",
-      "阅读进度更稳:进度文件中某一行损坏、或从网络存储读取到一半中断时,不再丢失整本的阅读进度",
-      "在线读取遇到个别网络异常时,失败的页面会正常重试",
-      "下载列表显示网络存储画廊的阅读进度时只读取必要部分,减少网络流量"
+      "跟进上游 EhViewer 2.0.2.5",
+      "下载页可以导入手机上的图片文件夹,作为一本本地画廊",
+      "阅读设置新增屏幕刷新率选项(Android 11 及以上)",
+      "修复「重置阅读进度」不生效的问题",
+      "移除侧边栏顶部的头像与背景,切换页面时不再弹出昵称提示",
+      "本地导入的画廊不会再被存入网络存储"
     ]
   }
 }
