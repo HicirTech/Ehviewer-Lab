@@ -55,4 +55,10 @@ public class SmbImageDataContainer implements DataContainer {
     @Override
     public void remove() {
     }
+
+    /** The share stays the only durable copy of a page (#129). */
+    @Override
+    public boolean allowDiskCopy() {
+        return false;
+    }
 }

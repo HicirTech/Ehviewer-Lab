@@ -49,4 +49,11 @@ public interface DataContainer {
      * Remove saved stuff
      */
     void remove();
+
+    /**
+     * Whether a value decoded from this container may also be kept in the disk cache
+     */
+    default boolean allowDiskCopy() {
+        return true;
+    }
 }

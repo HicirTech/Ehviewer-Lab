@@ -229,7 +229,8 @@ public class ConacoTask<V> {
                     }
                     // Keep a copy in disk cache so recycled list items can reload
                     // after DataContainer is dropped on view re-attach.
-                    if (value != null && mKey != null && mUseDiskCache) {
+                    if (value != null && mKey != null && mUseDiskCache
+                            && mDataContainer.allowDiskCopy()) {
                         putFromDataContainerToDiskCache(mKey, mCache, mDataContainer);
                     }
                 }
