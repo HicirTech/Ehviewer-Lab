@@ -86,22 +86,9 @@ class DownloadAlbumImporter(private val mHost: Host) {
 
         val context: Context = mHost.eHContext ?: return
 
-        try {
-            context.contentResolver.takePersistableUriPermission(
-                uri,
-                Intent.FLAG_GRANT_READ_URI_PERMISSION
-            )
-            Log.d(TAG, "Successfully obtained persistent URI permission for: $uri")
-        } catch (e: SecurityException) {
-            Log.e(TAG, "Failed to obtain persistent URI permission for: $uri", e)
-            Toast.makeText(context, R.string.import_album_failed, Toast.LENGTH_LONG).show()
-            return
-        } catch (e: Exception) {
-            Log.e(TAG, "Unexpected error when obtaining URI permission for: $uri", e)
-            Toast.makeText(context, R.string.import_album_failed, Toast.LENGTH_SHORT).show()
-            return
-        }
-
+        // No persisted grant: the tree is read once, now, and the picker's grant lasts until
+        // reboot. A persisted one per album would count against the app's cap and silently
+        // evict the oldest grant, which is usually the download location's.
         Toast.makeText(context, R.string.import_album_processing, Toast.LENGTH_LONG).show()
         Thread(Runnable { processAlbumFolder(uri) }).start()
     }
