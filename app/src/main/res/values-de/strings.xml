@@ -473,6 +473,12 @@
     <string name="settings_read_screen_rotation_portrait">Hochformat</string>
     <string name="settings_read_screen_rotation_landscape">Querformat</string>
     <string name="settings_read_screen_rotation_sensor">Automatisch drehen</string>
+    <string name="settings_read_refresh_rate">Bildwiederholrate</string>
+    <string name="settings_read_refresh_rate_default">Standard</string>
+    <string name="settings_read_refresh_rate_60">60 Hz</string>
+    <string name="settings_read_refresh_rate_90">90 Hz</string>
+    <string name="settings_read_refresh_rate_120">120 Hz</string>
+    <string name="settings_read_refresh_rate_max">Maximum des Bildschirms</string>
     <string name="settings_read_reading_direction">Richtung des Lesens</string>
     <string name="settings_read_reading_direction_left_to_right">Von links nach rechts</string>
     <string name="settings_read_reading_direction_right_to_Left">Von rechts nach links</string>
@@ -692,6 +698,8 @@
     <string name="settings_advanced_custom_hosts_summary">Hostname auf die angepassten IP umstellen\nDie Regeln können die von der App festgelegt überschreiben</string>
     <string name="download_reset_reading_progress">Lesefortschritte zurücksetzen</string>
     <string name="reset_reading_progress_message">Lesefortschritte aus allen heruntergeladenen Galerie zurücksetzen?</string>
+    <string name="reset_reading_progress_processing">Lesefortschritte werden zurückgesetzt...</string>
+    <string name="reset_reading_progress_done">Lesefortschritte zurückgesetzt</string>
     <string name="settings_eh_theme">Theme</string>
     <string name="settings_eh_theme_light">Weiß</string>
     <string name="settings_eh_theme_dark">Dunkel</string>
@@ -895,4 +903,11 @@
     <string name="imported_archive_info_title">Lokaler Import-Info</string>
     <string name="imported_archive_info_message">Dies ist ein Element, das aus dem lokalen Speicher importiert wurde</string>
     <string name="imported_archive_category">Lokaler Import</string>
+    <string name="import_local_album">Lokales Album importieren</string>
+    <string name="import_album_title">Bildordner auswählen</string>
+    <string name="import_album_processing">Album wird importiert…</string>
+    <string name="import_album_failed">Albumimport fehlgeschlagen</string>
+    <string name="import_album_no_images">Keine unterstützten Bilder im ausgewählten Ordner</string>
+    <string name="import_album_already_imported">Album wurde bereits importiert</string>
+    <string name="import_album_success">%d Bilder erfolgreich importiert</string>
 </resources>

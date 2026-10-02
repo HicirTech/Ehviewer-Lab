@@ -215,15 +215,13 @@ public final class SmbDownloadsDelegate {
                 .show();
     }
 
-    /** Deletes an SMB save (cancel = release claim + wipe share folder); true = nothing local. */
-    public boolean deleteIfSmbTask(@Nullable com.hippo.ehviewer.client.data.GalleryInfo info) {
-        if (!(info instanceof SmbTaskInfo)) {
-            return false;
+    /** The move dialog's "move to the share" entry, or null while the share is off or unset. */
+    @Nullable
+    public String moveTargetLabel(@NonNull Context context) {
+        if (!Settings.getNetworkStorageEnabled() || !NetworkStorage.active().isConfigured()) {
+            return null;
         }
-        if (SmbTaskInfo.isActionable((DownloadInfo) info)) {
-            SmbDirectDownloader.getInstance().cancel(info.gid);
-        }
-        return true;
+        return context.getString(R.string.download_move_to_smb, NetworkStorage.active().displayName());
     }
 
     /** Moves = enqueues (#88): claims, progress rows, resume — the pages come from the phone. */

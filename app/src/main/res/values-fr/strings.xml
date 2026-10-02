@@ -405,6 +405,8 @@
     <string name="download_stop_all">Arrêter tout</string>
     <string name="download_reset_reading_progress">Réinitialiser les progrès de lecture</string>
     <string name="reset_reading_progress_message">Réinitialiser les progrès de lecture de toutes les galeries téléchargées ?</string>
+    <string name="reset_reading_progress_processing">Réinitialisation des progrès de lecture...</string>
+    <string name="reset_reading_progress_done">Progrès de lecture réinitialisés</string>
     <string name="download_service_label">Service du téléchargement EhViewer</string>
     <string name="archiver_download_service_label">Téléchargement d\'archives EhViewer</string>
     <string name="archiver_download_pause">Pause</string>
@@ -520,6 +522,12 @@
     <string name="settings_read_screen_rotation_default">Par défaut</string>
     <string name="settings_read_screen_rotation_portrait">Portrait</string>
     <string name="settings_read_screen_rotation_landscape">Landscape</string>
+    <string name="settings_read_refresh_rate">Taux de rafraîchissement</string>
+    <string name="settings_read_refresh_rate_default">Par défaut</string>
+    <string name="settings_read_refresh_rate_60">60 Hz</string>
+    <string name="settings_read_refresh_rate_90">90 Hz</string>
+    <string name="settings_read_refresh_rate_120">120 Hz</string>
+    <string name="settings_read_refresh_rate_max">Maximum de l\'écran</string>
     <string name="settings_read_reading_direction">Direction de lecture</string>
     <string name="settings_read_reading_direction_left_to_right">De gauche à droite</string>
     <string name="settings_read_reading_direction_right_to_Left">De droite à gauche</string>
@@ -877,6 +885,13 @@
     <string name="imported_archive_info_title">Informations d\'importation locale</string>
     <string name="imported_archive_info_message">Il s\'agit d\'un élément importé depuis le stockage local</string>
     <string name="imported_archive_category">Importation locale</string>
+    <string name="import_local_album">Importer un album local</string>
+    <string name="import_album_title">Sélectionner le dossier d\'images</string>
+    <string name="import_album_processing">Importation de l\'album…</string>
+    <string name="import_album_failed">Échec de l\'importation de l\'album</string>
+    <string name="import_album_no_images">Aucune image prise en charge dans le dossier sélectionné</string>
+    <string name="import_album_already_imported">Album déjà importé</string>
+    <string name="import_album_success">%d images importées avec succès</string>
 
     <!-- S-Pen Actions(Samsung only) -->
     <string name="spen_previous_page">Page précédente</string>
