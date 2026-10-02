@@ -63,6 +63,7 @@
     <string name="gallery_download_target_smb">En el recurso compartido %1$s</string>
     <string name="download_move_to_smb">Mover al recurso compartido %1$s</string>
     <string name="download_moving_to_smb">Copiando al recurso compartido %1$s…</string>
+    <string name="download_move_to_smb_local_kept">Las importaciones locales no se copian al recurso compartido %1$s</string>
     <string name="settings_smb_enable_auto_download">Descarga automática a almacenamiento de red</string>
     <string name="settings_smb_enable_auto_download_summary">Si está activado, abrir la primera página de una galería pone en cola automáticamente una descarga en segundo plano al almacenamiento de red. Si está desactivado, el botón de descarga pregunta cada vez.</string>
     <string name="settings_smb_device_name">Nombre de este dispositivo</string>

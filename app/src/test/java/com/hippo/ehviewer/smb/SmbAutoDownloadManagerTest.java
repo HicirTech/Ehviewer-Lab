@@ -14,6 +14,7 @@ import android.os.Looper;
 
 import com.hippo.ehviewer.Settings;
 import com.hippo.ehviewer.client.data.GalleryInfo;
+import com.hippo.ehviewer.dao.DownloadInfo;
 import com.hippo.ehviewer.spider.SpiderQueen;
 
 import java.util.ArrayList;
@@ -47,6 +48,8 @@ import org.robolectric.shadow.api.Shadow;
 public class SmbAutoDownloadManagerTest {
 
     private static final long GID = 4035531L;
+    /** A local album's made-up gid: an import timestamp, as 2.0.2.5 assigns it. */
+    private static final long ALBUM_GID = 1727000000001L;
 
     /** One entry per enqueue that got past the gates. */
     static final List<Long> accepted = Collections.synchronizedList(new ArrayList<>());
@@ -200,8 +203,10 @@ public class SmbAutoDownloadManagerTest {
     public void tearDown() {
         // Both are process-wide singletons; leave nothing for the next test.
         SmbDirectDownloader.getInstance().cancel(GID);
+        SmbDirectDownloader.getInstance().cancel(ALBUM_GID);
         pump();
         GalleryTargets.unmark(GID);
+        GalleryTargets.unmark(ALBUM_GID);
         accepted.clear();
         started.clear();
     }
@@ -247,6 +252,23 @@ public class SmbAutoDownloadManagerTest {
         pump();
 
         assertTrue(accepted.isEmpty());
+    }
+
+    /** A local album opens in the reader like a gallery, but its gid is made up (2.0.2.5). */
+    @Test
+    public void bothPaths_neverQueueALocalImport() {
+        DownloadInfo album = new DownloadInfo();
+        album.gid = ALBUM_GID;
+        album.token = "local";
+        album.title = "Pictures";
+        album.archiveUri = "local-album:content://tree/primary%3APictures";
+
+        SmbAutoDownloadManager.getInstance().enqueueFromFirstPage(context, album);
+        SmbAutoDownloadManager.getInstance().enqueueManual(context, album);
+        pump();
+
+        assertTrue("nothing about a local import may reach the share", accepted.isEmpty());
+        assertTrue(started.isEmpty());
     }
 
     // --- one download per gallery, and always saveable again -------------------------------------

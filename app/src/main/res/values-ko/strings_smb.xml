@@ -63,6 +63,7 @@
     <string name="gallery_download_target_smb">%1$s 공유에 저장</string>
     <string name="download_move_to_smb">%1$s 공유로 이동</string>
     <string name="download_moving_to_smb">%1$s 공유로 복사하는 중…</string>
+    <string name="download_move_to_smb_local_kept">로컬에서 가져온 항목은 %1$s 공유로 복사되지 않습니다</string>
     <string name="settings_smb_enable_auto_download">네트워크 저장소에 자동 다운로드</string>
     <string name="settings_smb_enable_auto_download_summary">켜면 갤러리의 첫 페이지를 열 때 네트워크 저장소로의 백그라운드 다운로드가 자동으로 대기열에 추가됩니다. 끄면 다운로드 버튼을 누를 때마다 물어봅니다.</string>
     <string name="settings_smb_device_name">이 기기의 이름</string>

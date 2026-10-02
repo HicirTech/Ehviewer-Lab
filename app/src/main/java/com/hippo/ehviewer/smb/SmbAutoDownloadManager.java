@@ -50,6 +50,10 @@ public final class SmbAutoDownloadManager {
     }
 
     private void enqueueInternal(@NonNull Context context, @NonNull GalleryInfo galleryInfo) {
+        // Before the skeleton write below: that alone would put a folder for it on the share.
+        if (SmbDirectDownloader.isLocalImport(galleryInfo)) {
+            return;
+        }
         com.hippo.ehviewer.ui.NotificationPermission.onDownloadStart(context);
         final Context appContext = context.getApplicationContext();
 

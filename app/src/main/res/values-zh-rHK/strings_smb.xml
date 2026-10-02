@@ -63,6 +63,7 @@
     <string name="gallery_download_target_smb">下載到 %1$s 共享</string>
     <string name="download_move_to_smb">移動到 %1$s 共享</string>
     <string name="download_moving_to_smb">正在複製到 %1$s 共享…</string>
+    <string name="download_move_to_smb_local_kept">本機匯入的項目不會複製到 %1$s 共享</string>
     <string name="settings_smb_enable_auto_download">自動下載到網絡儲存</string>
     <string name="settings_smb_enable_auto_download_summary">啟用後，開啟畫廊嘅第一頁會自動喺背景排隊下載到網絡儲存。關閉時，按下載按鈕會每次詢問。</string>
     <string name="settings_smb_device_name">本機名稱</string>

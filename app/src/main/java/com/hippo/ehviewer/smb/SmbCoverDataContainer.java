@@ -58,4 +58,10 @@ public class SmbCoverDataContainer implements DataContainer {
     @Override
     public void remove() {
     }
+
+    /** The share stays the only durable copy of a cover (#114). */
+    @Override
+    public boolean allowDiskCopy() {
+        return false;
+    }
 }

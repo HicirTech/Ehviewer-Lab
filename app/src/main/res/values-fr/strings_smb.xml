@@ -63,6 +63,7 @@
     <string name="gallery_download_target_smb">Sur le partage %1$s</string>
     <string name="download_move_to_smb">Déplacer vers le partage %1$s</string>
     <string name="download_moving_to_smb">Copie vers le partage %1$s…</string>
+    <string name="download_move_to_smb_local_kept">Les imports locaux ne sont pas copiés vers le partage %1$s</string>
     <string name="settings_smb_enable_auto_download">Téléchargement automatique vers le stockage réseau</string>
     <string name="settings_smb_enable_auto_download_summary">Si activé, ouvrir la première page d\'une galerie met automatiquement en file d\'attente un téléchargement en arrière-plan vers le stockage réseau. Si désactivé, le bouton de téléchargement demande à chaque fois.</string>
     <string name="settings_smb_device_name">Nom de cet appareil</string>

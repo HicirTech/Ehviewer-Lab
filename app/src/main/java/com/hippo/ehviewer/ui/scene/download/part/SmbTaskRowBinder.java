@@ -8,6 +8,7 @@
 package com.hippo.ehviewer.ui.scene.download.part;
 
 import android.content.Context;
+import android.content.res.Resources;
 import android.text.format.DateUtils;
 import android.view.View;
 
@@ -30,7 +31,7 @@ final class SmbTaskRowBinder {
     static void bindOwner(@NonNull DownloadAdapter.DownloadHolder holder,
                           @NonNull DownloadInfo info, @Nullable Context context) {
         if (!SmbTaskInfo.isSmb(info) || ((SmbTaskInfo) info).mine) {
-            holder.smbOwner.setVisibility(View.GONE);
+            holder.getSmbOwner().setVisibility(View.GONE);
             return;
         }
         SmbTaskInfo smb = (SmbTaskInfo) info;
@@ -41,8 +42,8 @@ final class SmbTaskRowBinder {
                     DateUtils.SECOND_IN_MILLIS);
             text = context.getString(R.string.smb_task_owner_last_seen, smb.deviceName, ago);
         }
-        holder.smbOwner.setText(text);
-        holder.smbOwner.setVisibility(View.VISIBLE);
+        holder.getSmbOwner().setText(text);
+        holder.getSmbOwner().setVisibility(View.VISIBLE);
     }
 
     /** Hides fields a just-enqueued skeleton has no values for (UNKNOWN chips read as facts). */
@@ -52,13 +53,13 @@ final class SmbTaskRowBinder {
             return;
         }
         if (info.uploader == null || info.uploader.isEmpty()) {
-            holder.uploader.setVisibility(View.GONE);
+            holder.getUploader().setVisibility(View.GONE);
         }
         if (info.rating <= 0f) {
-            holder.rating.setVisibility(View.GONE);
+            holder.getRating().setVisibility(View.GONE);
         }
         if (info.category == EhUtils.UNKNOWN) {
-            holder.category.setVisibility(View.GONE);
+            holder.getCategory().setVisibility(View.GONE);
         }
     }
 
@@ -68,9 +69,17 @@ final class SmbTaskRowBinder {
         if (SmbTaskInfo.isSmb(info)
                 && !SmbTaskInfo.isActionable(info)
                 && !SmbTaskInfo.canTakeOver(info)) {
-            holder.start.setVisibility(View.GONE);
-            holder.stop.setVisibility(View.GONE);
+            holder.getStart().setVisibility(View.GONE);
+            holder.getStop().setVisibility(View.GONE);
         }
+    }
+
+    /** An orphan is not a failure: intact, waiting, adoptable. Null when the row is not one. */
+    @Nullable
+    static String orphanStateText(@NonNull DownloadInfo info, @NonNull Resources resources) {
+        return SmbTaskInfo.canTakeOver(info)
+                ? resources.getString(R.string.smb_task_owner_offline)
+                : null;
     }
 
     /** SMB progress binding (no speed figure — nobody measures another device's rate). */
@@ -79,7 +88,7 @@ final class SmbTaskRowBinder {
         if (!SmbTaskInfo.isSmb(info)) {
             return false;
         }
-        holder.speed.setVisibility(View.GONE);
+        holder.getSpeed().setVisibility(View.GONE);
         hideControlsWeCannotHonour(holder, info);
         return true;
     }
