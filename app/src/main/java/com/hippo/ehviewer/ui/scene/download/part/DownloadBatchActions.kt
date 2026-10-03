@@ -112,13 +112,15 @@ class DownloadBatchActions(private val mHost: Host) {
             while (i < n) {
                 if (stateArray.valueAt(i)) {
                     val info = list[mHost.positionInList(stateArray.keyAt(i))]
-                    if (!mHost.isExcludedFromBatch(info)) {
-                        if (collectDownloadInfo) {
-                            downloadInfoList!!.add(info)
-                        }
-                        if (collectGid) {
-                            gidList!!.add(info.gid)
-                        }
+                    if (mHost.isExcludedFromBatch(info)) {
+                        i++
+                        continue
+                    }
+                    if (collectDownloadInfo) {
+                        downloadInfoList!!.add(info)
+                    }
+                    if (collectGid) {
+                        gidList!!.add(info.gid)
                     }
                 }
                 i++
@@ -179,7 +181,7 @@ class DownloadBatchActions(private val mHost: Host) {
                     }
                     val labelRawList = EhApplication.getDownloadManager(context).getLabelList()
                     val extraTarget = mHost.extraMoveTarget(context)
-                    val labelList: MutableList<String?> = ArrayList<String?>(labelRawList.size + 2)
+                    val labelList: MutableList<String?> = ArrayList<String?>(labelRawList.size + 1)
                     if (extraTarget != null) {
                         labelList.add(extraTarget)
                     }
@@ -192,9 +194,7 @@ class DownloadBatchActions(private val mHost: Host) {
                     }
                     val labels = labelList.toTypedArray<String?>()
 
-                    val helper = MoveDialogHelper(
-                        labels, downloadInfoList, recyclerView, mHost, extraTarget != null
-                    )
+                    val helper = MoveDialogHelper(labels, downloadInfoList, recyclerView, mHost, extraTarget != null)
 
                     AlertDialog.Builder(context)
                         .setTitle(R.string.download_move_dialog_title)
@@ -324,7 +324,7 @@ class DownloadBatchActions(private val mHost: Host) {
         private val mDownloadInfoList: MutableList<DownloadInfo?>?,
         private val mRecyclerView: MyEasyRecyclerView?,
         private val mHost: Host,
-        private val mExtraAtZero: Boolean = false
+        private val mExtraAtZero: Boolean
     ) : DialogInterface.OnClickListener {
         override fun onClick(dialog: DialogInterface?, which: Int) {
             // Cancel check mode

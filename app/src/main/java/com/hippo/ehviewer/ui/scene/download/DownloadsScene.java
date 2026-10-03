@@ -825,9 +825,10 @@ public class DownloadsScene extends ToolbarScene
         }
 
         if (recyclerView.isInCustomChoice()) {
-            if (!isSmbAt(position)) {
-                recyclerView.toggleItemChecked(position);
+            if (isSmbAt(position)) {
+                return true;
             }
+            recyclerView.toggleItemChecked(position);
             return true;
         } else {
             List<DownloadInfo> list = mList;
