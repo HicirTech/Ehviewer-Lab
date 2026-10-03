@@ -44,9 +44,15 @@ final class SmbTaskRowBinder {
         holder.getSmbOwner().setVisibility(View.VISIBLE);
     }
 
+    static void hideAbsentFieldsAndControls(@NonNull DownloadAdapter.DownloadHolder holder,
+                                            @NonNull DownloadInfo info) {
+        hideAbsentFields(holder, info);
+        hideControlsWeCannotHonour(holder, info);
+    }
+
     /** An UNKNOWN chip on a just-enqueued skeleton would read as a fact. */
-    static void hideAbsentFields(@NonNull DownloadAdapter.DownloadHolder holder,
-                                 @NonNull DownloadInfo info) {
+    private static void hideAbsentFields(@NonNull DownloadAdapter.DownloadHolder holder,
+                                         @NonNull DownloadInfo info) {
         if (!SmbTaskInfo.isSmb(info)) {
             return;
         }
@@ -61,8 +67,8 @@ final class SmbTaskRowBinder {
         }
     }
 
-    static void hideControlsWeCannotHonour(@NonNull DownloadAdapter.DownloadHolder holder,
-                                           @NonNull DownloadInfo info) {
+    private static void hideControlsWeCannotHonour(@NonNull DownloadAdapter.DownloadHolder holder,
+                                                   @NonNull DownloadInfo info) {
         if (SmbTaskInfo.isSmb(info)
                 && !SmbTaskInfo.isActionable(info)
                 && !SmbTaskInfo.canTakeOver(info)) {

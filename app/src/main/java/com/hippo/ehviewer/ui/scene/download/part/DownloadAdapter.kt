@@ -333,8 +333,7 @@ class DownloadAdapter(scene: DownloadsScene, callback: DownloadAdapterCallback) 
             holder.stop.setVisibility(View.GONE)
         }
 
-        SmbTaskRowBinder.hideAbsentFields(holder, info)
-        SmbTaskRowBinder.hideControlsWeCannotHonour(holder, info)
+        SmbTaskRowBinder.hideAbsentFieldsAndControls(holder, info)
         holder.state.setText(state)
     }
 
