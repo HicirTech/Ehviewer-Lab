@@ -8,12 +8,15 @@
 package com.hippo.ehviewer.ui;
 
 import android.content.Context;
+import android.widget.CompoundButton;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AlertDialog;
+import androidx.preference.TwoStatePreference;
 
 import com.hippo.ehviewer.R;
+import com.hippo.ehviewer.download.PowerDownloadSettings;
 
 /** Volume keys turn pages or download, never both; the caller switches the other off on confirm. */
 public final class VolumeKeyModeDialog {
@@ -38,5 +41,30 @@ public final class VolumeKeyModeDialog {
                     }
                 })
                 .show();
+    }
+
+    /** For the settings screen's page-turning switch: turning it on turns volume-key download off. */
+    public static void guardPageTurning(@NonNull Context context,
+                                        @Nullable TwoStatePreference volumePage) {
+        if (volumePage == null) {
+            return;
+        }
+        volumePage.setOnPreferenceChangeListener((preference, newValue) -> {
+            if (Boolean.TRUE.equals(newValue) && PowerDownloadSettings.isVolumeEnabled()) {
+                confirm(context, false, () -> {
+                    PowerDownloadSettings.putVolumeEnabled(false);
+                    volumePage.setChecked(true);
+                }, null);
+                return false;
+            }
+            return true;
+        });
+    }
+
+    /** For the reader's page-turning switch, saved later with its menu: unchecks it unless confirmed. */
+    public static void confirmPageTurning(@NonNull CompoundButton volumePage) {
+        if (volumePage.isChecked() && PowerDownloadSettings.isVolumeEnabled()) {
+            confirm(volumePage.getContext(), false, () -> {}, () -> volumePage.setChecked(false));
+        }
     }
 }
