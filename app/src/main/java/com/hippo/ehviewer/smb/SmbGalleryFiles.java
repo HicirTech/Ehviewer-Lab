@@ -7,9 +7,9 @@ import android.util.Log;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
-import com.hippo.ehviewer.EhApplication;
 import com.hippo.ehviewer.client.data.GalleryInfo;
 import com.hippo.ehviewer.spider.SpiderDen;
+import com.hippo.ehviewer.spider.SpiderInfo;
 import com.hippo.streampipe.InputStreamPipe;
 import com.hippo.streampipe.OutputStreamPipe;
 import com.hippo.lib.yorozuya.IOUtils;
@@ -23,29 +23,17 @@ import java.util.Set;
 
 import jcifs.smb.SmbFile;
 
-/**
- * The files inside one gallery's folder: pages, covers, spider info. Two rules: all writes are
- * atomic (temp name + rename on close, the #35 fix), and local bytes are decode shims that die
- * with the pipe — the share stays the only durable copy.
- */
+/** Local bytes are decode shims that die with their pipe; the share is the only durable copy. */
 public final class SmbGalleryFiles {
 
     private static final String TAG = "SmbStorage";
 
     private static final String SPIDER_INFO_FILE = ".ehviewer";
 
-    /**
-     * jcifs sizes SMB2 requests from the caller's array, so buffer size is throughput: 4KB
-     * writes measured 0.5 MB/s, 256KB reaches 6.3 (rcv_buf_size does not help).
-     */
+    /** jcifs sizes each SMB2 request from the caller's buffer, so this size sets throughput. */
     static final int SMB_IO_BUFFER = 256 * 1024;
 
-    /**
-     * One-shot in-memory echo of the just-published page (#138): SpiderQueen re-reads every page
-     * it downloads (the plain-text check), which on this backend meant pulling the whole page
-     * back from the NAS while the NAS was still writing. The echo answers that one read from
-     * memory — consumed on read, hard-capped, never touching disk.
-     */
+    /** SpiderQueen re-reads each page it writes; a one-shot echo serves that read from memory. */
     private static final int ECHO_MAX_BYTES = 32 * 1024 * 1024;
     private static final java.util.LinkedHashMap<String, byte[]> RECENT_WRITES =
             new java.util.LinkedHashMap<>(8, 0.75f, false);
@@ -80,10 +68,7 @@ public final class SmbGalleryFiles {
 
     private SmbGalleryFiles() {}
 
-    /**
-     * Spider-info writer, temp-then-rename: truncate-opening an existing .ehviewer gets
-     * ACCESS_DENIED on the reference NAS, and a partial write must not destroy the pTokens.
-     */
+    /** Temp-then-rename: truncate-opening .ehviewer is ACCESS_DENIED on the reference NAS. */
     @Nullable
     public static OutputStream openSpiderInfoOutputStream(@NonNull GalleryInfo info) {
         try {
@@ -138,6 +123,18 @@ public final class SmbGalleryFiles {
         }
     }
 
+    /** Without pTokens; null when missing, unreadable or another gallery's. */
+    @Nullable
+    public static SpiderInfo readSpiderInfoHeader(@NonNull GalleryInfo info) {
+        InputStream is = openSpiderInfoInputStream(info);
+        try {
+            SpiderInfo header = SpiderInfo.readHeader(is);
+            return header != null && header.gid == info.gid ? header : null;
+        } finally {
+            IOUtils.closeQuietly(is);
+        }
+    }
+
     @Nullable
     public static InputStream openSpiderInfoInputStream(@NonNull GalleryInfo info) {
         long t0 = SystemClock.elapsedRealtime();
@@ -147,8 +144,7 @@ public final class SmbGalleryFiles {
                 Log.i("SmbPerf", "spiderInfo.read gid=" + info.gid + " missing " + (SystemClock.elapsedRealtime() - t0) + "ms");
                 return null;
             }
-            // SpiderInfo.read() parses byte-at-a-time; unbuffered = one round trip per byte
-            // (a 28KB file measured 63s).
+            // SpiderInfo.read() parses byte by byte; unbuffered, each byte is an SMB round trip.
             InputStream in = new java.io.BufferedInputStream(file.getInputStream(), 64 * 1024);
             Log.i("SmbPerf", "spiderInfo.read gid=" + info.gid + " " + (SystemClock.elapsedRealtime() - t0) + "ms");
             return in;
@@ -164,14 +160,13 @@ public final class SmbGalleryFiles {
         for (String extension : com.hippo.ehviewer.gallery.GalleryProvider2.SUPPORT_IMAGE_EXTENSIONS) {
             String filename = SpiderDen.generateImageFilename(index, extension);
             if (names.contains(filename)) {
-                // Build the single matching file reference; no per-extension exists() round-trips.
                 return new SmbFile(SmbGalleryDirectory.resolveGalleryDir(info), filename);
             }
         }
         return null;
     }
 
-    /** Drops every echo of this gallery — deletion must not leave bytes to serve (#143). */
+    /** Drops every echo of this gallery — deletion must not leave bytes to serve. */
     static void forgetGallery(long gid) {
         String prefix = gid + ":";
         synchronized (RECENT_WRITES) {
@@ -187,16 +182,11 @@ public final class SmbGalleryFiles {
         }
     }
 
-    /**
-     * Deletes page {@code index}'s published file — the failed-download cleanup (#140). A
-     * source-side failure still publishes whatever bytes arrived (the pipe's close cannot tell
-     * success from failure), so the name must go or the truncated page reads as saved forever.
-     */
+    /** Failed-download cleanup: the pipe's close publishes even a truncated page. */
     public static boolean deleteImage(@NonNull GalleryInfo info, int index) {
         consumeWrite(info.gid, index);
         try {
-            // Every extension, not the first match: a format-changing re-publish leaves two
-            // names for one page, and deleting only the preferred one keeps the bad file (#150).
+            // Every extension: a format-changing re-publish leaves two names for one page.
             Set<String> names = SmbGalleryDirectory.galleryFilenames(info);
             boolean deleted = false;
             for (String extension : com.hippo.ehviewer.gallery.GalleryProvider2.SUPPORT_IMAGE_EXTENSIONS) {
@@ -218,7 +208,6 @@ public final class SmbGalleryFiles {
         }
     }
 
-    /** Package-visible accessor used by {@link SmbPreviewCache} for parallel prefetch. */
     @Nullable
     static SmbFile findSmbImageFileForPreview(@NonNull GalleryInfo info, int index) {
         try {
@@ -228,10 +217,7 @@ public final class SmbGalleryFiles {
         }
     }
 
-    /**
-     * Finds cover.<ext> by per-extension exists() probes. Do NOT switch to a listing: measured
-     * slower (456→951ms for 12 covers), the cache is cold on this path.
-     */
+    /** Probes exists() per extension: a listing measured slower on this cold-cache path. */
     @Nullable
     private static SmbFile findSmbCoverFile(@NonNull GalleryInfo info) throws IOException {
         long t0 = SystemClock.elapsedRealtime();
@@ -253,7 +239,6 @@ public final class SmbGalleryFiles {
         return null;
     }
 
-    /** One cover into memory, nowhere else — for the prefetch. */
     @Nullable
     static byte[] readCoverBytes(@NonNull GalleryInfo info) {
         long t0 = SystemClock.elapsedRealtime();
@@ -312,7 +297,6 @@ public final class SmbGalleryFiles {
                         IOUtils.closeQuietly(remote);
                         IOUtils.closeQuietly(local);
                     }
-                    // thr= matters: Conaco's disk executor is serial; one thread name = queueing.
                     Log.i("SmbPerf", "cover.read gid=" + info.gid + " bytes=" + tempFile.length()
                             + " " + (SystemClock.elapsedRealtime() - tCopy) + "ms thr="
                             + Thread.currentThread().getName());
@@ -347,10 +331,7 @@ public final class SmbGalleryFiles {
         return false;
     }
 
-    /**
-     * Atomic write: temp name, rename on close, so no reader ever sees a half-written file (#35).
-     * Two-arg renameTo because re-downloads legitimately overwrite.
-     */
+    /** Publishes on close(), replacing any existing file. */
     @NonNull
     static OutputStream openAtomicOutputStream(@NonNull SmbFile dir, @NonNull String name,
                                                long gid) throws IOException {
@@ -385,9 +366,7 @@ public final class SmbGalleryFiles {
                 out.close();
                 try {
                     temp.renameTo(target, true);
-                    // The share just confirmed this name exists; a stale listing deleting a
-                    // just-written page was #35, so the cache must learn it — incrementally
-                    // (#102), not by re-listing the folder once per page.
+                    // Patched, not re-listed: this runs once per page.
                     SmbGalleryDirectory.noteWritten(gid, name);
                 } catch (Throwable e) {
                     // Uncertain what the folder holds now — forget, do not guess.
@@ -421,12 +400,10 @@ public final class SmbGalleryFiles {
 
                 @Override
                 public void obtain() {
-                    // no-op
                 }
 
                 @Override
                 public void release() {
-                    // no-op
                 }
 
                 @Override
@@ -484,9 +461,6 @@ public final class SmbGalleryFiles {
 
     @Nullable
     public static InputStreamPipe openSmbInputStreamPipe(@NonNull GalleryInfo info, int index) {
-        // The read straight after the write (#138): answered from the one-shot echo, in memory,
-        // instead of pulling the page back off the NAS it is still being written to. Consumed
-        // here, so every later read takes the real path below.
         final byte[] echo = consumeWrite(info.gid, index);
         if (echo != null) {
             Log.i("SmbPerf", "echo idx=" + index + " gid=" + info.gid + " bytes=" + echo.length);
@@ -508,19 +482,16 @@ public final class SmbGalleryFiles {
             if (file == null) {
                 return null;
             }
-            // The native decoder needs a real fd; materialize to a temp file that dies with the pipe.
             return new InputStreamPipe() {
                 private java.io.FileInputStream fis;
                 private java.io.File tempFile;
 
                 @Override
                 public void obtain() {
-                    // no-op
                 }
 
                 @Override
                 public void release() {
-                    // no-op
                 }
 
                 @Override
@@ -566,7 +537,7 @@ public final class SmbGalleryFiles {
         }
     }
 
-    /** Whole stream as UTF-8, byte-exact (readLine() dropped terminators and corrupted files). */
+    /** Whole stream as UTF-8, byte-exact. */
     static String readAll(InputStream is) throws IOException {
         ByteArrayOutputStream buffer = new ByteArrayOutputStream();
         byte[] chunk = new byte[SMB_IO_BUFFER];

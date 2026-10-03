@@ -20,14 +20,12 @@ public class SmbTempFilesTest {
                 NOW - OLD_ENOUGH, NOW));
     }
 
-    /** The writer of a temporary this new may be mid-rename, and the file is its only copy. */
     @Test
     public void aTemporaryStillWithinTheWindowIsLeftAlone() {
         assertFalse(SmbTempFiles.isAbandoned("d3766bd4f2261b5f.124081439544314.tmp",
                 NOW - OLD_ENOUGH + 1, NOW));
     }
 
-    /** The one that matters most. */
     @Test
     public void nothingThatIsNotATemporaryIsEverAbandoned() {
         long ancient = NOW - 400L * 24 * 60 * 60 * 1000;
@@ -40,23 +38,17 @@ public class SmbTempFilesTest {
         assertFalse("something a user put there", SmbTempFiles.isAbandoned("notes.txt", ancient, NOW));
     }
 
-    /** No usable timestamp means no way to tell, and "delete it" is the answer that cannot be undone. */
     @Test
     public void aTemporaryWithNoTimestampIsLeftAlone() {
         assertFalse(SmbTempFiles.isAbandoned("x.1.tmp", 0L, NOW));
         assertFalse(SmbTempFiles.isAbandoned("x.1.tmp", -1L, NOW));
     }
 
-    /** A file dated after this device's clock means the share and this device disagree about the time, not that the file is impossibly new. */
     @Test
     public void aTemporaryDatedInTheFutureIsLeftAlone() {
         assertFalse(SmbTempFiles.isAbandoned("x.1.tmp", NOW + 60_000L, NOW));
     }
 
-    /**
-     * The sweep only finds what the writer named, so the two have to keep agreeing. Split them and
-     * nothing fails — temporaries just quietly stop being collected again.
-     */
     @Test
     public void whatTheWriterNamesIsWhatTheSweepRecognises() {
         String name = SmbTempFiles.nameFor("00000007.jpg");
@@ -66,10 +58,6 @@ public class SmbTempFilesTest {
         assertTrue(SmbTempFiles.isAbandoned(name, NOW - OLD_ENOUGH, NOW));
     }
 
-    /**
-     * Two writes of one file must not share a temporary: the loser's close would land on the
-     * winner's rename. Also why a temporary left by a dead process is never mistaken for a live one.
-     */
     @Test
     public void everyTemporaryNameIsItsOwn() {
         Set<String> names = new HashSet<>();
@@ -80,7 +68,6 @@ public class SmbTempFilesTest {
         assertTrue("names collided: " + (1000 - names.size()) + " of 1000", names.size() == 1000);
     }
 
-    /** Guards the threshold itself. */
     @Test
     public void theWindowStaysFarBeyondAnyWriteThatIsMerelySlow() {
         assertTrue("abandonment window is " + SmbTempFiles.ABANDONED_AFTER_MS + "ms",

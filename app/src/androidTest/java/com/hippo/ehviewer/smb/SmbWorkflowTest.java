@@ -31,6 +31,7 @@ import androidx.test.uiautomator.UiObject2;
 import androidx.test.uiautomator.Until;
 
 import com.hippo.ehviewer.R;
+import com.hippo.ehviewer.storage.NetworkStorageSettings;
 import com.hippo.ehviewer.ui.MainActivity;
 
 import org.junit.After;
@@ -41,23 +42,20 @@ import org.junit.runner.RunWith;
 import java.io.IOException;
 import java.util.regex.Pattern;
 
-/** The workflow suite: every SMB screen the app has, against the share the device is actually configured for, in well under two minutes. */
+/** Every SMB screen, against the share this device is configured for. */
 @RunWith(AndroidJUnit4.class)
 @LargeTest
 public class SmbWorkflowTest {
 
-    /** App launch to first scene. Generous because a cold debug process pays for multidex. */
+    /** Generous: a cold debug process pays for multidex. */
     private static final long LAUNCH_MS = 20_000;
-    /** A full inventory listing off the share, or a first page off the share. */
     private static final long SHARE_MS = 30_000;
 
     private UiDevice mDevice;
     private String mPkg;
     private ActivityScenario<MainActivity> mScenario;
 
-    /** Installing the APK — which the connected-test task does on every run — drops the MANAGE_EXTERNAL_STORAGE appop, and the app answers its first launch w */
-    // MANAGE_EXTERNAL_STORAGE exists from API 30; on older images the shell command fails
-    // (harmlessly) and the legacy storage prompt path is simply not exercised by this suite.
+    /** Installs drop the MANAGE_EXTERNAL_STORAGE appop; before API 30 this fails harmlessly. */
     @org.junit.BeforeClass
     public static void grantAllFilesAccess() throws IOException {
         UiDevice.getInstance(InstrumentationRegistry.getInstrumentation()).executeShellCommand(
@@ -81,8 +79,6 @@ public class SmbWorkflowTest {
         }
     }
 
-    // --- the checks -------------------------------------------------------------------------
-
     @Test
     public void launchArrivesAtTheMainScene() {
         launchMain();
@@ -105,9 +101,6 @@ public class SmbWorkflowTest {
         assumeShareConfigured();
         launchMain();
         openFirstGalleryDetail();
-        // The strong condition. A page "materialises" only by coming off the share (the app has
-        // no durable local copies by design), and SmbPerf logs it when it happens. Cleared
-        // first, so a line from some earlier run cannot answer for this one.
         mDevice.executeShellCommand("logcat -c");
         UiObject2 read = mDevice.findObject(By.res(mPkg, "read"));
         assertNotNull("detail scene has no READ button", read);
@@ -121,10 +114,7 @@ public class SmbWorkflowTest {
     public void downloadsSceneArrives() {
         launchMain();
         openFromDrawer(R.id.nav_downloads);
-        // An empty list hides its RecyclerView entirely (GONE views never reach the
-        // accessibility tree), so a healthy empty device presents the tip instead. Either is
-        // the scene arriving; demanding the list once failed the suite precisely on the
-        // healthiest device in the room.
+        // An empty list is GONE, which UI Automator cannot see, so the tip stands in for it.
         assertTrue("neither the download list nor its empty-state tip appeared",
                 waitAny(8_000, By.res(mPkg, "recycler_view"), By.res(mPkg, "tip")));
     }
@@ -146,15 +136,9 @@ public class SmbWorkflowTest {
                 .perform(scrollTo(hasDescendant(withText(R.string.settings_storage_enable_save))));
     }
 
-    // --- navigation -------------------------------------------------------------------------
-
     private void launchMain() {
         mScenario = ActivityScenario.launch(MainActivity.class);
-        // A configured device draws the search bar straight away. A factory-fresh one walks
-        // the first-run chain instead — warning, analytics consent, sign-in, site selection —
-        // and every screen of it has a stable view id, with sign-in answered by guest mode,
-        // never credentials. Peel whichever screen is up and keep polling; a single up-front
-        // dismissal loses the race with the first scene's rendering.
+        // Polled: one up-front dismissal loses the race with the first scene's rendering.
         long end = android.os.SystemClock.uptimeMillis() + LAUNCH_MS;
         while (android.os.SystemClock.uptimeMillis() < end) {
             if (mDevice.hasObject(By.res(mPkg, "search_bar"))) {
@@ -167,13 +151,9 @@ public class SmbWorkflowTest {
         throw new AssertionError("main scene did not draw its search bar");
     }
 
-    /** Drawer navigation by menu id. */
     private void openFromDrawer(int menuId) {
         mScenario.onActivity(a -> a.openDrawer(Gravity.LEFT));
-        // The drawer is a custom view sliding on its own scroller: animationsDisabled does not
-        // shorten the slide and Espresso's idle detection cannot see it, so navigateTo — which
-        // rightly refuses a NavigationView under 90% on screen — can fire mid-slide. Retry
-        // until the slide has finished; the slide is ~300 ms, the budget is three seconds.
+        // Espresso cannot see the drawer's own scroller, so navigateTo may fire mid-slide.
         androidx.test.espresso.PerformException last = null;
         for (int i = 0; i < 12; i++) {
             try {
@@ -187,14 +167,10 @@ public class SmbWorkflowTest {
         throw last;
     }
 
-    /**
-     * The share-facing tests are meaningless on a device with no SMB share configured — skip
-     * them the way SmbReadWorkflowTest skips without eh.targets, instead of hard-failing (#144).
-     */
     private static void assumeShareConfigured() {
         org.junit.Assume.assumeTrue("no SMB share configured on this device; share tests skipped",
                 com.hippo.ehviewer.storage.NetworkStorage.active().isConfigured()
-                        && com.hippo.ehviewer.Settings.getNetworkStorageEnabled());
+                        && NetworkStorageSettings.isEnabled());
     }
 
     private void openInventory() {
@@ -205,9 +181,7 @@ public class SmbWorkflowTest {
                         mDevice.wait(Until.hasObject(By.res(mPkg, "title")), SHARE_MS)));
         assertFalse("inventory arrived empty",
                 mDevice.findObjects(By.res(mPkg, "title")).isEmpty());
-        // "SMB" hard-coded on purpose: a call site that stops passing the protocol name would
-        // render the raw placeholder, which this would catch and a displayName() round trip
-        // would not.
+        // "SMB", not displayName(): a round trip would not catch a raw placeholder.
         assertTrue("scene title does not carry the protocol name",
                 mDevice.hasObject(By.text(androidx.test.platform.app.InstrumentationRegistry
                         .getInstrumentation().getTargetContext()
@@ -224,20 +198,14 @@ public class SmbWorkflowTest {
                         mDevice.wait(Until.hasObject(By.res(mPkg, "read")), SHARE_MS)));
     }
 
-    // --- plumbing ---------------------------------------------------------------------------
-
-    /** One screen of the first-run chain, or a one-time guide overlay. Click and return. */
     private void dismissOneTimeOverlays() {
         androidx.test.uiautomator.BySelector[] peelable = {
                 By.res(mPkg, "accept"),       // WarningScene
                 By.res(mPkg, "guest_mode"),   // SignInScene — guest, never credentials
                 By.res(mPkg, "ok"),           // AnalyticsScene / SelectSiteScene
-                // The showcase overlay's button (button_guide.xml, textAllCaps): matched via
-                // the app's own string so a non-English device peels it too.
+                // textAllCaps: matched via the app's own string so any locale peels it.
                 By.text(showcaseButtonText()),
-                // The POST_NOTIFICATIONS system dialog (#103): grant, or a fresh device
-                // wedges the whole suite on it. The id is AOSP's; OEM permission dialogs may
-                // name it differently — the text fallback below covers the common ones.
+                // POST_NOTIFICATIONS (#103); the text covers OEM dialogs that rename the AOSP id.
                 By.res("com.android.permissioncontroller:id/permission_allow_button"),
                 By.text(Pattern.compile("Allow|ALLOW|允许")),
         };

@@ -12,10 +12,10 @@ import androidx.annotation.NonNull;
 
 import com.hippo.ehviewer.client.data.GalleryInfo;
 
-/** The gallery as a whole: completeness, delete, download finalize. Worker threads. */
+/** Worker threads. */
 public interface NetworkStorageLifecycle {
 
-    /** Deletes the gallery's folder recursively. True when deleted or never there. */
+    /** True when deleted or never there. */
     boolean deleteGalleryFolder(@NonNull GalleryInfo info);
 
     /** Complete = the record declares N pages and N image files are stored. */

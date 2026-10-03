@@ -20,12 +20,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 
-/**
- * A .ehviewer whose pToken lines stop reading midway -- an over-long line, or a share read that
- * fails partway through -- still yields its header and the tokens before the fault. A null here
- * makes SpiderQueen rebuild the file from the network and write it back with startPage 0, over
- * the copy on the share (#164).
- */
+/** A .ehviewer that stops reading midway still yields its header and earlier tokens (#164). */
 @RunWith(RobolectricTestRunner.class)
 @Config(application = android.app.Application.class)
 public class SpiderInfoPartialReadTest {

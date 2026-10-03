@@ -26,10 +26,6 @@ import jcifs.context.BaseContext;
 import jcifs.smb.NtlmPasswordAuthenticator;
 import jcifs.smb.SmbFile;
 
-/**
- * The pre-save probe (#133): connect, read, write — against the draft's own one-off jcifs
- * context, never the cached pool, so a bad draft cannot poison the live connection state.
- */
 final class SmbSelfCheck {
 
     private static final String TAG = "SmbSelfCheck";
@@ -59,8 +55,7 @@ final class SmbSelfCheck {
         } finally {
             if (owned != null) {
                 try {
-                    // The one-off transport pool holds real sockets; jcifs idle reaping is
-                    // a fallback, not a plan (#151).
+                    // Holds real sockets; jcifs idle reaping is only a fallback.
                     owned.close();
                 } catch (Throwable ignored) {
                 }
@@ -124,18 +119,13 @@ final class SmbSelfCheck {
                 try {
                     temp.delete();
                 } catch (Throwable ignored) {
-                    // A leftover uses the sweepable temp-name pattern (#75).
+                    // A leftover has a sweepable temp name.
                 }
             }
         }
     }
 
-    /**
-     * A one-off context with tight timeouts: a probe must come back while the user is still
-     * watching the dialog — jcifs defaults let a black-holed address spin for many minutes
-     * (#142). Null when the build failed and the shared SingletonContext (never closed) is
-     * the fallback.
-     */
+    /** Tight timeouts: jcifs defaults let a black-holed address spin for minutes. */
     @Nullable
     private static CIFSContext ownedBase(@NonNull ConnectionDraft draft) {
         try {

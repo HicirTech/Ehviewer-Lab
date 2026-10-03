@@ -37,10 +37,6 @@ public class GalleryListingCacheTest {
         assertEquals(names("00000001.jpg"), c.get(GID, NOW));
     }
 
-    /**
-     * Going stale by time is the acceptable kind of wrong: the only thing missed is a file another
-     * device added, and the next read picks it up.
-     */
     @Test
     public void aListingIsForgottenOnceItIsTooOld() {
         GalleryListingCache c = cache();
@@ -50,7 +46,6 @@ public class GalleryListingCacheTest {
         assertNull("past the window", c.get(GID, NOW + TTL));
     }
 
-    /** The rule this class exists for. */
     @Test
     public void invalidatingForgetsEvenAListingTakenThisInstant() {
         GalleryListingCache c = cache();
@@ -61,7 +56,6 @@ public class GalleryListingCacheTest {
         assertNull("a write must not be able to leave a stale listing behind", c.get(GID, NOW));
     }
 
-    /** One gallery's writes say nothing about another's contents. */
     @Test
     public void invalidatingOneGalleryLeavesTheOthers() {
         GalleryListingCache c = cache();
@@ -74,8 +68,6 @@ public class GalleryListingCacheTest {
         assertEquals(names("b.jpg"), c.get(GID + 1, NOW));
     }
 
-    /** An empty folder is a real answer and worth remembering, or a missing gallery is re-probed
-     * on every page. */
     @Test
     public void anEmptyListingIsRememberedRatherThanTreatedAsAbsent() {
         GalleryListingCache c = cache();
@@ -84,7 +76,6 @@ public class GalleryListingCacheTest {
         assertEquals(Collections.<String>emptySet(), c.get(GID, NOW));
     }
 
-    /** The #102 point: a confirmed write teaches the listing instead of destroying it. */
     @Test
     public void aConfirmedWriteIsAddedToTheListing() {
         GalleryListingCache c = cache();
@@ -95,7 +86,6 @@ public class GalleryListingCacheTest {
         assertEquals(names("00000001.jpg", "00000002.jpg"), c.get(GID, NOW));
     }
 
-    /** No listing, nothing to teach: the next query must go to the share, not trust one name. */
     @Test
     public void notingWithoutAListingRemembersNothing() {
         GalleryListingCache c = cache();
@@ -105,10 +95,6 @@ public class GalleryListingCacheTest {
         assertNull(c.get(GID, NOW));
     }
 
-    /**
-     * Noting must not refresh the snapshot's age — the rest of the listing is still as old as
-     * when it was fetched, and another device's changes still surface within one TTL.
-     */
     @Test
     public void notingDoesNotExtendTheListingsLife() {
         GalleryListingCache c = cache();
@@ -119,10 +105,6 @@ public class GalleryListingCacheTest {
         assertNull("the snapshot must still age from fetch time", c.get(GID, NOW + TTL));
     }
 
-    /**
-     * The #143 race: a page published while a list() is in flight. The put installs the
-     * pre-write snapshot — the aside-noted name must be merged in, not lost for a TTL.
-     */
     @Test
     public void aWriteConfirmedDuringAListingSurvivesThePut() {
         GalleryListingCache c = cache();
@@ -133,7 +115,6 @@ public class GalleryListingCacheTest {
         assertEquals(names("00000001.jpg", "00000002.jpg"), c.get(GID, NOW));
     }
 
-    /** Invalidation drops the aside notes too: the next listing starts later and sees them. */
     @Test
     public void invalidatingDropsTheAsideNotes() {
         GalleryListingCache c = cache();
@@ -145,7 +126,6 @@ public class GalleryListingCacheTest {
         assertEquals(names("00000001.jpg"), c.get(GID, NOW));
     }
 
-    /** The handed-out set must not change under a reader mid-iteration (copy-on-write). */
     @Test
     public void aHandedOutListingIsNotMutatedByLaterNotes() {
         GalleryListingCache c = cache();

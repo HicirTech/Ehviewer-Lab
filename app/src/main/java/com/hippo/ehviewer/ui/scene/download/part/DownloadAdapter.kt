@@ -333,8 +333,7 @@ class DownloadAdapter(scene: DownloadsScene, callback: DownloadAdapterCallback) 
             holder.stop.setVisibility(View.GONE)
         }
 
-        SmbTaskRowBinder.hideAbsentFields(holder, info)
-        SmbTaskRowBinder.hideControlsWeCannotHonour(holder, info)
+        SmbTaskRowBinder.hideAbsentFieldsAndControls(holder, info)
         holder.state.setText(state)
     }
 
@@ -770,7 +769,6 @@ class DownloadAdapter(scene: DownloadsScene, callback: DownloadAdapterCallback) 
         val thumb: LoadImageView
         val title: TextView
         val uploader: TextView
-        /** Which device is saving an SMB task, and when it last checked in (#59). */
         val smbOwner: TextView
         val rating: SimpleRatingView
         val category: TextView

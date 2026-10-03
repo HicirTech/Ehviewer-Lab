@@ -13,6 +13,7 @@ import static org.junit.Assert.assertTrue;
 
 import com.hippo.ehviewer.Settings;
 import com.hippo.ehviewer.client.data.GalleryInfo;
+import com.hippo.ehviewer.storage.NetworkStorageSettings;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -36,7 +37,7 @@ import java.util.Set;
 
 import jcifs.smb.SmbFile;
 
-/** The gallery-as-a-whole operations (#97): completeness and deletion, characterised over a nested SmbFile shadow. */
+/** The gallery-as-a-whole operations (#97): completeness and deletion. */
 @RunWith(RobolectricTestRunner.class)
 @Config(application = android.app.Application.class,
         shadows = {SmbGalleryLifecycleTest.ShadowSmbFile.class},
@@ -99,10 +100,10 @@ public class SmbGalleryLifecycleTest {
     @Before
     public void setUp() throws Exception {
         Settings.initialize(RuntimeEnvironment.getApplication());
-        Settings.putString(Settings.KEY_SMB_HOST, "192.0.2.7");
-        Settings.putString(Settings.KEY_SMB_SHARE_NAME, "share");
-        Settings.putString(Settings.KEY_SMB_SHARE_PATH, "");
-        Settings.putString(Settings.KEY_SMB_USERNAME, "");
+        Settings.putString(NetworkStorageSettings.KEY_SMB_HOST, "192.0.2.7");
+        Settings.putString(NetworkStorageSettings.KEY_SMB_SHARE_NAME, "share");
+        Settings.putString(NetworkStorageSettings.KEY_SMB_SHARE_PATH, "");
+        Settings.putString(NetworkStorageSettings.KEY_SMB_USERNAME, "");
         existing.clear();
         listings.clear();
         contents.clear();
@@ -118,17 +119,12 @@ public class SmbGalleryLifecycleTest {
                 ("{\"gid\":42,\"pages\":" + pages + "}").getBytes(StandardCharsets.UTF_8));
     }
 
-    /** A folder that never existed deletes trivially — and nothing is sent to the share. */
     @Test
     public void deletingWhatWasNeverThereSucceedsWithoutTouchingAnything() {
         assertTrue(SmbGalleryLifecycle.deleteGalleryFolder(gallery));
         assertTrue(deleted.isEmpty());
     }
 
-    /**
-     * jcifs refuses to delete a non-empty directory, so children must go first — depth-first,
-     * folder last.
-     */
     @Test
     public void deletionRemovesTheContentsBeforeTheFolder() {
         existing.add(dirPath);
@@ -139,7 +135,6 @@ public class SmbGalleryLifecycleTest {
                 "42-Answer/", deleted.get(2));
     }
 
-    /** Complete means: metadata declares N pages and N image files are actually there. */
     @Test
     public void aGalleryWithEveryDeclaredPageIsComplete() {
         metadataSays(2);
@@ -147,7 +142,6 @@ public class SmbGalleryLifecycleTest {
         assertTrue(SmbGalleryLifecycle.isGalleryComplete(gallery));
     }
 
-    /** One missing page is incomplete — this direction failing means abandoned partial saves. */
     @Test
     public void aGalleryMissingAPageIsNotComplete() {
         metadataSays(3);
@@ -155,17 +149,12 @@ public class SmbGalleryLifecycleTest {
         assertFalse(SmbGalleryLifecycle.isGalleryComplete(gallery));
     }
 
-    /** No metadata on the share means nothing can be declared complete. */
     @Test
     public void aGalleryWithoutMetadataIsNotComplete() {
         listings.put(dirPath, new String[]{"00000001.webp"});
         assertFalse(SmbGalleryLifecycle.isGalleryComplete(gallery));
     }
 
-    /**
-     * The declared count comes from the share's metadata even when the caller's copy disagrees —
-     * the share is the source of truth, and a stale in-memory {@code pages} must not veto it.
-     */
     @Test
     public void theSharesPageCountOutranksTheCallers() {
         gallery.pages = 99;

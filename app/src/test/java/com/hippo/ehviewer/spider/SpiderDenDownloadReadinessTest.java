@@ -34,7 +34,7 @@ public class SpiderDenDownloadReadinessTest {
         SpiderDen.initialize(RuntimeEnvironment.getApplication());
         EhDB.initialize(RuntimeEnvironment.getApplication());
         root = new File(RuntimeEnvironment.getApplication().getCacheDir(), "phone-downloads");
-        // The cache dir can outlive one test; start from an empty download location.
+        // The cache dir can outlive one test.
         deleteTree(root);
         assertTrue(root.mkdirs());
         Settings.putDownloadLocation(UniFile.fromFile(root));
@@ -44,7 +44,6 @@ public class SpiderDenDownloadReadinessTest {
         info.title = "readiness fixture";
     }
 
-    /** A busy reader's worker, once the queen starts downloading the same gallery under it. */
     @Test
     public void aWorkerStartedForReading_preparesTheFolderOnceTheQueenDownloads() {
         SpiderDen den = new SpiderDen(info);

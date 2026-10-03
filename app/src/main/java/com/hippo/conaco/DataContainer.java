@@ -50,9 +50,7 @@ public interface DataContainer {
      */
     void remove();
 
-    /**
-     * Whether a value decoded from this container may also be kept in the disk cache
-     */
+    /** Whether a value decoded from this container may also be kept in the disk cache. */
     default boolean allowDiskCopy() {
         return true;
     }

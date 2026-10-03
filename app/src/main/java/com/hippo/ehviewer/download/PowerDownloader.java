@@ -8,6 +8,7 @@
 package com.hippo.ehviewer.download;
 
 import android.content.Context;
+import android.content.Intent;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
@@ -16,23 +17,20 @@ import androidx.annotation.StringRes;
 
 import com.hippo.ehviewer.EhApplication;
 import com.hippo.ehviewer.R;
+import com.hippo.ehviewer.Settings;
 import com.hippo.ehviewer.client.data.GalleryInfo;
 import com.hippo.ehviewer.dao.DownloadInfo;
 import com.hippo.ehviewer.smb.SmbAutoDownloadManager;
 import com.hippo.ehviewer.smb.SmbDirectDownloader;
-import com.hippo.ehviewer.ui.CommonOperations;
 import com.hippo.ehviewer.ui.NotificationPermission;
+import com.hippo.lib.yorozuya.collect.LongList;
 
-/**
- * Sends a gallery to a Power Download target (#159). A quiet request comes from an automatic
- * rule firing mid-read and speaks only when a download starts or fails; any other request is a
- * deliberate tap and also says why nothing started.
- */
+/** A quiet request speaks only when a download starts or fails. */
 public final class PowerDownloader {
 
     private PowerDownloader() {}
 
-    /** Whether there is anything to download: a local import already is its own only copy. */
+    /** A local import is its own only copy. */
     public static boolean canDownload(@Nullable GalleryInfo info) {
         return info != null && !SmbDirectDownloader.isLocalImport(info);
     }
@@ -58,10 +56,7 @@ public final class PowerDownloader {
         }
     }
 
-    /**
-     * A waiting, running or finished download is left alone: the download list restarts even a
-     * finished one, re-running its spider, and says "added" again.
-     */
+    /** The download list would restart even a finished download and say "added" again. */
     private static void downloadToPhone(@NonNull Context context, @NonNull GalleryInfo info,
                                         boolean quiet) {
         int state = EhApplication.getDownloadManager(context).getDownloadState(info.gid);
@@ -78,8 +73,29 @@ public final class PowerDownloader {
             return;
         }
         NotificationPermission.onDownloadStart(context);
-        CommonOperations.startDownloadWithoutAsking(context, info);
+        startWithoutAsking(context, info);
         toast(context, R.string.added_to_download_list);
+    }
+
+    /** Without the label dialog: the remembered label while it still exists, otherwise none. */
+    private static void startWithoutAsking(@NonNull Context context, @NonNull GalleryInfo info) {
+        DownloadManager dm = EhApplication.getDownloadManager(context);
+        Intent intent = new Intent(context, DownloadService.class);
+        if (dm.containDownloadInfo(info.gid)) {
+            LongList toStart = new LongList();
+            toStart.add(info.gid);
+            intent.setAction(DownloadService.ACTION_START_RANGE);
+            intent.putExtra(DownloadService.KEY_GID_LIST, toStart);
+        } else {
+            String label = Settings.getHasDefaultDownloadLabel() ? Settings.getDefaultDownloadLabel() : null;
+            if (label != null && !dm.containLabel(label)) {
+                label = null;
+            }
+            intent.setAction(DownloadService.ACTION_START);
+            intent.putExtra(DownloadService.KEY_LABEL, label);
+            intent.putExtra(DownloadService.KEY_GALLERY_INFO, info);
+        }
+        context.startService(intent);
     }
 
     private static void toast(@NonNull Context context, @StringRes int text) {

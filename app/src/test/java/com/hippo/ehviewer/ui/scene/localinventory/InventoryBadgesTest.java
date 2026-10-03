@@ -10,11 +10,10 @@ import com.hippo.ehviewer.storage.DownloadState;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
-import androidx.annotation.NonNull;
-
 import com.hippo.ehviewer.Settings;
 import com.hippo.ehviewer.smb.SmbDownloadBoard;
 import com.hippo.ehviewer.smb.SmbTaskInfo;
+import com.hippo.ehviewer.storage.NetworkStorageSettings;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -55,9 +54,9 @@ public class InventoryBadgesTest {
     @Before
     public void setUp() {
         Settings.initialize(RuntimeEnvironment.getApplication());
-        Settings.putString(Settings.KEY_SMB_HOST, "192.0.2.7");
-        Settings.putString(Settings.KEY_SMB_SHARE_NAME, "share");
-        Settings.putBoolean(Settings.KEY_NETWORK_STORAGE_ENABLED, true);
+        Settings.putString(NetworkStorageSettings.KEY_SMB_HOST, "192.0.2.7");
+        Settings.putString(NetworkStorageSettings.KEY_SMB_SHARE_NAME, "share");
+        Settings.putBoolean(NetworkStorageSettings.KEY_ENABLED, true);
         tasksOnShare.clear();
         heard.clear();
         badges = new InventoryBadges(Runnable::run, heard::add);
@@ -83,7 +82,6 @@ public class InventoryBadgesTest {
                 com.hippo.ehviewer.dao.DownloadInfo.STATE_DOWNLOAD);
     }
 
-    /** A claim becomes a mark carrying owner and fraction. */
     @Test
     public void marksCarryOwnerAndProgress() throws Exception {
         tasksOnShare.add(task(42L, 5, 10));
@@ -94,7 +92,6 @@ public class InventoryBadgesTest {
         assertEquals(0.5f, mark.progress, 0.0001f);
     }
 
-    /** An unchanged answer is not re-delivered — a delivery is a round of redraw checks. */
     @Test
     public void unchangedMarksAreNotRedelivered() throws Exception {
         tasksOnShare.add(task(42L, 5, 10));
@@ -107,18 +104,16 @@ public class InventoryBadgesTest {
         assertEquals(2, heard.size());
     }
 
-    /** SMB off means empty marks, delivered once, without touching the share. */
     @Test
     public void disabledSmbClearsTheMarks() throws Exception {
         tasksOnShare.add(task(42L, 5, 10));
         refreshNow();
-        Settings.putBoolean(Settings.KEY_NETWORK_STORAGE_ENABLED, false);
+        Settings.putBoolean(NetworkStorageSettings.KEY_ENABLED, false);
         refreshNow();
         assertEquals(2, heard.size());
         assertTrue(heard.get(1).isEmpty());
     }
 
-    /** An unknown total is an empty ring, not a full one. */
     @Test
     public void unknownTotalReadsAsZeroProgress() {
         assertEquals(0f, InventoryBadges.fractionOf(task(1L, 3, 0)), 0.0001f);

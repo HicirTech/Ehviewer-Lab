@@ -42,7 +42,7 @@ class Image private constructor(
     init {
         mObtainedDrawable = null
         source?.let {
-            // 内存流(#155 回声页)没有 channel 可映射/回卷:一次读出字节,解码与回退共用
+            // Only a file stream can be mapped and rewound; read any other once (#155).
             val memory: ByteArray? = if (source is FileInputStream) null else source.readBytes()
             val total = memory?.size ?: source.available()
             var simpleSize: Int? = null
@@ -75,7 +75,7 @@ class Image private constructor(
                 } catch (e: DecodeException) {
                     // ImageDecoder 失败时回退到 BitmapFactory
                     try {
-                        // 重置流位置以便重新读取;内存流直接重建
+                        // 重置流位置以便重新读取
                         val retry: InputStream = if (memory != null) {
                             ByteArrayInputStream(memory)
                         } else {

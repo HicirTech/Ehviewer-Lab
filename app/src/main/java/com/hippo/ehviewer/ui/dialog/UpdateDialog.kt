@@ -29,12 +29,6 @@ import kotlin.properties.Delegates
 
 class UpdateDialog(private val activity: Activity) {
     companion object {
-        /**
-         * Fallback landing page. The update feed normally carries a
-         * version-specific `fileDownloadUrl`; this is only used when it is
-         * missing, and by the "check failed" dialog which has no version to
-         * point at.
-         */
         const val GITHUB_RELEASE_URL = "https://github.com/HicirTech/Ehviewer-Lab/releases"
         const val INSTALL_PERMISSION_CODE = 1002
 
@@ -125,9 +119,6 @@ class UpdateDialog(private val activity: Activity) {
         downloadUrl: String?,
         version: String
     ) {
-        // downloadUrl comes from the feed's fileDownloadUrl and points at the release
-        // for exactly the version this dialog is offering. Fall back to the releases
-        // index only if the feed omitted it.
         val target = downloadUrl?.takeIf { it.isNotBlank() } ?: GITHUB_RELEASE_URL
         val intent = Intent(Intent.ACTION_VIEW, target.toUri())
         activity.startActivity(intent)

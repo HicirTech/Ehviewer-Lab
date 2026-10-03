@@ -26,7 +26,6 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 
-/** metadata.json in and out: the records on the share, and the offline UI models built from them. */
 public final class SmbMetadata {
 
     /** The per-gallery record every reader of the share agrees on. */
@@ -74,15 +73,11 @@ public final class SmbMetadata {
             gd.comments = new GalleryCommentList(new GalleryComment[0], false);
         }
         if (gd.previewSet == null || gd.previewSet.size() == 0) {
-            // Bounded first slice of previews — not one cell per gallery page. IMPORTANT: do NOT
-            // pass `gd` itself — that would create a cycle (gd.previewSet -> us -> gd) which
-            // crashes when parcelled.
+            // Not gd itself: the cycle gd.previewSet -> set -> gd crashes when parcelled.
             int previewCount = Math.min(gd.pages, DETAIL_PREVIEW_LIMIT);
             gd.previewSet = new LocalSmbPreviewSet(gd.gid, gd.title, previewCount);
         }
-        // Tell bindPreviews there's something to render. Set to 1 so the grid renders the single
-        // (capped) page of previews and the "more previews" hint stays as R.string.no_more_previews
-        // — the rest of the pages are viewed through the reader.
+        // One capped preview page; the rest of the gallery is viewed in the reader.
         gd.previewPages = gd.pages > 0 ? 1 : 0;
         if (gd.language == null) {
             gd.language = gd.simpleLanguage != null ? gd.simpleLanguage : "";
@@ -95,10 +90,7 @@ public final class SmbMetadata {
         return gd;
     }
 
-    /**
-     * Rebuilds the structured tag groups from the flat {@code group:tag} strings stored in
-     * {@link GalleryInfo#tgList}. Entries without a group prefix fall into a {@code "misc"} group.
-     */
+    /** Parses flat {@code group:tag} entries; ungrouped ones go to {@code "misc"}. */
     @NonNull
     static GalleryTagGroup[] buildTagGroupsFromList(@Nullable List<String> tgList) {
         if (tgList == null || tgList.isEmpty()) {
@@ -133,12 +125,7 @@ public final class SmbMetadata {
         return groups.values().toArray(new GalleryTagGroup[0]);
     }
 
-    // --- metadata.json writes -------------------------------------------------------------------
-
-    /**
-     * Writes a minimal metadata.json from the GalleryInfo immediately, so the gallery shows up
-     * in Local Inventory even before/without a finished download. Safe to call repeatedly.
-     */
+    /** Shows the gallery in the inventory before its download finishes; safe to repeat. */
     public static boolean writeMetadataSkeleton(@NonNull GalleryInfo info) {
         try {
             SmbFile galleryDir = SmbGalleryDirectory.getGalleryDir(info);
@@ -150,7 +137,7 @@ public final class SmbMetadata {
         }
     }
 
-    /** Backfills tags into metadata.json once, in the background; no-op when already present. */
+    /** Backfills tags into metadata.json in the background. */
     public static void enrichLocalMetadataIfMissing(@NonNull Context context, @NonNull GalleryInfo info) {
         if (info.tgList != null && !info.tgList.isEmpty()) {
             return;
@@ -174,8 +161,6 @@ public final class SmbMetadata {
 
     private static void writeMetadata(@NonNull SmbFile galleryDir, @NonNull GalleryInfo info) throws IOException {
         String json = info.toJson().toJSONString();
-        // Atomic, like everything else written to the share: Local Inventory decides a gallery
-        // exists by reading this file, and a half-written one reads as a gallery with no title.
         try (OutputStream os =
                      SmbGalleryFiles.openAtomicOutputStream(
                              galleryDir, SmbMetadata.METADATA_FILE, info.gid)) {
@@ -193,12 +178,7 @@ public final class SmbMetadata {
         writeMetadata(galleryDir, enriched);
     }
 
-    /**
-     * User-requested re-sync from e-hentai (#16): a failed fetch is reported, never papered over.
-     * A new title renames the folder first or keeps the old title (#86). Worker thread.
-     *
-     * @return the record now on the share, or null if nothing was written
-     */
+    /** Worker thread; returns the record now on the share, or null if nothing was written. */
     @Nullable
     public static GalleryInfo resyncMetadata(@NonNull Context context, @NonNull GalleryInfo info) {
         if (!SmbConnection.isConfigured()) {
@@ -231,7 +211,6 @@ public final class SmbMetadata {
         }
     }
 
-    /** Renames to match a new title; refuses while any device's claim says it is downloading. */
     private static boolean renamedToMatch(@NonNull GalleryInfo local, @NonNull GalleryInfo fresh) {
         if (fresh.title == null || fresh.title.equals(local.title)) {
             return false;
@@ -253,10 +232,7 @@ public final class SmbMetadata {
         return false;
     }
 
-    /**
-     * Reverts the title when the folder could not follow — a record may only name a folder that
-     * exists. Its own method, and tested, because it looks like a line worth deleting.
-     */
+    /** A record may only name a folder that exists. */
     @NonNull
     static GalleryInfo keepPathFields(@NonNull GalleryInfo fresh, @NonNull GalleryInfo local) {
         fresh.title = local.title;
@@ -280,7 +256,6 @@ public final class SmbMetadata {
                 return null;
             }
 
-            // Supplement any fields the detail page didn't fill from the original info.
             if (TextUtils.isEmpty(detail.title)) detail.title = info.title;
             if (TextUtils.isEmpty(detail.titleJpn)) detail.titleJpn = info.titleJpn;
             if (TextUtils.isEmpty(detail.thumb)) detail.thumb = info.thumb;

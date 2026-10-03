@@ -30,7 +30,6 @@ import android.graphics.drawable.NinePatchDrawable;
 import android.net.Uri;
 import android.os.Bundle;
 import android.util.Log;
-import android.util.SparseBooleanArray;
 import android.view.Gravity;
 import android.view.LayoutInflater;
 import android.view.MenuItem;
@@ -86,6 +85,7 @@ import com.hippo.ehviewer.ui.scene.download.part.DownloadChoiceListener;
 import com.hippo.ehviewer.ui.scene.download.part.DownloadGuideHelper;
 import com.hippo.ehviewer.ui.scene.download.part.DownloadPaginationController;
 import com.hippo.ehviewer.ui.scene.download.part.DownloadSearchController;
+import com.hippo.ehviewer.ui.scene.download.part.FabPaginationClearance;
 import com.hippo.ehviewer.widget.MyEasyRecyclerView;
 import com.hippo.ehviewer.widget.SearchBar;
 import com.hippo.lib.yorozuya.AssertUtils;
@@ -147,7 +147,6 @@ public class DownloadsScene extends ToolbarScene
     @Nullable
     public String mLabel;
 
-    /** The screen's SMB behaviour lives in the delegate (#59, #95); the scene keeps call sites. */
     private final SmbDownloadsDelegate mSmbDelegate =
             new SmbDownloadsDelegate(new SmbDownloadsDelegate.Host() {
                 @Override
@@ -162,9 +161,16 @@ public class DownloadsScene extends ToolbarScene
                         updateForLabel();
                     }
                 }
+
+                @Override
+                @Nullable
+                public DownloadInfo infoAt(int position) {
+                    List<DownloadInfo> list = mList;
+                    int index = positionInList(position);
+                    return list != null && index >= 0 && index < list.size() ? list.get(index) : null;
+                }
             });
 
-    /** The adapter routes its SMB row clicks here rather than growing its own SMB knowledge. */
     @NonNull
     public SmbDownloadsDelegate smbDelegate() {
         return mSmbDelegate;
@@ -333,15 +339,12 @@ public class DownloadsScene extends ToolbarScene
             }
         }
 
-        // SMB saves sit among the phone's downloads rather than in a screen of their own.
         mList = mSmbDelegate.mergeInto(mLabel, mList);
 
         if (mAdapter != null) {
             mAdapter.notifyDataSetChanged();
         }
-        // The list can now change without a DownloadManager callback -- the share is read
-        // asynchronously -- and the empty-state view was only ever switched from those callbacks.
-        // Without this the first SMB task arrives into a screen still saying there is nothing here.
+        // SMB tasks arrive without a DownloadManager callback, the usual updateView trigger.
         updateView();
         mBackList = mList;
 //        filterByCategory();
@@ -349,32 +352,6 @@ public class DownloadsScene extends ToolbarScene
         mPaginationController.updatePaginationIndicator();
         Settings.putRecentDownloadLabel(mLabel);
         mPaginationController.queryUnreadSpiderInfo();
-    }
-
-    /**
-     * Keeps the FAB clear of the pagination bar only while the bar shows (#74); measured height,
-     * because layout weight settles it short of its declared 40dp.
-     */
-    private void updateFabClearance() {
-        if (mFabLayout == null || !isAdded()) {
-            return;
-        }
-        Resources resources = getResources();
-        int margin = resources.getDimensionPixelOffset(R.dimen.corner_fab_margin);
-        int clearance = 0;
-        PaginationIndicator indicator = mPaginationController.getPaginationIndicator();
-        if (indicator != null && indicator.getVisibility() == View.VISIBLE) {
-            int measured = indicator.getHeight();
-            clearance = measured > 0
-                    ? measured
-                    : resources.getDimensionPixelOffset(R.dimen.download_pagination_height);
-            if (measured <= 0) {
-                // Not laid out yet. Take the real height once it is, or the FAB keeps the estimate.
-                indicator.post(this::updateFabClearance);
-            }
-        }
-        mFabLayout.setPadding(mFabLayout.getPaddingLeft(), mFabLayout.getPaddingTop(),
-                margin, margin + clearance);
     }
 
     @SuppressLint("StringFormatMatches")
@@ -833,9 +810,10 @@ public class DownloadsScene extends ToolbarScene
         }
 
         if (recyclerView.isInCustomChoice()) {
-            if (!isSmbAt(position)) {
-                recyclerView.toggleItemChecked(position);
+            if (mSmbDelegate.isTaskAt(position)) {
+                return true;
             }
+            recyclerView.toggleItemChecked(position);
             return true;
         } else {
             List<DownloadInfo> list = mList;
@@ -894,9 +872,8 @@ public class DownloadsScene extends ToolbarScene
             return false;
         }
 
-        if (isSmbAt(position)) {
-            showSmbTaskMenu(position);
-            return true;   // not selectable; see isSmbAt
+        if (mSmbDelegate.showTaskMenuAt(position)) {
+            return true;
         }
         if (!recyclerView.isInCustomChoice()) {
             recyclerView.intoCustomChoiceMode();
@@ -904,41 +881,6 @@ public class DownloadsScene extends ToolbarScene
         recyclerView.toggleItemChecked(position);
 
         return true;
-    }
-
-    /** SMB rows stay out of multi-select (#59): every batch action means something else for them. */
-    private boolean isSmbAt(int position) {
-        List<DownloadInfo> list = mList;
-        if (list == null) {
-            return false;
-        }
-        int index = positionInList(position);
-        return index >= 0 && index < list.size()
-                && SmbTaskInfo.isSmb(list.get(index));
-    }
-
-    /** Resolves the adapter position and hands the row to the delegate's long-press menu. */
-    private void showSmbTaskMenu(int position) {
-        List<DownloadInfo> list = mList;
-        if (list == null) {
-            return;
-        }
-        int index = positionInList(position);
-        if (index < 0 || index >= list.size()) {
-            return;
-        }
-        mSmbDelegate.showTaskMenu(list.get(index));
-    }
-
-    /** Undoes "select all" for the rows that were never selectable to begin with. */
-    private void uncheckSmbTasks(@NonNull MyEasyRecyclerView recyclerView) {
-        SparseBooleanArray checked = recyclerView.getCheckedItemPositions();
-        for (int i = checked.size() - 1; i >= 0; i--) {
-            int position = checked.keyAt(i);
-            if (checked.valueAt(i) && isSmbAt(position)) {
-                recyclerView.toggleItemChecked(position);
-            }
-        }
     }
 
     @SuppressLint("RtlHardcoded")
@@ -976,8 +918,7 @@ public class DownloadsScene extends ToolbarScene
     public void onClickSecondaryFab(FabLayout view, FloatingActionButton fab, int position) {
         mBatchActions.onClickSecondaryFab(view, fab, position);
         if (position == 0 && mRecyclerView != null) {
-            // Select all leaves SMB rows out (#59): batch actions mean something else for them.
-            uncheckSmbTasks(mRecyclerView);
+            mSmbDelegate.uncheckTasks(mRecyclerView);
         }
     }
 
@@ -1212,7 +1153,7 @@ public class DownloadsScene extends ToolbarScene
 
     @Override
     public void onPaginationVisibilityChanged() {
-        updateFabClearance();
+        FabPaginationClearance.update(mFabLayout, mPaginationController.getPaginationIndicator());
     }
 
     public void runOnUiThread(Runnable runnable) {

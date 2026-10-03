@@ -7,6 +7,9 @@
 
 package com.hippo.ehviewer.smb;
 
+import android.os.Looper;
+import android.util.Log;
+
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
@@ -19,11 +22,9 @@ import com.hippo.streampipe.OutputStreamPipe;
 import java.io.InputStream;
 import java.io.OutputStream;
 
-/**
- * {@link GallerySpiderStorage} backed by the SMB share; created only for gids marked in
- * {@link GalleryTargets}. A thin adapter over the static SMB helpers.
- */
 public final class SmbSpiderStorage implements GallerySpiderStorage {
+
+    private static final String TAG = "SmbSpiderStorage";
 
     @NonNull
     private final GalleryInfo info;
@@ -32,7 +33,6 @@ public final class SmbSpiderStorage implements GallerySpiderStorage {
         this.info = info;
     }
 
-    /** An SMB backend iff the gid is marked, re-checked per call so unmarking acts immediately. */
     @Nullable
     static SmbSpiderStorage createIfTarget(@NonNull GalleryInfo info, long gid) {
         return GalleryTargets.isMarked(gid) ? new SmbSpiderStorage(info) : null;
@@ -52,6 +52,11 @@ public final class SmbSpiderStorage implements GallerySpiderStorage {
     @Nullable
     @Override
     public InputStream openSpiderInfoInputStream() {
+        // jcifs on the main thread dies mid-request and poisons the shared transport.
+        if (Looper.getMainLooper().getThread() == Thread.currentThread()) {
+            Log.w(TAG, "skip spider-info read on main thread gid=" + info.gid);
+            return null;
+        }
         return SmbGalleryFiles.openSpiderInfoInputStream(info);
     }
 
@@ -60,11 +65,6 @@ public final class SmbSpiderStorage implements GallerySpiderStorage {
         return SmbGalleryFiles.containImage(info, index);
     }
 
-    /**
-     * The failed-download cleanup (#140). The atomic pipe publishes on close whether the source
-     * finished or not, so a failed page IS on the share, truncated — it must be deleted or it
-     * reads as saved forever. Deleting a good page merely costs a re-download.
-     */
     @Override
     public boolean removeImage(int index) {
         return SmbGalleryFiles.deleteImage(info, index);

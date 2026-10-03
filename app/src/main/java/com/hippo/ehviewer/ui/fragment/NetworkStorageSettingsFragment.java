@@ -16,7 +16,9 @@ import com.hippo.ehviewer.R;
 import com.hippo.ehviewer.Settings;
 import com.hippo.ehviewer.download.PowerDownloadSettings;
 import com.hippo.ehviewer.smb.SmbBenchmark;
+import com.hippo.ehviewer.smb.SmbConcurrency;
 import com.hippo.ehviewer.storage.NetworkStorage;
+import com.hippo.ehviewer.storage.NetworkStorageSettings;
 import com.hippo.lib.yorozuya.SimpleHandler;
 import com.hippo.util.IoThreadPoolExecutor;
 
@@ -38,25 +40,21 @@ public class NetworkStorageSettingsFragment extends BasePreferenceFragmentCompat
     private EditTextDialogPreference mMetadataConcurrency;
     private EditTextDialogPreference mImageConcurrency;
 
-    /** XML summaries snapshotted before values overwrite them, restored when a field clears. */
     private final Map<Preference, CharSequence> mHintSummaries = new HashMap<>();
 
     @Override
     public void onCreatePreferences(@Nullable Bundle savedInstanceState, @Nullable String rootKey) {
         addPreferencesFromResource(R.xml.network_storage_settings);
 
-        mMasterSwitch = findPreference(Settings.KEY_NETWORK_STORAGE_ENABLED);
-        mProtocol = findPreference(Settings.KEY_STORAGE_PROTOCOL);
+        mMasterSwitch = findPreference(NetworkStorageSettings.KEY_ENABLED);
+        mProtocol = findPreference(NetworkStorageSettings.KEY_PROTOCOL);
         mConnection = findPreference("smb_connection");
-        mDeviceName = findPreference(Settings.KEY_SMB_DEVICE_NAME);
+        mDeviceName = findPreference(NetworkStorageSettings.KEY_SMB_DEVICE_NAME);
         mBenchmark = findPreference("smb_benchmark");
         mAutoTune = findPreference("smb_auto_tune");
-        mMetadataConcurrency = findPreference(Settings.KEY_SMB_METADATA_CONCURRENCY);
-        mImageConcurrency = findPreference(Settings.KEY_SMB_IMAGE_CONCURRENCY);
+        mMetadataConcurrency = findPreference(SmbConcurrency.KEY_METADATA);
+        mImageConcurrency = findPreference(SmbConcurrency.KEY_IMAGE);
 
-        // Number boxes clamped on entry (via the change listener). A dropdown of blessed values
-        // was wrong twice over: the blessed values came from one library size, and the tuner
-        // below can land on any number in 1..64.
         for (EditTextDialogPreference pref : new EditTextDialogPreference[]{
                 mMetadataConcurrency, mImageConcurrency}) {
             if (pref != null) {
@@ -71,13 +69,12 @@ public class NetworkStorageSettingsFragment extends BasePreferenceFragmentCompat
         if (mProtocol != null) {
             mProtocol.setOnPreferenceChangeListener(this);
         }
-        applyProtocol(Settings.getStorageProtocol());
+        applyProtocol(NetworkStorageSettings.getProtocol());
         if (mDeviceName != null) {
             cacheHint(mDeviceName, null);
             mDeviceName.setOnPreferenceChangeListener(this);
-            // Shows the resolved name, so an unset field displays the model that will actually be
-            // published rather than looking empty.
-            updateTextSummary(mDeviceName, Settings.getSmbDeviceName());
+            // Resolved, so an unset field shows the published model name.
+            updateTextSummary(mDeviceName, NetworkStorageSettings.getSmbDeviceName());
         }
         if (mBenchmark != null) {
             mBenchmark.setOnPreferenceClickListener(preference -> {
@@ -92,18 +89,14 @@ public class NetworkStorageSettingsFragment extends BasePreferenceFragmentCompat
             });
         }
 
-        applyMasterState(Settings.getNetworkStorageEnabled());
+        applyMasterState(NetworkStorageSettings.isEnabled());
     }
 
     @Override
     public boolean onPreferenceChange(Preference preference, Object newValue) {
         final String value = newValue == null ? "" : String.valueOf(newValue);
         if (preference == mMetadataConcurrency || preference == mImageConcurrency) {
-            // Clamp on entry, and store what was actually accepted, so the summary never shows
-            // a number the pools will silently refuse.
-            // Typed input clamps to the nearest bound, unlike a corrupt stored value, which
-            // falls back to the default: someone who types 999 means "a lot", and answering
-            // with 6 would look like the box ignored them. Unparseable input changes nothing.
+            // Typed input clamps to the nearest bound: 999 means "a lot", not the default.
             int parsed;
             try {
                 parsed = Integer.parseInt(value.trim());
@@ -118,21 +111,12 @@ public class NetworkStorageSettingsFragment extends BasePreferenceFragmentCompat
         }
         if (preference == mMasterSwitch) {
             boolean enabled = Boolean.TRUE.equals(newValue);
-            // When the master switch turns off, every Power Download rule aimed at network
-            // storage goes off with it (#159), and the dependent UI greys out immediately.
             if (!enabled) {
                 PowerDownloadSettings.turnOffNetworkStorageRules();
             }
             applyMasterState(enabled);
-            // Take effect now rather than the next time some screen happens to ask. Turning this
-            // off with a download running used to hide it from the list while its pages kept
-            // being written to the share.
-            //
-            // Posted, not called: this listener runs *before* the new value is persisted -- that
-            // is what returning true authorises -- so asking Settings here answers with the value
-            // being replaced. Which is precisely how this went out wrong the first time: the
-            // switch read off and the download carried on.
-            com.hippo.lib.yorozuya.SimpleHandler.getInstance().post(() ->
+            // Posted: the new value is persisted only after this listener returns true.
+            SimpleHandler.getInstance().post(() ->
                     com.hippo.ehviewer.smb.SmbDirectDownloader.getInstance()
                             .onSmbAvailabilityChanged());
             return true;
@@ -142,20 +126,13 @@ public class NetworkStorageSettingsFragment extends BasePreferenceFragmentCompat
             return true;
         }
         if (preference == mDeviceName) {
-            // This runs before persistence, so Settings still holds the value being replaced;
-            // compute the cleared-field fallback (the model name) directly (#140).
-            String model = android.os.Build.MODEL;
-            updateTextSummary(mDeviceName, value.trim().isEmpty()
-                    ? (model == null || model.trim().isEmpty() ? "Android" : model.trim())
-                    : value);
+            updateTextSummary(mDeviceName, NetworkStorageSettings.smbDeviceNameOrModel(value));
         }
         return true;
     }
 
-    /** Each protocol's rows show only while it is the selected protocol. */
     private void applyProtocol(@NonNull String protocol) {
-        // A never-configured user (empty protocol) still sees the SMB rows: the selector
-        // displays its default and there is nothing else to show.
+        // Empty means never configured; the selector then shows its SMB default.
         boolean smb = protocol.isEmpty() || NetworkStorage.PROTOCOL_SMB.equals(protocol);
         for (Preference row : new Preference[]{mConnection, mBenchmark}) {
             if (row != null) {
@@ -185,7 +162,6 @@ public class NetworkStorageSettingsFragment extends BasePreferenceFragmentCompat
         }
     }
 
-    /** Stores the XML summary (or fallback) once per preference. */
     private void cacheHint(@NonNull Preference pref, @Nullable CharSequence fallback) {
         if (mHintSummaries.containsKey(pref)) {
             return;
@@ -197,7 +173,6 @@ public class NetworkStorageSettingsFragment extends BasePreferenceFragmentCompat
         mHintSummaries.put(pref, current);
     }
 
-    /** Benchmark at current settings; dialog (numbers are for comparing), summary = progress. */
     private void updateConcurrencySummaries() {
         if (mMetadataConcurrency != null) {
             mMetadataConcurrency.setSummary(getString(
@@ -211,7 +186,6 @@ public class NetworkStorageSettingsFragment extends BasePreferenceFragmentCompat
         }
     }
 
-    /** Auto-tune sweep; summary shows progress, the dialog shows the whole table. */
     private void runAutoTune() {
         Context context = getContext();
         if (context == null) {
@@ -226,8 +200,7 @@ public class NetworkStorageSettingsFragment extends BasePreferenceFragmentCompat
             final com.hippo.ehviewer.smb.SmbAutoTune.Result result =
                     com.hippo.ehviewer.smb.SmbAutoTune.run((stage, conc) ->
                             SimpleHandler.getInstance().post(() -> {
-                                // appContext, not Fragment.getString(): the sweep outlives
-                                // back-navigation, and a detached fragment throws (#140).
+                                // appContext: a detached fragment's getString throws.
                                 if (mAutoTune != null) {
                                     if ("collect".equals(stage)) {
                                         mAutoTune.setSummary(appContext.getString(
@@ -243,12 +216,11 @@ public class NetworkStorageSettingsFragment extends BasePreferenceFragmentCompat
                                 }
                             }));
             SimpleHandler.getInstance().post(() -> {
-                // Minutes of measurement must land even if the user left the screen (#140);
-                // only the dialog and the row updates below need a live fragment.
+                // Saved before the isAdded check: minutes of measurement outlive the screen.
                 if (result.ok) {
-                    Settings.putString(Settings.KEY_SMB_METADATA_CONCURRENCY,
+                    Settings.putString(SmbConcurrency.KEY_METADATA,
                             String.valueOf(result.bestMetadata));
-                    Settings.putString(Settings.KEY_SMB_IMAGE_CONCURRENCY,
+                    Settings.putString(SmbConcurrency.KEY_IMAGE,
                             String.valueOf(result.bestImage));
                 }
                 if (mAutoTune != null) {
@@ -268,7 +240,6 @@ public class NetworkStorageSettingsFragment extends BasePreferenceFragmentCompat
                             .show();
                     return;
                 }
-                // The boxes above reflect the freshly-applied values immediately.
                 if (mMetadataConcurrency != null) {
                     mMetadataConcurrency.setText(String.valueOf(result.bestMetadata));
                 }
@@ -322,7 +293,6 @@ public class NetworkStorageSettingsFragment extends BasePreferenceFragmentCompat
                     mBenchmark.setEnabled(true);
                     mBenchmark.setSummary(idleSummary);
                 }
-                // The fragment may be gone by now; the numbers are not worth crashing over.
                 if (!isAdded() || getContext() == null) {
                     return;
                 }
@@ -343,8 +313,6 @@ public class NetworkStorageSettingsFragment extends BasePreferenceFragmentCompat
                     ? context.getString(R.string.settings_smb_benchmark_empty)
                     : context.getString(R.string.settings_smb_benchmark_unconfigured);
         }
-        // One decimal place. The run-to-run spread is larger than a tenth of a millisecond, so
-        // more digits would only suggest a precision the measurement does not have.
         String perGallery = String.format(java.util.Locale.US, "%.1f", r.millisPerGallery());
         String throughput = String.format(java.util.Locale.US, "%.1f", r.imageMegabytesPerSecond());
         return context.getString(R.string.settings_smb_benchmark_result,

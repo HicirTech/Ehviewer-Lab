@@ -93,7 +93,6 @@ public class HistoryScene extends ToolbarScene
     @Nullable
     private RecyclerView.Adapter<?> mAdapter;
 
-    /** Redraws the cards once the list of galleries already on the share arrives (#83). */
     private final SmbSavedGalleries.Observer mSavedObserver = () -> {
         if (mAdapter != null) {
             mAdapter.notifyDataSetChanged();
@@ -179,8 +178,7 @@ public class HistoryScene extends ToolbarScene
     @Override
     public void onResume() {
         super.onResume();
-        // Settings is a separate activity, so coming back from switching SMB off does not rebuild
-        // this view. Without this the marks would sit there until it happened to be recreated.
+        // Settings is a separate activity: switching SMB off there does not rebuild this view.
         SmbSavedGalleries.getInstance().refresh();
     }
 
@@ -329,7 +327,6 @@ public class HistoryScene extends ToolbarScene
         public final TextView category;
         public final TextView posted;
         public final TextView simpleLanguage;
-        /** The card is an <include> of item_gallery_list, so the badge comes with it. */
         @Nullable
         public final SmbStatusBadge smbBadge;
 

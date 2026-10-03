@@ -89,8 +89,8 @@ import com.hippo.ehviewer.client.parser.RateGalleryParser;
 import com.hippo.ehviewer.dao.DownloadInfo;
 import com.hippo.ehviewer.dao.Filter;
 import com.hippo.ehviewer.spider.SpiderQueen;
-import com.hippo.ehviewer.storage.NetworkStorage;
 import com.hippo.ehviewer.ui.CommonOperations;
+import com.hippo.ehviewer.ui.DownloadTargetDialog;
 import com.hippo.ehviewer.ui.GalleryActivity;
 import com.hippo.ehviewer.ui.MainActivity;
 import com.hippo.ehviewer.ui.annotation.WholeLifeCircle;
@@ -106,7 +106,6 @@ import com.hippo.ehviewer.ui.scene.gallery.list.FavoritesScene;
 import com.hippo.ehviewer.ui.scene.gallery.list.GalleryListScene;
 import com.hippo.ehviewer.ui.scene.gallery.list.GalleryListSceneDialog;
 import com.hippo.ehviewer.ui.scene.history.HistoryScene;
-import com.hippo.ehviewer.smb.SmbAutoDownloadManager;
 import com.hippo.ehviewer.smb.SmbPreviewCache;
 import com.hippo.ehviewer.util.ClipboardUtil;
 import com.hippo.ehviewer.widget.ArchiverDownloadProgress;
@@ -179,8 +178,6 @@ public class GalleryDetailScene extends BaseScene implements View.OnClickListene
     public static final String KEY_PAGE = "page";
 
     public static final String KEY_GALLERY_DETAIL = "gallery_detail";
-    /** When true, the comments section is hidden — used by the Local Inventory scene
-     *  where there are no comments to show. */
     public static final String KEY_HIDE_COMMENTS = "hide_comments";
     private static final String KEY_REQUEST_ID = "request_id";
 
@@ -339,16 +336,7 @@ public class GalleryDetailScene extends BaseScene implements View.OnClickListene
         mHideComments = args.getBoolean(KEY_HIDE_COMMENTS, false);
         if (ACTION_GALLERY_INFO.equals(action)) {
             mGalleryInfo = args.getParcelable(KEY_GALLERY_INFO);
-            // Allow callers (e.g. LocalInventoryScene) to supply a fully-formed
-            // GalleryDetail so the scene can render entirely from local data
-            // without hitting the network.
-            GalleryDetail preloaded = args.getParcelable(KEY_GALLERY_DETAIL);
-            if (preloaded != null) {
-                mGalleryDetail = preloaded;
-                if (mGalleryInfo == null) {
-                    mGalleryInfo = preloaded;
-                }
-            }
+            mGalleryDetail = args.getParcelable(KEY_GALLERY_DETAIL);
             // Add history
             if (null != mGalleryInfo) {
                 EhDB.putHistoryInfo(mGalleryInfo);
@@ -720,9 +708,6 @@ public class GalleryDetailScene extends BaseScene implements View.OnClickListene
     public void onDestroyView() {
         super.onDestroyView();
 
-        // Stop any SMB preview prefetch for this gallery: once the detail page is gone there's
-        // nobody to show those previews to, and leftover reads would hog the shared prefetch pool
-        // and block whatever the user opens next. No-op for non-SMB galleries.
         if (mGalleryInfo != null) {
             SmbPreviewCache.cancelGallery(mGalleryInfo.gid);
         }
@@ -1786,15 +1771,7 @@ public class GalleryDetailScene extends BaseScene implements View.OnClickListene
         GalleryInfo galleryInfo = getGalleryInfo();
         if (galleryInfo != null) {
             if (EhApplication.getDownloadManager(mContext).getDownloadState(galleryInfo.gid) == DownloadInfo.STATE_INVALID) {
-                // The Download button always lets the user pick when SMB is enabled — Power
-                // Download's rules only govern downloads started from the reader, not this
-                // explicit click. (This once also required the old auto-download switch OFF,
-                // which silently routed everything to phone while it was on.)
-                if (Settings.getNetworkStorageEnabled() && NetworkStorage.active().isConfigured()) {
-                    promptDownloadTarget(galleryInfo);
-                } else {
-                    CommonOperations.startDownload(activity, galleryInfo, false);
-                }
+                DownloadTargetDialog.startDownload(mContext, activity, galleryInfo);
             } else {
                 new AlertDialog.Builder(mContext)
                         .setTitle(R.string.download_remove_dialog_title)
@@ -1803,25 +1780,6 @@ public class GalleryDetailScene extends BaseScene implements View.OnClickListene
                         .show();
             }
         }
-    }
-
-    private void promptDownloadTarget(@NonNull GalleryInfo galleryInfo) {
-        com.hippo.ehviewer.ui.NotificationPermission.onDownloadStart(mContext);
-        CharSequence[] items = new CharSequence[]{
-                getString(R.string.gallery_download_target_local),
-                getString(R.string.gallery_download_target_smb, NetworkStorage.active().displayName())
-        };
-        new AlertDialog.Builder(mContext)
-                .setTitle(R.string.gallery_download_target_title)
-                .setItems(items, (dialog, which) -> {
-                    if (which == 0) {
-                        CommonOperations.startDownload(activity, galleryInfo, false);
-                    } else {
-                        SmbAutoDownloadManager.getInstance().enqueueManual(mContext, galleryInfo);
-                    }
-                })
-                .setNegativeButton(android.R.string.cancel, null)
-                .show();
     }
 
     public void startUpdateDownload(String updateUrl) {

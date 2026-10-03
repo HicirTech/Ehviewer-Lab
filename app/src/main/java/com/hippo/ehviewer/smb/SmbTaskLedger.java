@@ -3,11 +3,11 @@ package com.hippo.ehviewer.smb;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
-import com.hippo.ehviewer.Settings;
 import com.hippo.ehviewer.client.data.GalleryInfo;
 import com.hippo.ehviewer.spider.SpiderQueen;
 
 import com.hippo.ehviewer.storage.DownloadState;
+import com.hippo.ehviewer.storage.NetworkStorageSettings;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -17,14 +17,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-/**
- * The queue state machine as data: every map, every transition, one lock, zero side effects —
- * transitions return what the caller must go and do. Invariant: a gid lives in at most one of
- * queue/active/paused; progress/claimedAt/takenOverFrom are bookkeeping for any of the three.
- */
+/** Queue state with no side effects; a gid is in at most one of queue, active and paused. */
 final class SmbTaskLedger {
 
-    /** A running download: the queen doing it, the listener watching it, the gallery it is. */
     static final class ActiveJob {
         final SpiderQueen queen;
         final SpiderQueen.OnSpiderListener listener;
@@ -37,7 +32,6 @@ final class SmbTaskLedger {
         }
     }
 
-    /** What a cancel leaves the caller to do: release this job, delete this gallery's folder. */
     static final class CancelOutcome {
         @Nullable final ActiveJob jobToRelease;
         @Nullable final GalleryInfo infoForDelete;
@@ -48,7 +42,6 @@ final class SmbTaskLedger {
         }
     }
 
-    /** What a finish leaves the caller to do: release the job, and drop the phone copy if a move. */
     static final class FinishOutcome {
         @Nullable final ActiveJob job;
         final boolean wasMove;
@@ -59,7 +52,6 @@ final class SmbTaskLedger {
         }
     }
 
-    /** One consistent reading of what the notification should say; null means nothing to show. */
     static final class NotificationContent {
         @Nullable final GalleryInfo active;
         final int finished;
@@ -75,37 +67,28 @@ final class SmbTaskLedger {
     }
 
     private final Object lock = new Object();
-    // FIFO + dedup: LinkedHashMap preserves insertion order and key lookup is O(1).
     private final LinkedHashMap<Long, GalleryInfo> queue = new LinkedHashMap<>();
     private final Map<Long, ActiveJob> active = new HashMap<>();
-    /** Paused jobs (preserve order so the user can see them in the task list). */
     private final LinkedHashMap<Long, GalleryInfo> paused = new LinkedHashMap<>();
     /** Last seen progress per gid so notification updates survive listener churn. */
     private final Map<Long, int[]> progress = new HashMap<>();
     /** When this device took each gallery on; the later claim wins the merge. */
     private final Map<Long, Long> claimedAt = new HashMap<>();
-    /** For a gallery taken over from a device that went away, who it was taken from. */
     private final Map<Long, String> takenOverFrom = new HashMap<>();
-    /** Finished this process-lifetime; a reconcile reading a stale file must not bring these back. */
     private final Set<Long> retired = Collections.synchronizedSet(new HashSet<>());
-    /** Phone copies to drop once complete on the share — all that separates a move (#88). */
     private final Set<Long> movingFromPhone = Collections.synchronizedSet(new HashSet<>());
 
-    // ---------- transitions -------------------------------------------------------------------
-
-    /** Queues a gallery. False when it is already queued or running (nothing changed). */
+    /** False when it is already queued or running (nothing changed). */
     boolean enqueue(@NonNull GalleryInfo info, boolean asMove) {
         synchronized (lock) {
             if (active.containsKey(info.gid) || queue.containsKey(info.gid)) {
-                // Nothing changed — in particular a rejected move must not flag the gid, or the
-                // already-running plain save would delete the phone copy on finish (#140).
+                // A rejected move must not flag the gid, or the running save drops the phone copy.
                 return false;
             }
             if (asMove) {
                 movingFromPhone.add(info.gid);
             }
             enqueueEpochs.merge(info.gid, 1L, Long::sum);
-            // Pulling a paused job back is treated as "enqueue".
             paused.remove(info.gid);
             retired.remove(info.gid);
             queue.put(info.gid, info);
@@ -116,7 +99,7 @@ final class SmbTaskLedger {
         return true;
     }
 
-    /** The next gallery to start, or null while the slots are full or the queue is empty. */
+    /** Null while the slots are full or the queue is empty. */
     @Nullable
     GalleryInfo nextToStart(int maxConcurrent) {
         synchronized (lock) {
@@ -153,7 +136,6 @@ final class SmbTaskLedger {
         return new FinishOutcome(job, movingFromPhone.remove(info.gid));
     }
 
-    /** A start that failed after leaving the queue: drop its bookkeeping and retire it (#151). */
     void forgetFailedStart(long gid) {
         synchronized (lock) {
             claimedAt.remove(gid);
@@ -162,15 +144,9 @@ final class SmbTaskLedger {
         }
     }
 
-    /** Bumped on every enqueue; never by finish or a failed start. See {@link #epochOf}. */
     private final Map<Long, Long> enqueueEpochs = new HashMap<>();
 
-    /**
-     * The gid's enqueue count (#150). The cancel path's delayed folder delete captures this at
-     * cancel time and stands down the moment it changes — a re-enqueue is the user wanting the
-     * gallery again, and neither a later finish nor a failed start may re-arm the delete (both
-     * re-add {@code retired}, which is why retired membership cannot answer this question).
-     */
+    /** The gid's enqueue count; unlike {@code retired}, finish and failed starts leave it alone. */
     long epochOf(long gid) {
         synchronized (lock) {
             Long epoch = enqueueEpochs.get(gid);
@@ -178,7 +154,7 @@ final class SmbTaskLedger {
         }
     }
 
-    /** Pause: active or queued moves to held; returns the job the caller must release, if any. */
+    /** Returns the job the caller must release, if any. */
     @Nullable
     ActiveJob pause(long gid) {
         synchronized (lock) {
@@ -192,7 +168,6 @@ final class SmbTaskLedger {
         }
     }
 
-    /** Resume's first half: takes the gallery out of held, or null if it was not there. */
     @Nullable
     GalleryInfo takeOutPaused(long gid) {
         synchronized (lock) {
@@ -200,7 +175,6 @@ final class SmbTaskLedger {
         }
     }
 
-    /** Cancel: forget the gid everywhere and retire it; the share cleanup is the caller's. */
     @NonNull
     CancelOutcome cancel(long gid) {
         synchronized (lock) {
@@ -210,7 +184,7 @@ final class SmbTaskLedger {
             progress.remove(gid);
             claimedAt.remove(gid);
             takenOverFrom.remove(gid);
-            // A cancelled move is fully off: a later plain save must not inherit the deletion (#140).
+            // A cancelled move is fully off: a later plain save must not inherit the deletion.
             movingFromPhone.remove(gid);
             retired.add(gid);
             GalleryInfo infoForDelete =
@@ -219,7 +193,6 @@ final class SmbTaskLedger {
         }
     }
 
-    /** Yield: another device owns this now — like cancel, minus retirement and folder claims. */
     @Nullable
     ActiveJob yield(long gid) {
         synchronized (lock) {
@@ -228,7 +201,7 @@ final class SmbTaskLedger {
             progress.remove(gid);
             claimedAt.remove(gid);
             takenOverFrom.remove(gid);
-            // The other device finishes this task; a yielded move degrades to a copy (#140).
+            // The other device finishes this task; a yielded move degrades to a copy.
             movingFromPhone.remove(gid);
             return active.remove(gid);
         }
@@ -249,13 +222,12 @@ final class SmbTaskLedger {
         }
     }
 
-    /** Recovered tasks come back paused, with their progress (or the next publish lies to everyone). */
     void restore(@NonNull List<DownloadState.Task> tasks) {
         synchronized (lock) {
             for (DownloadState.Task t : tasks) {
                 if (active.containsKey(t.gid) || queue.containsKey(t.gid)
                         || paused.containsKey(t.gid)) {
-                    continue;   // already back, by whatever route
+                    continue;
                 }
                 GalleryInfo info = new GalleryInfo();
                 info.gid = t.gid;
@@ -272,7 +244,6 @@ final class SmbTaskLedger {
         }
     }
 
-    /** A takeover claim: stamped now, so it is unambiguously the later of the two. */
     void stampAdoption(@NonNull SmbTaskInfo task) {
         synchronized (lock) {
             claimedAt.put(task.gid, System.currentTimeMillis());
@@ -299,15 +270,12 @@ final class SmbTaskLedger {
         }
     }
 
-    // ---------- views -------------------------------------------------------------------------
-
     boolean hasWork() {
         synchronized (lock) {
             return !queue.isEmpty() || !active.isEmpty() || !paused.isEmpty();
         }
     }
 
-    /** Whether anything is running or waiting — the service's reason to exist. */
     boolean isIdle() {
         synchronized (lock) {
             return active.isEmpty() && queue.isEmpty();
@@ -330,7 +298,6 @@ final class SmbTaskLedger {
         }
     }
 
-    /** This device's queue as the share should see it. */
     @NonNull
     DownloadState.ClientState clientState() {
         List<DownloadState.Task> tasks = new ArrayList<>();
@@ -346,7 +313,7 @@ final class SmbTaskLedger {
             }
         }
         return new DownloadState.ClientState(
-                Settings.getSmbClientId(), Settings.getSmbDeviceName(), tasks);
+                NetworkStorageSettings.getSmbClientId(), NetworkStorageSettings.getSmbDeviceName(), tasks);
     }
 
     /** Caller holds {@code lock}. */
@@ -359,7 +326,6 @@ final class SmbTaskLedger {
                 finished, total, claimed != null ? claimed : 0L, takenOverFrom.get(info.gid));
     }
 
-    /** Every known task, ordered: active first, then queued, then paused. */
     @NonNull
     List<SmbDirectDownloader.TaskSnapshot> taskSnapshots() {
         List<SmbDirectDownloader.TaskSnapshot> out = new ArrayList<>();
@@ -384,7 +350,7 @@ final class SmbTaskLedger {
         return Collections.unmodifiableList(out);
     }
 
-    /** What the notification should say right now, or null when there is nothing to show. */
+    /** Null when there is nothing to show. */
     @Nullable
     NotificationContent notificationContent() {
         synchronized (lock) {

@@ -16,15 +16,11 @@ import androidx.annotation.Nullable;
 import com.hippo.ehviewer.storage.GalleryRef;
 import java.io.InputStream;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.Future;
 import java.util.concurrent.ThreadPoolExecutor;
 
-/**
- * Measures the share at the CONFIGURED settings (auto-tune is what searches). Read-only; needs
- * galleries to read.
- */
+/** Never writes to the share. */
 public final class SmbBenchmark {
 
     private static final String TAG = "SmbBenchmark";
@@ -32,13 +28,9 @@ public final class SmbBenchmark {
     // Enough to overlap at the configured concurrency, few enough to be instant.
     private static final int METADATA_SAMPLE = 12;
 
-    /**
-     * Page images are megabytes, so the sample is small. This is enough to tell a share that
-     * streams from one that stalls, which is the question being asked.
-     */
+    // Pages are megabytes; six already tell a streaming share from a stalling one.
     private static final int IMAGE_SAMPLE = 6;
 
-    /** What the benchmark found. Plain values; the settings screen decides how to say them. */
     public static final class Result {
         public final boolean ok;
         /** Why there is nothing to report, when {@link #ok} is false. */
@@ -48,7 +40,6 @@ public final class SmbBenchmark {
         public final int metadataConcurrency;
         public final int imageConcurrency;
 
-        /** One directory enumeration of {@code download/}. */
         public final long listMillis;
 
         public final int metadataRead;
@@ -79,7 +70,6 @@ public final class SmbBenchmark {
             return new Result(false, problem, 0, 0, 0, 0, 0, 0, 0, 0, 0);
         }
 
-        /** Milliseconds per gallery, the figure that predicts how a bigger share will feel. */
         public double millisPerGallery() {
             return metadataRead == 0 ? 0 : (double) metadataMillis / metadataRead;
         }
@@ -91,9 +81,7 @@ public final class SmbBenchmark {
 
     private SmbBenchmark() {}
 
-    /**
-     * Runs the whole thing. Blocking and share-bound; call it from a worker thread.
-     */
+    /** Blocking and share-bound; call from a worker thread. */
     @NonNull
     public static Result run() {
         if (!SmbConnection.isConfigured()) {
@@ -113,8 +101,7 @@ public final class SmbBenchmark {
         List<GalleryRef> sample =
                 refs.subList(0, Math.min(METADATA_SAMPLE, refs.size()));
 
-        // Metadata, through the same pool the inventory uses, so the number means something about
-        // the app rather than about this class.
+        // The inventory's own pool, so the figure is the app's rather than this class's.
         ThreadPoolExecutor pool = SmbInventory.inventoryExecutor();
         long tMeta = SystemClock.elapsedRealtime();
         List<Future<Boolean>> pending = new ArrayList<>(sample.size());
@@ -158,7 +145,6 @@ public final class SmbBenchmark {
         }
     }
 
-    /** Reads real pages concurrently, spread across galleries so one book cannot skew it. */
     @NonNull
     private static Images readImages(@NonNull List<GalleryRef> refs, int concurrency) {
         List<Callable> jobs = new ArrayList<>();

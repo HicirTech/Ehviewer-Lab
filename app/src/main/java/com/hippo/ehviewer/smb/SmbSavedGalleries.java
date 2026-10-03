@@ -5,10 +5,10 @@ import android.util.Log;
 
 import androidx.annotation.NonNull;
 
-import com.hippo.ehviewer.Settings;
 import com.hippo.ehviewer.storage.DownloadState;
 import com.hippo.ehviewer.storage.GalleryRef;
 import com.hippo.ehviewer.storage.NetworkStorage;
+import com.hippo.ehviewer.storage.NetworkStorageSettings;
 import com.hippo.lib.yorozuya.SimpleHandler;
 
 import java.util.Collections;
@@ -20,17 +20,12 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-/**
- * Which galleries are finished on the share (#83): folders in download/ minus every claim in
- * state/ (folders exist from enqueue-time, so presence alone cannot mean finished; claimed —
- * live or dead — means not saved). Two directory reads total; nothing ever waits on it.
- */
+/** Saved = folders minus every claim, live or dead: a folder exists from enqueue on. */
 public final class SmbSavedGalleries {
 
     private static final String TAG = "SmbSavedGalleries";
 
-    // Bounds screen-flicking only; own changes call invalidate() and skip the TTL, so 30s
-    // (6x the listing cache's 5s) merely delays seeing other devices' additions in badges.
+    // Own changes call invalidate(); this only delays other devices' additions.
     private static final long TTL_MS = 30_000L;
 
     private static final SmbSavedGalleries INSTANCE = new SmbSavedGalleries();
@@ -39,17 +34,13 @@ public final class SmbSavedGalleries {
         return INSTANCE;
     }
 
-    /** Told, on the main thread, when the answer has changed. */
+    /** Called on the main thread. */
     public interface Observer {
         void onSavedGalleriesChanged();
     }
 
     private final CopyOnWriteArrayList<Observer> observers = new CopyOnWriteArrayList<>();
 
-    /**
-     * One thread, so two refreshes cannot run at once. Reading the share twice concurrently is
-     * wasted round trips at best, and the two results racing to be stored at worst.
-     */
     private final ExecutorService worker = Executors.newSingleThreadExecutor(r -> {
         Thread t = new Thread(r, "smb-saved-galleries");
         t.setDaemon(true);
@@ -74,10 +65,7 @@ public final class SmbSavedGalleries {
         observers.remove(o);
     }
 
-    /**
-     * Never blocks, never touches the share (cards ask while binding); false until the first
-     * refresh. The switch is checked per call so turning SMB off clears every screen at once.
-     */
+    /** Never blocks or touches the share; false until the first refresh. */
     public boolean contains(long gid) {
         return enabled() && saved.contains(gid);
     }
@@ -94,7 +82,6 @@ public final class SmbSavedGalleries {
         refreshNow();
     }
 
-    /** Skips the TTL after own changes (finish, delete). */
     public void invalidate() {
         loadedAt = 0L;
     }
@@ -110,11 +97,7 @@ public final class SmbSavedGalleries {
                     if (fresh == null) {
                         return;
                     }
-                    // Asked again on the way out. A read takes a few hundred milliseconds, and the
-                    // switch can go off inside that window: the refresh that noticed would have
-                    // published an empty set already, and this one would then put the old answer
-                    // back. Note that read() itself cannot notice — listGalleryRefs only checks
-                    // that a host is configured, which it still is.
+                    // The switch may have gone off mid-read; its empty set must stand.
                     if (!enabled()) {
                         publish(Collections.<Long>emptySet());
                         return;
@@ -132,10 +115,10 @@ public final class SmbSavedGalleries {
     }
 
     private static boolean enabled() {
-        return NetworkStorage.active().isConfigured() && Settings.getNetworkStorageEnabled();
+        return NetworkStorage.active().isConfigured() && NetworkStorageSettings.isEnabled();
     }
 
-    /** Reads the share; null on failure so the caller keeps the previous answer. */
+    /** Null on failure, so the caller keeps the previous answer. */
     private static Set<Long> read() {
         long t0 = SystemClock.elapsedRealtime();
         try {

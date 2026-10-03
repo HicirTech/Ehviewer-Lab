@@ -41,7 +41,6 @@ class DownloadPaginationController(private val mHost: Host) {
 
         val recyclerView: MyEasyRecyclerView?
 
-        /** The indicator was just shown or hidden; the FAB clears it (#74). */
         fun onPaginationVisibilityChanged()
     }
 

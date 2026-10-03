@@ -46,16 +46,9 @@ class DownloadSpiderInfoExecutor(
     }
 
     private fun getSpiderInfo(info: GalleryInfo): SpiderInfo? {
-        // An SMB save keeps its reading position beside its images on the share (#59). Reading is
-        // reading -- how far through a gallery you are does not depend on where its bytes live --
-        // but the phone's download folder is the wrong place to look for it, and asking there has
-        // a side effect: getGalleryDownloadDir() records a download directory name in the
-        // database for any gallery that has none, which for one that was never downloaded here
-        // invents a local download that does not exist.
+        // getGalleryDownloadDir() below would record a dirname, inventing a local download.
         if (com.hippo.ehviewer.smb.SmbTaskInfo.isSmb(info as? DownloadInfo)) {
-            return com.hippo.ehviewer.smb.SmbGalleryFiles.openSpiderInfoInputStream(info)
-                ?.use { SpiderInfo.readHeader(it) }
-                ?.takeIf { it.gid == info.gid }
+            return com.hippo.ehviewer.smb.SmbGalleryFiles.readSpiderInfoHeader(info)
         }
         val spiderInfo: SpiderInfo?
         val mDownloadDir = SpiderDen.getGalleryDownloadDir(info)

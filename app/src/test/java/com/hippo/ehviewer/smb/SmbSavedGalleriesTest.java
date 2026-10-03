@@ -12,6 +12,7 @@ import static org.junit.Assert.assertTrue;
 import com.hippo.ehviewer.Settings;
 import com.hippo.ehviewer.storage.DownloadState;
 import com.hippo.ehviewer.storage.GalleryRef;
+import com.hippo.ehviewer.storage.NetworkStorageSettings;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -28,10 +29,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 
-/**
- * The badge oracle (#144): saved = folders in download/ minus every claim in state/, disabled
- * answers nothing, and a failed read keeps the previous answer instead of blanking screens.
- */
+/** The badge oracle (#144): saved means on the share and claimed by no device. */
 @RunWith(RobolectricTestRunner.class)
 @Config(application = android.app.Application.class,
         shadows = {SmbSavedGalleriesTest.ShadowSmbInventory.class,
@@ -65,19 +63,17 @@ public class SmbSavedGalleriesTest {
     @Before
     public void setUp() throws Exception {
         Settings.initialize(RuntimeEnvironment.getApplication());
-        Settings.putString(Settings.KEY_SMB_HOST, "192.0.2.7");
-        Settings.putString(Settings.KEY_SMB_SHARE_NAME, "share");
-        Settings.putBoolean(Settings.KEY_NETWORK_STORAGE_ENABLED, true);
+        Settings.putString(NetworkStorageSettings.KEY_SMB_HOST, "192.0.2.7");
+        Settings.putString(NetworkStorageSettings.KEY_SMB_SHARE_NAME, "share");
+        Settings.putBoolean(NetworkStorageSettings.KEY_ENABLED, true);
         folders.clear();
         claims.clear();
         readFails = false;
-        // Robolectric's clock starts near zero, which the TTL check reads as "just refreshed";
-        // a minute on the clock makes loadedAt=0 mean "never" the way it does in production.
+        // Robolectric's clock starts near zero, where loadedAt=0 reads as just refreshed.
         org.robolectric.shadows.ShadowSystemClock.advanceBy(java.time.Duration.ofMinutes(2));
         reset(Collections.emptySet());
     }
 
-    /** The instance is a process-wide singleton; every test starts from a cold, empty answer. */
     private static void reset(Set<Long> saved) throws Exception {
         SmbSavedGalleries instance = SmbSavedGalleries.getInstance();
         Field savedField = SmbSavedGalleries.class.getDeclaredField("saved");
@@ -94,7 +90,6 @@ public class SmbSavedGalleriesTest {
                 "client-b", "OtherDevice", Collections.singletonList(task)), true, 1L);
     }
 
-    /** The core subtraction: a folder is only "saved" while nobody claims it — dead or alive. */
     @Test
     public void aClaimedFolderIsNotSaved() {
         folders.add(new GalleryRef("42-Answer", 1L));
@@ -108,18 +103,16 @@ public class SmbSavedGalleriesTest {
                 SmbSavedGalleries.getInstance().contains(43L));
     }
 
-    /** Turning the switch off empties every screen at once, cache or no cache. */
     @Test
     public void disablingAnswersNothingImmediately() throws Exception {
         reset(Collections.singleton(42L));
         assertTrue(SmbSavedGalleries.getInstance().contains(42L));
 
-        Settings.putBoolean(Settings.KEY_NETWORK_STORAGE_ENABLED, false);
+        Settings.putBoolean(NetworkStorageSettings.KEY_ENABLED, false);
 
         assertFalse(SmbSavedGalleries.getInstance().contains(42L));
     }
 
-    /** A failed read keeps the previous answer — badges must not blank on a network hiccup. */
     @Test
     public void aFailedReadKeepsThePreviousAnswer() throws Exception {
         reset(Collections.singleton(42L));

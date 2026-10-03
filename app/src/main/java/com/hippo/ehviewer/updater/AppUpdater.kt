@@ -217,8 +217,7 @@ class AppUpdater(private val name: String, source: BufferedSource) {
                     true
                 } else currentVersionCode < tempUpdateData.getInteger(VERSION_CODE)
             } catch (e: Throwable) {
-                // The update check runs unattended on startup; malformed release data or an
-                // unexpected version format must never take the process down.
+                // Background thread: malformed feed data must never crash the app.
                 Log.e(TAG, e.message, e)
                 Analytics.recordException(e)
                 return false

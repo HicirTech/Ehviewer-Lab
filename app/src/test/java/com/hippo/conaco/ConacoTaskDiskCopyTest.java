@@ -36,17 +36,12 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import okhttp3.OkHttpClient;
 
-/**
- * A value decoded from a DataContainer is copied into the disk cache (upstream 2.0.2.5) unless
- * the container forbids it. The SMB containers do: the share is the only durable copy of what
- * they serve, and a copy costs them a second read off it.
- */
+/** A decoded value goes to the disk cache unless its DataContainer forbids it. */
 @RunWith(RobolectricTestRunner.class)
 @Config(application = android.app.Application.class)
 public class ConacoTaskDiskCopyTest {
 
     private static final String KEY = "disk-copy-key";
-    /** Long enough that a busy CI runner is not a failure; only a stuck test ever waits this. */
     private static final long TIMEOUT_MS = 10_000;
 
     @Rule
@@ -54,7 +49,6 @@ public class ConacoTaskDiskCopyTest {
 
     private Conaco<String> conaco;
 
-    /** Serves fixed bytes and counts how often it is read. */
     private static final class CountingContainer implements DataContainer {
         final AtomicInteger gets = new AtomicInteger();
         private final boolean allowDiskCopy;
@@ -107,7 +101,6 @@ public class ConacoTaskDiskCopyTest {
         }
     }
 
-    /** Records the value it is handed. */
     private static final class RecordingUnikery implements Unikery<String> {
         private int taskId = INVALID_ID;
         volatile String value;

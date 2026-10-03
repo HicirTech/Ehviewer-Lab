@@ -10,22 +10,16 @@ import androidx.annotation.NonNull;
 
 import java.util.List;
 
-/**
- * The multi-client download board's persistence (#59): one file per client, only its owner
- * writes it, the file's mtime is the heartbeat. Blocking IO; worker threads.
- */
+/** One file per client, only its owner writes it, mtime is the heartbeat; blocking IO. */
 public interface NetworkStorageStateStore {
 
-    /** Every client's published state; liveness decided from mtime. Unreadable files skipped. */
+    /** Unreadable files are skipped. */
     @NonNull
     List<DownloadState.Published> readAll();
 
     /** Publishes this client's state atomically. */
     boolean writeSelf(@NonNull DownloadState.ClientState state);
 
-    /**
-     * Removes a gallery from another client's file — the single, narrow exception to "only the
-     * owner writes", valid only against an owner stale past {@link DownloadState#STALE_AFTER_MS}.
-     */
+    /** Only against an owner stale past {@link DownloadState#STALE_AFTER_MS}. */
     boolean removeTask(@NonNull String ownerClientId, long gid);
 }

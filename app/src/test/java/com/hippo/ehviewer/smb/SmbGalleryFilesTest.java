@@ -15,6 +15,7 @@ import static org.junit.Assert.assertTrue;
 
 import com.hippo.ehviewer.Settings;
 import com.hippo.ehviewer.client.data.GalleryInfo;
+import com.hippo.ehviewer.storage.NetworkStorageSettings;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -39,7 +40,7 @@ import java.util.Set;
 
 import jcifs.smb.SmbFile;
 
-/** The per-file half of the SMB layer (#97): page lookup by cached listing, and — the part with the history — the atomic write. */
+/** The per-file half of the SMB layer (#97): page lookup by cached listing, and the atomic write. */
 @RunWith(RobolectricTestRunner.class)
 @Config(application = android.app.Application.class,
         shadows = {SmbGalleryFilesTest.ShadowSmbFile.class,
@@ -51,7 +52,6 @@ public class SmbGalleryFilesTest {
     static final List<String> events = new ArrayList<>();
     static final Map<String, ByteArrayOutputStream> written = new HashMap<>();
 
-    /** The gallery folder's contents come from the directory layer; here they are a fixture. */
     @Implements(SmbGalleryDirectory.class)
     public static class ShadowSmbGalleryDirectory {
         @Implementation
@@ -107,17 +107,16 @@ public class SmbGalleryFilesTest {
     @Before
     public void setUp() {
         Settings.initialize(RuntimeEnvironment.getApplication());
-        Settings.putString(Settings.KEY_SMB_HOST, "192.0.2.7");
-        Settings.putString(Settings.KEY_SMB_SHARE_NAME, "share");
-        Settings.putString(Settings.KEY_SMB_SHARE_PATH, "");
-        Settings.putString(Settings.KEY_SMB_USERNAME, "");
+        Settings.putString(NetworkStorageSettings.KEY_SMB_HOST, "192.0.2.7");
+        Settings.putString(NetworkStorageSettings.KEY_SMB_SHARE_NAME, "share");
+        Settings.putString(NetworkStorageSettings.KEY_SMB_SHARE_PATH, "");
+        Settings.putString(NetworkStorageSettings.KEY_SMB_USERNAME, "");
         filenames.clear();
         events.clear();
         written.clear();
         ShadowSmbFile.renameFails = false;
     }
 
-    /** "Is page N saved" is a set lookup over the listing, across every supported extension. */
     @Test
     public void containImageAnswersFromTheListingWhateverTheExtension() {
         filenames.add("00000001.webp");
@@ -127,7 +126,6 @@ public class SmbGalleryFilesTest {
         assertFalse(SmbGalleryFiles.containImage(gallery, 2));
     }
 
-    /** The preview lookup builds the one matching reference instead of probing per extension. */
     @Test
     public void previewLookupReturnsTheFileTheListingNames() {
         filenames.add("00000003.png");
@@ -137,10 +135,6 @@ public class SmbGalleryFilesTest {
         assertNull(SmbGalleryFiles.findSmbImageFileForPreview(gallery, 5));
     }
 
-    /**
-     * readAll must hand back the file's exact bytes. The previous readLine() implementation
-     * silently dropped terminators, which corrupts pretty-printed metadata.
-     */
     @Test
     public void readAllPreservesLineTerminators() throws Exception {
         String text = "{\r\n  \"pages\": 3\n}\n";
@@ -148,10 +142,6 @@ public class SmbGalleryFilesTest {
                 new ByteArrayInputStream(text.getBytes(StandardCharsets.UTF_8))));
     }
 
-    /**
-     * The #35 shape: while the stream is open, nothing has been renamed and nothing invalidated —
-     * no reader can meet a half-written file under its real name.
-     */
     @Test
     public void nothingIsPublishedUntilTheStreamCloses() throws Exception {
         SmbFile dir = new SmbFile(SmbConnection.galleryRootUrl() + "42-Answer/",
@@ -164,11 +154,9 @@ public class SmbGalleryFilesTest {
         assertEquals(2, events.size());
         assertTrue(events.get(0).startsWith("rename:"));
         assertTrue("the rename must overwrite", events.get(0).endsWith("replace=true"));
-        // Incremental (#102): the confirmed name is added; the listing is NOT re-fetched per page.
         assertEquals("note:42:00000001.jpg", events.get(1));
     }
 
-    /** A failed publish leaves the folder's contents uncertain — forget, do not guess (#35). */
     @Test
     public void aFailedPublishInvalidatesInsteadOfNoting() throws Exception {
         SmbFile dir = new SmbFile(SmbConnection.galleryRootUrl() + "42-Answer/",
@@ -186,7 +174,6 @@ public class SmbGalleryFilesTest {
                 events.contains("delete:" + SmbTempFiles.nameFor("00000001.jpg")));
     }
 
-    /** Close is idempotent — a double close must not rename (and so re-invalidate) twice. */
     @Test
     public void closingTwicePublishesOnce() throws Exception {
         SmbFile dir = new SmbFile(SmbConnection.galleryRootUrl() + "42-Answer/",
@@ -197,11 +184,7 @@ public class SmbGalleryFilesTest {
         assertEquals(2, events.size());
     }
 
-    /**
-     * The #138 fix: the plain-text check's read of a just-downloaded page is answered from the
-     * in-memory echo — no share access. Provable here because the listing fixture is empty, so
-     * the real lookup path could only return null.
-     */
+    /** The listing fixture is empty, so only the in-memory echo can answer. */
     @Test
     public void theReadAfterAWriteIsServedFromMemory() throws Exception {
         writePageThroughPipe(gallery, 0, "page bytes");
@@ -214,17 +197,14 @@ public class SmbGalleryFilesTest {
         pipe.release();
     }
 
-    /** The echo is one-shot: its first read consumes it; later reads take the real path. */
     @Test
     public void theEchoIsConsumedByItsFirstRead() throws Exception {
         GalleryInfo other = com.hippo.ehviewer.storage.NetworkStorage.lookupKey(43L, "Other");
         writePageThroughPipe(other, 1, "once");
         assertNotNull(SmbGalleryFiles.openSmbInputStreamPipe(other, 1));
-        // Consumed: with nothing on the (empty-fixture) share, the second open finds nothing.
         assertNull(SmbGalleryFiles.openSmbInputStreamPipe(other, 1));
     }
 
-    /** Only a published page may echo — a failed rename must leave nothing to serve. */
     @Test
     public void aFailedPublishLeavesNoEcho() throws Exception {
         GalleryInfo failed = com.hippo.ehviewer.storage.NetworkStorage.lookupKey(44L, "Failed");
@@ -233,11 +213,6 @@ public class SmbGalleryFilesTest {
         assertNull(SmbGalleryFiles.openSmbInputStreamPipe(failed, 0));
     }
 
-    /**
-     * The failed-download cleanup (#140): the atomic pipe publishes on close whether the source
-     * finished or not, so the truncated page IS on the share under its final name — deleteImage
-     * must remove it and invalidate the listing, or it reads as saved forever.
-     */
     @Test
     public void deletingAPageRemovesThePublishedFileAndForgetsTheListing() throws Exception {
         filenames.add("00000001.jpg");
@@ -248,10 +223,6 @@ public class SmbGalleryFilesTest {
                 events.contains("invalidate:42"));
     }
 
-    /**
-     * A format-changing re-publish leaves two names for one page; the cleanup must take both,
-     * or the preferred extension shields the bad file (#150).
-     */
     @Test
     public void deletingAPageRemovesEveryExtensionItHas() {
         filenames.add("00000001.jpg");
@@ -261,14 +232,12 @@ public class SmbGalleryFilesTest {
         assertTrue("png must go too: " + events, events.contains("delete:00000001.png"));
     }
 
-    /** A page that was never published deletes nothing and reports so. */
     @Test
     public void deletingAnAbsentPageIsANoOp() {
         assertFalse(SmbGalleryFiles.deleteImage(gallery, 0));
         assertTrue(events.isEmpty());
     }
 
-    /** The failed page's echo must die with it — stale bytes must not answer a later read. */
     @Test
     public void deletingAPagePurgesItsEcho() throws Exception {
         GalleryInfo purged = com.hippo.ehviewer.storage.NetworkStorage.lookupKey(45L, "Purged");
@@ -278,7 +247,6 @@ public class SmbGalleryFilesTest {
                 SmbGalleryFiles.openSmbInputStreamPipe(purged, 0));
     }
 
-    /** Cancel or delete forgets the gallery's echoes — no bytes served for a gone gallery. */
     @Test
     public void forgettingAGalleryDropsItsEchoes() throws Exception {
         GalleryInfo gone = com.hippo.ehviewer.storage.NetworkStorage.lookupKey(46L, "Gone");
@@ -298,7 +266,6 @@ public class SmbGalleryFilesTest {
         pipe.release();
     }
 
-    /** The bytes written go to the temporary name, not the target. */
     @Test
     public void bytesTravelThroughTheTemporaryName() throws Exception {
         SmbFile dir = new SmbFile(SmbConnection.galleryRootUrl() + "42-Answer/",

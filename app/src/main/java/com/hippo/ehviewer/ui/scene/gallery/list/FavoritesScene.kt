@@ -116,7 +116,6 @@ class FavoritesScene : BaseScene(), EasyRecyclerView.OnItemClickListener,
     @ViewLifeCircle
     private var mAdapter: FavoritesAdapter? = null
 
-    /** Redraws the cards once the list of galleries already on the share arrives (#83). */
     private val mSavedObserver = SmbSavedGalleries.Observer { mAdapter?.notifyDataSetChanged() }
 
     @ViewLifeCircle
@@ -244,8 +243,7 @@ class FavoritesScene : BaseScene(), EasyRecyclerView.OnItemClickListener,
 
     override fun onResume() {
         super.onResume()
-        // Settings is a separate activity, so coming back from switching SMB off does not rebuild
-        // this view. Without this the marks would sit there until it happened to be recreated.
+        // Settings is a separate activity: switching SMB off there does not rebuild this view.
         SmbSavedGalleries.getInstance().refresh()
     }
 
@@ -345,10 +343,7 @@ class FavoritesScene : BaseScene(), EasyRecyclerView.OnItemClickListener,
             mHelper!!.firstRefresh()
         }
 
-        if (mUrlBuilder != null) {
-            setDrawerLockMode(DrawerLayout.LOCK_MODE_UNLOCKED, Gravity.RIGHT)
-            guideCollections()
-        }
+        guideCollections()
 
         return view
     }
@@ -471,7 +466,7 @@ class FavoritesScene : BaseScene(), EasyRecyclerView.OnItemClickListener,
     override fun onCreateDrawerView(
         inflater: LayoutInflater,
         container: ViewGroup?, savedInstanceState: Bundle?
-    ): View? {
+    ): View {
         val view = inflater.inflate(R.layout.drawer_list_rv, container, false)
         val context = getEHContext()
         val toolbar = ViewUtils.`$$`(view, R.id.toolbar) as Toolbar
@@ -1120,10 +1115,11 @@ class FavoritesScene : BaseScene(), EasyRecyclerView.OnItemClickListener,
 
     private fun onGetFavoritesLocal(keyword: String?, taskId: Int) {
         if (mHelper != null && mHelper!!.isCurrentTask(taskId)) {
-            val list: MutableList<GalleryInfo?> = if (TextUtils.isEmpty(keyword)) {
-                EhDB.getAllLocalFavorites() ?: ArrayList()
+            val list: MutableList<GalleryInfo?>?
+            if (TextUtils.isEmpty(keyword)) {
+                list = EhDB.getAllLocalFavorites()
             } else {
-                EhDB.searchLocalFavorites(keyword) ?: ArrayList()
+                list = EhDB.searchLocalFavorites(keyword)
             }
 
             if (list.size == 0) {
@@ -1760,4 +1756,3 @@ class FavoritesScene : BaseScene(), EasyRecyclerView.OnItemClickListener,
         private const val TAG = "FavoritesScene"
     }
 }
-

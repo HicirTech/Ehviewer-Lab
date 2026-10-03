@@ -13,22 +13,21 @@ import com.hippo.ehviewer.client.data.GalleryInfo;
 
 import java.util.List;
 
-/** The storage as a list of galleries. Blocking IO; worker threads. */
+/** Blocking IO; worker threads. */
 public interface NetworkStorageInventory {
 
-    /** All gallery folders from one enumeration, no metadata reads — first-paint cheap. */
+    /** One enumeration, no metadata reads. */
     @NonNull
     List<GalleryRef> listGalleryRefs();
 
-    /** The whole library read and sorted; the eager path sorts other than by date need. */
+    /** Reads every record: the eager path, for sorts other than by date. */
     @NonNull
     List<GalleryInfo> loadInventory(@NonNull SortMode mode);
 
-    /** One folder's record, or null when unreadable. */
     @Nullable
     GalleryInfo readGalleryInfo(@NonNull GalleryRef ref);
 
-    /** The record for a gallery known by gid + title, or null. */
+    /** For a gallery known only by gid and title. */
     @Nullable
     GalleryInfo readGalleryMetadata(@NonNull GalleryInfo hint);
 }

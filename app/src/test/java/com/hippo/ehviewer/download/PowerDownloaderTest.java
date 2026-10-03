@@ -1,9 +1,13 @@
 package com.hippo.ehviewer.download;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
+import static org.robolectric.Shadows.shadowOf;
 
 import android.content.Context;
+import android.content.Intent;
 
 import com.hippo.ehviewer.EhApplication;
 import com.hippo.ehviewer.R;
@@ -11,11 +15,13 @@ import com.hippo.ehviewer.Settings;
 import com.hippo.ehviewer.client.data.GalleryInfo;
 import com.hippo.ehviewer.dao.DownloadInfo;
 import com.hippo.ehviewer.smb.SmbAutoDownloadManager;
-import com.hippo.ehviewer.ui.CommonOperations;
+import com.hippo.lib.yorozuya.collect.LongList;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -34,19 +40,18 @@ import org.robolectric.shadows.ShadowToast;
         shadows = {
                 PowerDownloaderTest.ShadowEhApplication.class,
                 PowerDownloaderTest.ShadowDownloadManager.class,
-                PowerDownloaderTest.ShadowCommonOperations.class,
                 PowerDownloaderTest.ShadowSmbAutoDownloadManager.class,
         },
         // Robolectric instruments by name prefix, so one class can be listed on its own.
         instrumentedPackages = {"com.hippo.ehviewer.EhApplication", "com.hippo.ehviewer.download",
-                "com.hippo.ehviewer.ui.CommonOperations", "com.hippo.ehviewer.smb"})
+                "com.hippo.ehviewer.smb"})
 public class PowerDownloaderTest {
 
     private static final long GID = 2793140L;
 
-    /** The phone download list's answer for GID. */
     static int phoneState;
-    static final List<Long> phoneStarts = new ArrayList<>();
+    static boolean listed;
+    static final Set<String> labels = new HashSet<>();
     static final List<String> shareAsks = new ArrayList<>();
 
     private Context context;
@@ -65,13 +70,15 @@ public class PowerDownloaderTest {
         protected int getDownloadState(long gid) {
             return phoneState;
         }
-    }
 
-    @Implements(CommonOperations.class)
-    public static class ShadowCommonOperations {
         @Implementation
-        protected static void startDownloadWithoutAsking(Context context, GalleryInfo info) {
-            phoneStarts.add(info.gid);
+        protected boolean containDownloadInfo(long gid) {
+            return listed;
+        }
+
+        @Implementation
+        protected boolean containLabel(String label) {
+            return labels.contains(label);
         }
     }
 
@@ -100,17 +107,32 @@ public class PowerDownloaderTest {
         context = RuntimeEnvironment.getApplication();
         Settings.initialize(context);
         phoneState = DownloadInfo.STATE_INVALID;
-        phoneStarts.clear();
+        listed = false;
+        labels.clear();
         shareAsks.clear();
     }
 
-    // --- to the phone -------------------------------------------------------------------------
+    /** The DownloadService starts since the last call. */
+    private static List<Intent> phoneStarts() {
+        List<Intent> started = new ArrayList<>();
+        Intent intent;
+        while ((intent = shadowOf(RuntimeEnvironment.getApplication()).getNextStartedService()) != null) {
+            started.add(intent);
+        }
+        return started;
+    }
+
+    private Intent thePhoneStart() {
+        List<Intent> started = phoneStarts();
+        assertEquals("phone downloads started", 1, started.size());
+        return started.get(0);
+    }
 
     @Test
     public void phone_aNewGalleryStartsAndSaysSo() {
         PowerDownloader.download(context, gallery(), PowerDownloadTarget.PHONE, true);
 
-        assertEquals(1, phoneStarts.size());
+        assertEquals(1, phoneStarts().size());
         assertEquals(context.getString(R.string.added_to_download_list), ShadowToast.getTextOfLatestToast());
     }
 
@@ -121,7 +143,7 @@ public class PowerDownloaderTest {
         phoneState = DownloadInfo.STATE_FAILED;
         PowerDownloader.download(context, gallery(), PowerDownloadTarget.PHONE, true);
 
-        assertEquals(2, phoneStarts.size());
+        assertEquals(2, phoneStarts().size());
     }
 
     @Test
@@ -137,10 +159,9 @@ public class PowerDownloaderTest {
                     ShadowToast.getTextOfLatestToast());
             ShadowToast.reset();
         }
-        assertTrue(phoneStarts.isEmpty());
+        assertTrue(phoneStarts().isEmpty());
     }
 
-    /** The download list would restart it, re-running its spider, and say "added" again. */
     @Test
     public void phone_aFinishedDownloadIsNotRunAgain() {
         phoneState = DownloadInfo.STATE_FINISH;
@@ -151,10 +172,8 @@ public class PowerDownloaderTest {
         PowerDownloader.download(context, gallery(), PowerDownloadTarget.PHONE, false);
         assertEquals(context.getString(R.string.power_download_already_downloaded),
                 ShadowToast.getTextOfLatestToast());
-        assertTrue(phoneStarts.isEmpty());
+        assertTrue(phoneStarts().isEmpty());
     }
-
-    // --- to network storage, and nowhere ------------------------------------------------------
 
     @Test
     public void share_aRuleAsksQuietlyAndATapAsksOutLoud() {
@@ -162,10 +181,9 @@ public class PowerDownloaderTest {
         PowerDownloader.download(context, gallery(), PowerDownloadTarget.NETWORK_STORAGE, false);
 
         assertEquals(Arrays.asList("quiet", "manual"), shareAsks);
-        assertTrue(phoneStarts.isEmpty());
+        assertTrue(phoneStarts().isEmpty());
     }
 
-    /** A local album opens in the reader like a gallery, but it already is the only copy. */
     @Test
     public void aLocalImportGoesNowhere() {
         DownloadInfo album = new DownloadInfo();
@@ -177,7 +195,7 @@ public class PowerDownloaderTest {
         PowerDownloader.download(context, album, PowerDownloadTarget.PHONE, false);
         PowerDownloader.download(context, album, PowerDownloadTarget.NETWORK_STORAGE, false);
 
-        assertTrue(phoneStarts.isEmpty());
+        assertTrue(phoneStarts().isEmpty());
         assertTrue(shareAsks.isEmpty());
         assertEquals(0, ShadowToast.shownToastCount());
     }
@@ -186,8 +204,59 @@ public class PowerDownloaderTest {
     public void noneGoesNowhere() {
         PowerDownloader.download(context, gallery(), PowerDownloadTarget.NONE, false);
 
-        assertTrue(phoneStarts.isEmpty());
+        assertTrue(phoneStarts().isEmpty());
         assertTrue(shareAsks.isEmpty());
         assertEquals(0, ShadowToast.shownToastCount());
+    }
+
+    @Test
+    public void phone_aRememberedLabelThatStillExistsIsUsed() {
+        labels.add("Later");
+        Settings.putHasDefaultDownloadLabel(true);
+        Settings.putDefaultDownloadLabel("Later");
+
+        PowerDownloader.download(context, gallery(), PowerDownloadTarget.PHONE, false);
+
+        Intent intent = thePhoneStart();
+        assertEquals(DownloadService.ACTION_START, intent.getAction());
+        assertEquals("Later", intent.getStringExtra(DownloadService.KEY_LABEL));
+    }
+
+    @Test
+    public void phone_aRememberedLabelThatWasDeletedFallsBackToTheDefaultList() {
+        Settings.putHasDefaultDownloadLabel(true);
+        Settings.putDefaultDownloadLabel("Gone");
+
+        PowerDownloader.download(context, gallery(), PowerDownloadTarget.PHONE, false);
+
+        Intent intent = thePhoneStart();
+        assertEquals(DownloadService.ACTION_START, intent.getAction());
+        assertNull(intent.getStringExtra(DownloadService.KEY_LABEL));
+    }
+
+    @Test
+    public void phone_withNoRememberedLabelTheDefaultListTakesIt() {
+        labels.add("Later");
+        Settings.putHasDefaultDownloadLabel(false);
+        Settings.putDefaultDownloadLabel("Later");
+
+        PowerDownloader.download(context, gallery(), PowerDownloadTarget.PHONE, false);
+
+        assertNull(thePhoneStart().getStringExtra(DownloadService.KEY_LABEL));
+    }
+
+    @Test
+    public void phone_aGalleryAlreadyListedIsRestartedNotAddedAgain() {
+        listed = true;
+        phoneState = DownloadInfo.STATE_NONE;
+
+        PowerDownloader.download(context, gallery(), PowerDownloadTarget.PHONE, false);
+
+        Intent intent = thePhoneStart();
+        assertEquals(DownloadService.ACTION_START_RANGE, intent.getAction());
+        LongList gids = intent.getParcelableExtra(DownloadService.KEY_GID_LIST);
+        assertNotNull(gids);
+        assertEquals(1, gids.size());
+        assertEquals(GID, gids.get(0));
     }
 }

@@ -14,11 +14,6 @@ import com.hippo.ehviewer.EhApplication;
 
 import java.io.File;
 
-/**
- * The one directory for anonymous decode shims (cache/smb_tmp). Swept whole on first use each
- * process: shims die with their pipe, so anything found at startup is a leak from a killed
- * process (#131 measured 56 of them).
- */
 final class SmbShims {
 
     private static final String TAG = "SmbShims";

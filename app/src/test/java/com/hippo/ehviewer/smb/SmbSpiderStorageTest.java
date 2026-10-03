@@ -1,7 +1,6 @@
 package com.hippo.ehviewer.smb;
 
 import com.hippo.ehviewer.storage.GalleryTargets;
-import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
@@ -16,7 +15,7 @@ import org.robolectric.annotation.Config;
 import org.robolectric.annotation.Implementation;
 import org.robolectric.annotation.Implements;
 
-/** The production half of invariant I4 in #41: a gallery only resolves to an SMB backend while it is marked as an SMB target. */
+/** A gallery resolves to an SMB backend only while it is marked as an SMB target (#41). */
 @RunWith(RobolectricTestRunner.class)
 @Config(application = android.app.Application.class,
         shadows = {SmbSpiderStorageTest.ShadowSmbGalleryDirectory.class},
@@ -25,7 +24,6 @@ public class SmbSpiderStorageTest {
 
     static boolean listingConsulted;
 
-    /** Records whether anything asked for the folder's contents. */
     @Implements(SmbGalleryDirectory.class)
     public static class ShadowSmbGalleryDirectory {
         @Implementation
@@ -49,10 +47,6 @@ public class SmbSpiderStorageTest {
         GalleryTargets.unmark(GID);
     }
 
-    /**
-     * A regular DownloadManager download must keep writing to phone storage exactly as it did
-     * before the SMB work existed.
-     */
     @Test
     public void unmarkedGalleryHasNoBackend() {
         assertNull(SmbSpiderStorage.createIfTarget(info(), GID));
@@ -65,10 +59,6 @@ public class SmbSpiderStorageTest {
         assertNotNull(SmbSpiderStorage.createIfTarget(info(), GID));
     }
 
-    /**
-     * SmbDirectDownloader unmarks on cancel and when startJob fails; a stale mark would keep
-     * routing a later phone download through SMB.
-     */
     @Test
     public void unmarkingRemovesTheBackendAgain() {
         GalleryTargets.mark(GID);
@@ -86,12 +76,6 @@ public class SmbSpiderStorageTest {
         assertNull(SmbSpiderStorage.createIfTarget(other, other.gid));
     }
 
-    /**
-     * removeImage is the failed-download cleanup (#140): the atomic pipe publishes on close even
-     * when the source failed, so the truncated page IS on the share and must be looked up and
-     * deleted. The listing consult is the delegation this test pins; the deletion itself is
-     * covered by SmbGalleryFilesTest.
-     */
     @Test
     public void removeImageConsultsTheListingToDelete() {
         GalleryTargets.mark(GID);

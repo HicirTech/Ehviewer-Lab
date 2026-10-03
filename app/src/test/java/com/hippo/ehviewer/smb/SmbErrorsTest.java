@@ -36,7 +36,6 @@ public class SmbErrorsTest {
         return RuntimeEnvironment.getApplication().getString(res);
     }
 
-    /** A wrong password is the by-far most common failure and must say exactly that. */
     @Test
     public void aLogonFailureReadsAsWrongCredentials() {
         assertEquals(expect(R.string.smb_error_auth),
@@ -49,7 +48,6 @@ public class SmbErrorsTest {
                 SmbErrors.describe(new SmbException(NtStatus.NT_STATUS_BAD_NETWORK_NAME, false)));
     }
 
-    /** jcifs wraps the interesting exception; the cause chain must be walked. */
     @Test
     public void aWrappedUnknownHostReadsAsUnknownHost() {
         CIFSException wrapped = new CIFSException("Failed to connect",
@@ -57,7 +55,6 @@ public class SmbErrorsTest {
         assertEquals(expect(R.string.error_unknown_host), SmbErrors.describe(wrapped));
     }
 
-    /** The real-world shape from a dead address: "Failed to connect: 0.0.0.0<00>/192.0.2.99". */
     @Test
     public void aFailedNetbiosLookupReadsAsUnknownHost() {
         assertEquals(expect(R.string.error_unknown_host),
@@ -71,7 +68,6 @@ public class SmbErrorsTest {
         assertEquals(expect(R.string.error_timeout), SmbErrors.describe(wrapped));
     }
 
-    /** Anything unrecognised falls back to the app's generic explainer, not to jcifs text. */
     @Test
     public void anUnknownFailureFallsBackToTheAppExplainer() {
         assertEquals(com.hippo.util.ExceptionUtils.getReadableString(new IllegalStateException("x")),

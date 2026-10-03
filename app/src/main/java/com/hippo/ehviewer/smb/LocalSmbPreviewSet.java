@@ -6,15 +6,12 @@ import com.hippo.ehviewer.client.data.GalleryPreview;
 import com.hippo.ehviewer.client.data.PreviewSet;
 import com.hippo.widget.LoadImageView;
 
-/**
- * PreviewSet over the on-share full-size images, for offline detail. Holds gid+title only — a
- * GalleryInfo back-reference cycles on parcel (StackOverflowError).
- */
+/** Holds gid and title only: a GalleryInfo back-reference recurses on parcel. */
 public class LocalSmbPreviewSet extends PreviewSet {
 
     private final long mGid;
     private final String mTitle;
-    /** Number of previews this set exposes — a bounded slice, not the gallery's full page count. */
+    /** A bounded slice, not the gallery's page count. */
     private final int mCount;
 
     public LocalSmbPreviewSet(long gid, String title, int count) {
@@ -35,24 +32,19 @@ public class LocalSmbPreviewSet extends PreviewSet {
 
     @Override
     public String getPageUrlAt(int index) {
-        // Preview taps in the detail scene launch the reader via R.id.index, not via the
-        // page URL, so we don't need a real URL here.
+        // The detail scene opens the reader by index, never by this URL.
         return "";
     }
 
     @Override
     public GalleryPreview getGalleryPreview(long gid, int index) {
-        // Only consumed by GalleryPreviewsScene (the "view more previews" page), which
-        // is unreachable in the offline flow because previewPages is capped to 1.
+        // Read only by GalleryPreviewsScene, unreachable offline (previewPages is 1).
         return new GalleryPreview();
     }
 
     @Override
     public void load(LoadImageView view, long gid, int index) {
-        // Kick off a parallel SMB → memory-buffer prefetch the first time any cell in this
-        // gallery's preview grid asks to render. Conaco's per-cell loads still happen on
-        // its serial disk thread, but each one becomes a buffer read instead of a
-        // sequential SMB round-trip.
+        // Conaco loads cells serially; a parallel prefetch makes each load a buffer read.
         SmbPreviewCache.prefetchGallery(mGid, mTitle, mCount);
         view.resetClip();
         view.load(previewKey(gid, index), previewUrl(gid, index),
@@ -64,8 +56,7 @@ public class LocalSmbPreviewSet extends PreviewSet {
     }
 
     private static String previewUrl(long gid, int index) {
-        // Conaco needs a non-null URL, but with useNetwork=false the URL itself
-        // is never fetched — the DataContainer supplies the bytes.
+        // Conaco needs a non-null URL; with useNetwork false it is never fetched.
         return "smb-preview://" + gid + "/" + index;
     }
 

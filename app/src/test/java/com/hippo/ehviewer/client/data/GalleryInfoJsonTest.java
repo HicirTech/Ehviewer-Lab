@@ -17,7 +17,6 @@ import com.alibaba.fastjson.JSONObject;
 
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.List;
 
 import org.junit.Test;
 
@@ -82,8 +81,6 @@ public class GalleryInfoJsonTest {
 
     @Test
     public void roundTrip_dropsNullEntriesInTgList() {
-        // The fork's toJson skips null tags on write; galleryInfoFromJson also filters on read.
-        // A list with a null in the middle must come back without it.
         GalleryInfo in = new GalleryInfo();
         in.gid = 1L;
         in.tgList = new ArrayList<>(Arrays.asList("a:b", null, "c:d"));
@@ -95,8 +92,6 @@ public class GalleryInfoJsonTest {
 
     @Test
     public void roundTrip_emptyTgListOmittedBecomesNull() {
-        // toJson only writes "tgList" when it has at least one non-null entry, so an empty list
-        // is dropped entirely and reads back as null rather than an empty list.
         GalleryInfo in = new GalleryInfo();
         in.gid = 1L;
         in.tgList = new ArrayList<>();
@@ -108,8 +103,7 @@ public class GalleryInfoJsonTest {
 
     @Test
     public void fromJson_missingRatedAndRatingDefaultSafely() {
-        // Guards the fork's null-safety fix: an older metadata.json without rated/rating must
-        // not NPE and should default to (false, 0f) rather than blowing up on unboxing.
+        // An older metadata.json has neither rated nor rating.
         JSONObject obj = JSON.parseObject("{\"gid\":7,\"title\":\"t\"}");
 
         GalleryInfo out = GalleryInfo.galleryInfoFromJson(obj);

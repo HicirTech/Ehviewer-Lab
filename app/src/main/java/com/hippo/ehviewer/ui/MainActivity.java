@@ -16,7 +16,6 @@
 
 package com.hippo.ehviewer.ui;
 
-import com.hippo.ehviewer.storage.NetworkStorage;
 import static android.provider.Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION;
 import static android.provider.Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION;
 
@@ -59,10 +58,6 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.annotation.StringRes;
 import androidx.appcompat.app.AlertDialog;
-import androidx.core.graphics.Insets;
-import androidx.core.view.ViewCompat;
-import androidx.core.view.WindowCompat;
-import androidx.core.view.WindowInsetsCompat;
 
 import com.google.android.material.navigation.NavigationView;
 import com.google.android.material.snackbar.Snackbar;
@@ -361,38 +356,6 @@ public final class MainActivity extends StageActivity
         return processAnnouncer(new Announcer(clazz).setArgs(args));
     }
 
-    /**
-     * Takes over inset handling from {@code EhDrawerLayout}'s {@code fitsSystemWindows}.
-     * <p>
-     * The drawer would otherwise apply <em>both</em> insets as its own padding, shrinking
-     * the scene by the navigation bar height; the uncovered strip then draws
-     * windowBackground, which is the colour block in issue #32 (the scenes sit on
-     * contentColorPrimary, a different shade). Instead keep the status bar clearance here
-     * and forward the bottom inset down, so {@code ContentLayout} can pad its RecyclerView
-     * and let rows draw all the way to the screen edge.
-     */
-    private void applyEdgeToEdgeInsets(@NonNull View drawer) {
-        WindowCompat.setDecorFitsSystemWindows(getWindow(), false);
-        final View contentRoot = findViewById(android.R.id.content);
-        // Taking over the drawer's inset handling also drops the status bar scrim it used
-        // to draw, which would leave windowBackground behind the status bar. Paint the
-        // padded strip in the same colour the drawer used so the top is unchanged.
-        contentRoot.setBackgroundColor(
-                ResourcesUtils.getAttrColor(this, androidx.appcompat.R.attr.colorPrimaryDark));
-        ViewCompat.setOnApplyWindowInsetsListener(drawer, (v, insets) -> {
-            Insets bars = insets.getInsets(WindowInsetsCompat.Type.systemBars());
-            // Keep the status bar clearance by padding the activity's content root: the
-            // side/top insets have to come off somewhere, and EhDrawerLayout ignores
-            // padding set on itself. Only the bottom is left unpadded so scene content can
-            // reach the screen edge.
-            contentRoot.setPadding(bars.left, bars.top, bars.right, 0);
-            return new WindowInsetsCompat.Builder(insets)
-                    .setInsets(WindowInsetsCompat.Type.systemBars(),
-                            Insets.of(0, 0, 0, bars.bottom))
-                    .build();
-        });
-    }
-
     @Override
     protected void onCreate2(@Nullable Bundle savedInstanceState) {
         Intent intent = getIntent();
@@ -405,7 +368,7 @@ public final class MainActivity extends StageActivity
         setContentView(R.layout.activity_main);
 
         mDrawerLayout = (EhDrawerLayout) ViewUtils.$$(this, R.id.draw_view);
-        applyEdgeToEdgeInsets(mDrawerLayout);
+        EdgeToEdgeInsets.apply(this, mDrawerLayout);
         mDrawerLayout.setDrawerListener(this);
         mNavView = (NavigationView) ViewUtils.$$(this, R.id.nav_view);
         mRightDrawer = (FrameLayout) ViewUtils.$$(this, R.id.right_drawer);
@@ -423,7 +386,6 @@ public final class MainActivity extends StageActivity
 //            }
             mNavView.setNavigationItemSelectedListener(this);
         }
-        updateLocalInventoryMenuVisibility();
         if (Settings.getTheme() == 0) {
             mChangeTheme.setTextColor(getColor(R.color.theme_change_light));
 
@@ -602,20 +564,9 @@ public final class MainActivity extends StageActivity
         super.onResume();
 
         setNavCheckedItem(mNavCheckedItem);
-        updateLocalInventoryMenuVisibility();
+        LocalInventoryScene.updateDrawerItem(mNavView);
 
         checkClipboardUrl();
-    }
-
-    private void updateLocalInventoryMenuVisibility() {
-        if (mNavView == null) {
-            return;
-        }
-        MenuItem item = mNavView.getMenu().findItem(R.id.nav_local_inventory);
-        if (item != null) {
-            item.setVisible(Settings.getNetworkStorageEnabled());
-            item.setTitle(getString(R.string.local_inventory, NetworkStorage.active().displayName()));
-        }
     }
 
     @Override
@@ -890,9 +841,7 @@ public final class MainActivity extends StageActivity
         if (limitsCountView != null) {
             limitsCountView.onLoadData(drawerView, true);
         }
-        // Re-evaluate on every drawer open so a Settings toggle takes effect even when
-        // MainActivity wasn't paused (e.g. setting flipped via in-process callbacks).
-        updateLocalInventoryMenuVisibility();
+        LocalInventoryScene.updateDrawerItem(mNavView);
     }
 
     @Override

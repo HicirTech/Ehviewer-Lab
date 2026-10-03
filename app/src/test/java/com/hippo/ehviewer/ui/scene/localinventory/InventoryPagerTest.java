@@ -9,8 +9,6 @@ package com.hippo.ehviewer.ui.scene.localinventory;
 import com.hippo.ehviewer.storage.GalleryRef;
 import com.hippo.ehviewer.storage.SortMode;
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertTrue;
 
 import com.hippo.ehviewer.client.data.GalleryInfo;
 import com.hippo.ehviewer.smb.SmbCoverPrefetch;
@@ -86,7 +84,6 @@ public class InventoryPagerTest {
         }
     }
 
-    /** 120 refs slice into 3 pages of 50/50/20, and only the page's metadata is read. */
     @Test
     public void pagesSliceTheOrderingAndReadLazily() {
         seedRefs(120);
@@ -101,7 +98,6 @@ public class InventoryPagerTest {
         assertEquals("paging must not re-list the share", 1, listCalls);
     }
 
-    /** Date sort orders by folder mtime, newest first, straight off the listing. */
     @Test
     public void dateSortOrdersByMtimeDescending() {
         seedRefs(3);   // mtimes 1000, 1001, 1002
@@ -110,7 +106,6 @@ public class InventoryPagerTest {
         assertEquals(1L, page.data.get(2).gid);
     }
 
-    /** Non-date sorts read the whole share once and serve pages from the cached records. */
     @Test
     public void metadataSortsServePagesFromTheCachedRecords() {
         for (int i = 0; i < 3; i++) {
@@ -124,7 +119,6 @@ public class InventoryPagerTest {
         assertEquals("cached ordering must not read per row", 0, readCalls);
     }
 
-    /** A deleted folder's ref is forgotten, or it would come back as an unreadable row. */
     @Test
     public void forgottenRefsLeaveTheOrdering() {
         seedRefs(2);
@@ -135,7 +129,6 @@ public class InventoryPagerTest {
         assertEquals(2L, page.data.get(0).gid);
     }
 
-    /** A renamed folder's ref is re-pointed, cached record riding along (#86). */
     @Test
     public void renamedRefsFollowTheirGallery() {
         GalleryInfo gi = new GalleryInfo();

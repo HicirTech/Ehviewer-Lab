@@ -19,10 +19,7 @@ import org.junit.runner.RunWith;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 
-/**
- * The real ImageDecoder must accept the in-memory echo stream (#155) — the exact configuration
- * that crashed in production. The Robolectric shadow cannot exercise this arm, so it runs here.
- */
+/** The real ImageDecoder accepts the in-memory echo stream (#155), an arm Robolectric cannot run. */
 @RunWith(AndroidJUnit4.class)
 public class ImageDecodeTest {
 

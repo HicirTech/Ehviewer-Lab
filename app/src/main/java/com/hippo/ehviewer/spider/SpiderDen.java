@@ -45,7 +45,6 @@ import com.hippo.lib.yorozuya.Utilities;
 
 import java.io.File;
 import java.io.IOException;
-import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.Locale;
 
@@ -60,9 +59,10 @@ public final class SpiderDen {
 
 
     private long mGid;
+    private final RemotePageBridge mRemoteBridge;
 
     @Nullable
-    static SimpleDiskCache sCache;   // package: RemotePageBridge reads pages out of it
+    static SimpleDiskCache sCache;
 
     public static void initialize(Context context) {
         sCache = new SimpleDiskCache(new File(context.getCacheDir(), "image"),
@@ -158,6 +158,7 @@ public final class SpiderDen {
     public SpiderDen(GalleryInfo galleryInfo) {
         mGalleryInfo = galleryInfo;
         mGid = galleryInfo.gid;
+        mRemoteBridge = new RemotePageBridge(galleryInfo, mGid);
     }
 
     /**
@@ -229,11 +230,7 @@ public final class SpiderDen {
         }
     }
 
-    /**
-     * {@link #isReady()} for a worker thread. A worker started while the queen was reading never
-     * prepared the download folder, and the queen can switch to downloading under it: without
-     * this, every worker of a busy reader quits and the download ends with no page (#159).
-     */
+    /** Worker-thread {@link #isReady()}; prepares storage if the queen switched to downloading. */
     public boolean ensureReady() {
         return isReady() || (isDownloadMode() && prepareDownloadStorage() && isReady());
     }
@@ -254,60 +251,10 @@ public final class SpiderDen {
         }
     }
 
-    /** The remote backend for this gallery, or null = phone storage. The one selection point. */
+    /** The remote backend for this gallery, or null for phone storage. */
     @Nullable
     private GallerySpiderStorage remoteStorage() {
         return NetworkStorage.active().spiderStorage(mGalleryInfo, mGid);
-    }
-
-    /** Spider-info writer, routed to the active backend. */
-    @Nullable
-    public OutputStream openSpiderInfoOutputStream(String filename) {
-        GallerySpiderStorage remote = remoteStorage();
-        if (remote != null) {
-            return remote.openSpiderInfoOutputStream();
-        }
-        UniFile dir = getDownloadDir();
-        if (dir == null) {
-            return null;
-        }
-        UniFile file = dir.createFile(filename);
-        if (file == null) {
-            return null;
-        }
-        try {
-            return file.openOutputStream();
-        } catch (IOException e) {
-            return null;
-        }
-    }
-
-    /** Spider-info reader, routed; null when absent. */
-    @Nullable
-    public InputStream openSpiderInfoInputStream(String filename) {
-        GallerySpiderStorage remote = remoteStorage();
-        if (remote != null) {
-            // Main thread would die in jcifs mid-request and poison the shared transport; the
-            // null sends the caller to the spider-info cache, same as the exception path did.
-            if (Looper.getMainLooper().getThread() == Thread.currentThread()) {
-                android.util.Log.w("SpiderDen", "skip remote spider-info read on main thread gid=" + mGid);
-                return null;
-            }
-            return remote.openSpiderInfoInputStream();
-        }
-        UniFile dir = getDownloadDir();
-        if (dir == null) {
-            return null;
-        }
-        UniFile file = dir.findFile(filename);
-        if (file == null) {
-            return null;
-        }
-        try {
-            return file.openInputStream();
-        } catch (IOException e) {
-            return null;
-        }
     }
 
     @Nullable
@@ -324,9 +271,6 @@ public final class SpiderDen {
 
     @Nullable
     public UniFile getDownloadDirName() {
-        if (remoteStorage() != null) {
-            return null;
-        }
         synchronized (mDownloadDirLock) {
             return resolveDownloadDirLocked();
         }
@@ -386,6 +330,11 @@ public final class SpiderDen {
     }
 
     private boolean copyFromCacheToDownloadDir(int index) {
+        GallerySpiderStorage remote = remoteStorage();
+        if (remote != null) {
+            return RemotePageBridge.copyFromCacheToRemote(mGalleryInfo, index)
+                    || mRemoteBridge.copyFromPhone(index, remote);
+        }
         if (sCache == null) {
             return false;
         }
@@ -434,37 +383,11 @@ public final class SpiderDen {
         }
     }
 
-    /** Lazily built; a benign race at worst builds it twice with the same answer. */
-    @Nullable
-    private RemotePageBridge mRemoteBridge;
-
-    @NonNull
-    private RemotePageBridge remoteBridge() {
-        RemotePageBridge bridge = mRemoteBridge;
-        if (bridge == null) {
-            bridge = new RemotePageBridge(mGalleryInfo, mGid);
-            mRemoteBridge = bridge;
-        }
-        return bridge;
-    }
-
-    /**
-     * Is page {@code index} available — and in download mode, a page already in hand (cache or
-     * phone) is bridged onto the backend rather than fetched from e-hentai again.
-     */
     public boolean contain(int index) {
         if (mMode == SpiderQueen.MODE_READ) {
             return containInCache(index) || containInDownloadDir(index);
         } else if (mMode == SpiderQueen.MODE_DOWNLOAD) {
-            if (containInDownloadDir(index)) {
-                return true;
-            }
-            GallerySpiderStorage remote = remoteStorage();
-            if (remote != null) {
-                return RemotePageBridge.copyFromCacheToRemote(mGalleryInfo, index)
-                        || remoteBridge().copyFromPhone(index, remote);
-            }
-            return copyFromCacheToDownloadDir(index);
+            return containInDownloadDir(index) || copyFromCacheToDownloadDir(index);
         } else {
             return false;
         }
@@ -583,8 +506,7 @@ public final class SpiderDen {
             if (pipe != null) {
                 return pipe;
             }
-            // Cache fallback, like the phone path: a shared-mode queen flips the reader's den to
-            // download mode, and pages not yet uploaded are in the cache.
+            // A reader sharing this den with a download finds unuploaded pages in the cache.
             return openCacheInputStreamPipe(index);
         }
         UniFile dir = getDownloadDir();
@@ -606,7 +528,6 @@ public final class SpiderDen {
 
     @Nullable
     private InputStreamPipe openDownloadInputStreamPipeReadOnly(int index) {
-        // Must route like every other entry point, or SMB galleries read null pipes.
         GallerySpiderStorage remote = remoteStorage();
         if (remote != null) {
             return remote.openImageInputStreamPipe(index);

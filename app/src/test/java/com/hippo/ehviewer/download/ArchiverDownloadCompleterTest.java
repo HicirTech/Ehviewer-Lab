@@ -64,7 +64,6 @@ public class ArchiverDownloadCompleterTest {
     private static final long GID = 3054010L;
     private static final long TASK_ID = 77L;
 
-    /** What the import put on the download list, as gid:state. */
     static final List<String> added = new ArrayList<>();
 
     private Application app;
@@ -216,8 +215,6 @@ public class ArchiverDownloadCompleterTest {
         assertEquals(app.getString(R.string.stat_download_done_line_succeeded, "archive fixture"),
                 ShadowToast.getTextOfLatestToast());
     }
-
-    // --- the zip's name -------------------------------------------------------------------------
 
     @Test
     public void twoGalleriesWithOneTitle_getTwoZips() {

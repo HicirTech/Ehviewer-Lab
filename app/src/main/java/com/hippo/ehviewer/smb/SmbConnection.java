@@ -6,7 +6,7 @@ import android.util.Log;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
-import com.hippo.ehviewer.Settings;
+import com.hippo.ehviewer.storage.NetworkStorageSettings;
 
 import java.util.Properties;
 
@@ -15,12 +15,7 @@ import jcifs.config.PropertyConfiguration;
 import jcifs.context.BaseContext;
 import jcifs.context.SingletonContext;
 import jcifs.smb.NtlmPasswordAuthenticator;
-import jcifs.smb.SmbFile;
 
-/**
- * Protocol-specific floor: credentials, signing, jcifs contexts, share URLs. Nothing above this
- * class knows it is talking SMB — the #100 boundary.
- */
 public final class SmbConnection {
 
     private static final String TAG = "SmbStorage";
@@ -28,27 +23,23 @@ public final class SmbConnection {
     private SmbConnection() {}
 
     public static boolean isConfigured() {
-        return !TextUtils.isEmpty(Settings.getSmbHost()) &&
-                !TextUtils.isEmpty(Settings.getSmbShareName());
+        return !TextUtils.isEmpty(NetworkStorageSettings.getSmbHost()) &&
+                !TextUtils.isEmpty(NetworkStorageSettings.getSmbShareName());
     }
 
-    /** Base context plus NTLM credentials from settings, when a username is set. */
     @NonNull
     static CIFSContext buildContext() {
         CIFSContext base = baseContext();
-        String username = Settings.getSmbUsername();
+        String username = NetworkStorageSettings.getSmbUsername();
         if (TextUtils.isEmpty(username)) {
             return base;
         }
         NtlmPasswordAuthenticator authenticator =
-                new NtlmPasswordAuthenticator(null, username, Settings.getSmbPassword());
+                new NtlmPasswordAuthenticator(null, username, NetworkStorageSettings.getSmbPassword());
         return base.withCredentials(authenticator);
     }
 
-    // One cached base context so jcifs' connection pool stays shared; rebuilt only when the
-    // signing setting flips (the no-signing path needs its own PropertyConfiguration). Context
-    // and flag travel as one volatile pair — read separately, a mid-flip caller could pair the
-    // new context with the stale flag and get the wrong signing mode (#143).
+    // Cached so jcifs' pool stays shared; one volatile pair so context and flag never mismatch.
     private static final class Base {
         @NonNull final CIFSContext ctx;
         final boolean signingDisabled;
@@ -63,7 +54,7 @@ public final class SmbConnection {
 
     @NonNull
     private static CIFSContext baseContext() {
-        boolean signingDisabled = Settings.getSmbSigningDisabled();
+        boolean signingDisabled = NetworkStorageSettings.getSmbSigningDisabled();
         Base base = sBase;
         if (base != null && base.signingDisabled == signingDisabled) {
             return base.ctx;
@@ -81,11 +72,7 @@ public final class SmbConnection {
         }
     }
 
-    /**
-     * The replaced context's transport pool held real sockets that used to leak. Closed after a
-     * grace period so requests already running on it finish rather than die mid-call; the shared
-     * SingletonContext is never closed.
-     */
+    /** After a grace period, so calls still running on the old context can finish. */
     private static void closeLater(@Nullable CIFSContext previous) {
         if (previous == null || previous == SingletonContext.getInstance()) {
             return;
@@ -104,8 +91,7 @@ public final class SmbConnection {
     private static CIFSContext buildNoSigningContext() {
         try {
             Properties props = new Properties();
-            // ipcSigningEnforced defaults to true and is the one that matters; the other two are
-            // explicit no-ops.
+            // Only ipcSigningEnforced (default true) matters; the other two are explicit no-ops.
             props.setProperty("jcifs.smb.client.signingPreferred", "false");
             props.setProperty("jcifs.smb.client.signingEnforced", "false");
             props.setProperty("jcifs.smb.client.ipcSigningEnforced", "false");
@@ -116,7 +102,6 @@ public final class SmbConnection {
         }
     }
 
-    /** The {@code download/} root galleries live under. */
     @NonNull
     static String galleryRootUrl() {
         return SmbPaths.buildGalleryRootUrl(buildSmbUrl());
@@ -126,10 +111,10 @@ public final class SmbConnection {
     @NonNull
     static String buildSmbUrl() {
         return SmbPaths.buildShareUrl(
-                Settings.getSmbHost(),
-                Settings.getSmbPort(),
-                Settings.getSmbShareName(),
-                Settings.getSmbSharePath());
+                NetworkStorageSettings.getSmbHost(),
+                NetworkStorageSettings.getSmbPort(),
+                NetworkStorageSettings.getSmbShareName(),
+                NetworkStorageSettings.getSmbSharePath());
     }
 
 }

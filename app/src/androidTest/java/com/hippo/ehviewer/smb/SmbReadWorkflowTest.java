@@ -23,6 +23,7 @@ import androidx.test.platform.app.InstrumentationRegistry;
 
 import com.hippo.ehviewer.Settings;
 import com.hippo.ehviewer.client.data.GalleryInfo;
+import com.hippo.ehviewer.storage.NetworkStorageSettings;
 
 import org.junit.After;
 import org.junit.Assume;
@@ -40,7 +41,7 @@ import java.util.concurrent.Future;
 
 import jcifs.smb.SmbFile;
 
-/** Read-workflow coverage over every share the runner points it at — in practice the HDD and the SSD NAS targets — through the exact production read path */
+/** The production read path over every share given in eh.targets. */
 @RunWith(AndroidJUnit4.class)
 @LargeTest
 public class SmbReadWorkflowTest {
@@ -82,7 +83,7 @@ public class SmbReadWorkflowTest {
     public void setUp() {
         Bundle args = InstrumentationRegistry.getArguments();
         String spec = args.getString("eh.targets", "");
-        // label:share:/path,label:share:/path — colon-limited so the path keeps its slashes.
+        // label:share:/path,label:share:/path
         for (String one : spec.split(",")) {
             String[] parts = one.split(":", 3);
             if (parts.length == 3 && !parts[0].isEmpty()) {
@@ -98,13 +99,13 @@ public class SmbReadWorkflowTest {
                 String.valueOf(DEFAULT_COVER_SAMPLE)));
         mPageSample = Integer.parseInt(args.getString("eh.pageSample",
                 String.valueOf(DEFAULT_PAGE_SAMPLE)));
-        mUser = args.getString("eh.user", Settings.getSmbUsername());
-        mPass = args.getString("eh.pass", Settings.getSmbPassword());
+        mUser = args.getString("eh.user", NetworkStorageSettings.getSmbUsername());
+        mPass = args.getString("eh.pass", NetworkStorageSettings.getSmbPassword());
 
-        mOrigShare = Settings.getSmbShareName();
-        mOrigPath = Settings.getSmbSharePath();
-        mOrigUser = Settings.getSmbUsername();
-        mOrigPass = Settings.getSmbPassword();
+        mOrigShare = NetworkStorageSettings.getSmbShareName();
+        mOrigPath = NetworkStorageSettings.getSmbSharePath();
+        mOrigUser = NetworkStorageSettings.getSmbUsername();
+        mOrigPass = NetworkStorageSettings.getSmbPassword();
     }
 
     @After
@@ -112,24 +113,19 @@ public class SmbReadWorkflowTest {
         if (mTargets.isEmpty()) {
             return;     // skipped before the snapshot; nothing to restore
         }
-        // commit(), not Settings.putString(): that goes through apply(), whose disk write is
-        // asynchronous — and `am instrument` kills this process the moment the run ends, which
-        // is exactly soon enough to drop it. The first version of this restore "worked" all
-        // run long and left the device pointed at the HDD target anyway.
+        // commit(), not Settings.putString(): am instrument kills the process before apply() lands.
         boolean written = androidx.preference.PreferenceManager
                 .getDefaultSharedPreferences(InstrumentationRegistry.getInstrumentation()
                         .getTargetContext())
                 .edit()
-                .putString(Settings.KEY_SMB_SHARE_NAME, mOrigShare)
-                .putString(Settings.KEY_SMB_SHARE_PATH, mOrigPath)
-                .putString(Settings.KEY_SMB_USERNAME, mOrigUser)
-                .putString(Settings.KEY_SMB_PASSWORD, mOrigPass)
+                .putString(NetworkStorageSettings.KEY_SMB_SHARE_NAME, mOrigShare)
+                .putString(NetworkStorageSettings.KEY_SMB_SHARE_PATH, mOrigPath)
+                .putString(NetworkStorageSettings.KEY_SMB_USERNAME, mOrigUser)
+                .putString(NetworkStorageSettings.KEY_SMB_PASSWORD, mOrigPass)
                 .commit();
         assertTrue("restoring the device's SMB configuration failed", written);
         clearListingCache();
     }
-
-    // --- the stages -------------------------------------------------------------------------
 
     @Test
     public void metadataReadsOffEveryTarget() throws Exception {
@@ -160,10 +156,7 @@ public class SmbReadWorkflowTest {
                 }
             }
             long metaMs = SystemClock.elapsedRealtime() - t1;
-            // A folder without readable metadata is the share's ordinary condition —
-            // the inventory skips it, so does this. Both LG_Panda copies carry a
-            // couple. What the floor catches is the read path itself failing, or the
-            // whole sample quietly answering from the wrong place.
+            // Folders without readable metadata are ordinary; the floor catches a broken read path.
             assertTrue(target.label + ": only " + ok + "/" + sample.size()
                             + " metadata reads succeeded; missing: " + missing,
                     ok >= sample.size() * 9 / 10);
@@ -212,24 +205,21 @@ public class SmbReadWorkflowTest {
         });
     }
 
-    // --- plumbing ---------------------------------------------------------------------------
-
     private interface Stage {
         void run(Target target) throws Exception;
     }
 
     private void forEachTarget(Stage stage) throws Exception {
         for (Target target : mTargets) {
-            Settings.putString(Settings.KEY_SMB_SHARE_NAME, target.share);
-            Settings.putString(Settings.KEY_SMB_SHARE_PATH, target.path);
-            Settings.putString(Settings.KEY_SMB_USERNAME, mUser);
-            Settings.putString(Settings.KEY_SMB_PASSWORD, mPass);
+            Settings.putString(NetworkStorageSettings.KEY_SMB_SHARE_NAME, target.share);
+            Settings.putString(NetworkStorageSettings.KEY_SMB_SHARE_PATH, target.path);
+            Settings.putString(NetworkStorageSettings.KEY_SMB_USERNAME, mUser);
+            Settings.putString(NetworkStorageSettings.KEY_SMB_PASSWORD, mPass);
             clearListingCache();
             stage.run(target);
         }
     }
 
-    /** Metadata for the first {@code count} galleries of the currently configured target. */
     private List<GalleryInfo> firstInfos(int count, String label) {
         List<GalleryRef> refs = SmbInventory.listGalleryRefs();
         assertTrue(label + ": expected a library of at least " + mMinGalleries
@@ -249,7 +239,6 @@ public class SmbReadWorkflowTest {
         return infos;
     }
 
-    /** Streams a page off the share and throws the bytes away, counting them. */
     private static long drain(@NonNull SmbFile page) throws Exception {
         byte[] scratch = new byte[64 * 1024];
         long total = 0;

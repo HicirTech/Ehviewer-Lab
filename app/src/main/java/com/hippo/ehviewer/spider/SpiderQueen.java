@@ -104,8 +104,7 @@ public final class SpiderQueen implements Runnable {
     public static final int STATE_FINISHED = 2;
     public static final int STATE_FAILED = 3;
     public static final int DECODE_THREAD_NUM = 2;
-    // A cache eviction only needs one re-fetch to recover; more than this means the page is not
-    // going to become openable.
+    // Re-fetches allowed per null pipe; a cache eviction needs only one.
     private static final int MAX_DECODE_RETRY = 2;
     public static final String SPIDER_INFO_FILENAME = ".ehviewer";
 
@@ -151,9 +150,7 @@ public final class SpiderQueen implements Runnable {
     private final ConcurrentHashMap<Integer, String> mPageErrorMap = new ConcurrentHashMap<>();
     // Store page download percent
     private final ConcurrentHashMap<Integer, Float> mPagePercentMap = new ConcurrentHashMap<>();
-    // How many times the decoder has re-requested a page because openInputStreamPipe returned
-    // null. Bounds what used to be an unbounded reset-and-retry loop; cleared once the page opens
-    // or is failed, so a later genuine cache eviction can still recover.
+    // Null-pipe retries per page, cleared on open so a later cache eviction can still recover.
     private final ConcurrentHashMap<Integer, Integer> mDecodeRetryMap = new ConcurrentHashMap<>();
     private final List<OnSpiderListener> mSpiderListeners = new ArrayList<>();
     private final int mWorkerMaxCount;
@@ -813,20 +810,18 @@ public final class SpiderQueen implements Runnable {
             return spiderInfo;
         }
 
-        // Read through the storage abstraction rather than straight off the download
-        // dir, so this resolves against SMB as well as local storage. Upstream's
-        // cache reconciliation below then applies to both backends.
         SpiderInfo fromDownload = null;
-        InputStream infoIs = mSpiderDen.openSpiderInfoInputStream(SPIDER_INFO_FILENAME);
-        if (infoIs != null) {
-            try {
-                SpiderInfo read = SpiderInfo.read(infoIs);
-                if (isValidSpiderInfo(read, mGalleryInfo)) {
-                    fromDownload = read;
-                }
-            } finally {
-                IOUtils.closeQuietly(infoIs);
+        UniFile downloadDir = mSpiderDen.getDownloadDir();
+        if (downloadDir != null) {
+            UniFile file = downloadDir.findFile(SPIDER_INFO_FILENAME);
+            SpiderInfo read = SpiderInfo.read(file);
+            if (isValidSpiderInfo(read, mGalleryInfo)) {
+                fromDownload = read;
             }
+        }
+        SpiderInfo fromShare = RemoteSpiderInfo.read(mGalleryInfo);
+        if (isValidSpiderInfo(fromShare, mGalleryInfo)) {
+            fromDownload = fromShare;
         }
 
         SpiderInfo fromCache = readSpiderInfoFromCache(mGalleryInfo.gid);
@@ -951,21 +946,19 @@ public final class SpiderQueen implements Runnable {
     }
 
     private synchronized void writeSpiderInfoToLocal(@NonNull SpiderInfo spiderInfo) {
-        // Sync reading progress into gallery storage (SMB or an existing local download
-        // folder). Like upstream, this never creates a download folder: the local branch
-        // of openSpiderInfoOutputStream goes through getDownloadDir(), which returns null
-        // unless the directory already exists.
-        OutputStream infoOs = mSpiderDen.openSpiderInfoOutputStream(SPIDER_INFO_FILENAME);
-        if (infoOs != null) {
+        // Sync reading progress into an existing download folder; does not create one.
+        UniFile downloadDir = mSpiderDen.getDownloadDir();
+        if (downloadDir != null) {
+            UniFile file = downloadDir.createFile(SPIDER_INFO_FILENAME);
             try {
-                spiderInfo.write(infoOs);
+                spiderInfo.write(file.openOutputStream());
             } catch (Throwable e) {
                 ExceptionUtils.throwIfFatal(e);
                 // Ignore
-            } finally {
-                IOUtils.closeQuietly(infoOs);
             }
         }
+
+        RemoteSpiderInfo.write(mGalleryInfo, spiderInfo);
 
         // Write to cache
         OutputStreamPipe pipe = mSpiderInfoCache.getOutputStreamPipe(Long.toString(mGalleryInfo.gid));
@@ -1867,10 +1860,7 @@ public final class SpiderQueen implements Runnable {
                 InputStreamPipe pipe = mSpiderDen.openInputStreamPipe(index);
                 if (pipe == null) {
                     resetDecodeIndex();
-                    // Bounded retries end the endless-spinner loop (re-request marks the page
-                    // finished again and re-queues this decode forever). contain() is called for
-                    // its side effect — in download mode it restores a missing page from cache or
-                    // phone — but must not fail the page: "present" may mean "just repaired".
+                    // contain() may restore the page, so "present" must not fail it.
                     boolean claimsPresent = mSpiderDen.contain(index);
                     int tries = mDecodeRetryMap.merge(index, 1, Integer::sum);
                     if (tries > MAX_DECODE_RETRY) {
@@ -1882,6 +1872,8 @@ public final class SpiderQueen implements Runnable {
                                 GetText.getString(R.string.error_reading_failed));
                         continue;
                     }
+                    // Can't find the file, it might be removed from cache,
+                    // Reset it state and request it
                     updatePageState(index, STATE_NONE, null);
                     request(index, false, false, false);
                     continue;

@@ -9,18 +9,14 @@ import jcifs.smb.NtStatus;
 import jcifs.smb.SmbException;
 import jcifs.smb.SmbFile;
 
-/**
- * Abandoned atomic-write temporaries and who clears them (#75): whoever next holds a listing
- * anyway — never the write path.
- */
+/** Swept by whoever next lists the folder anyway, never on the write path. */
 final class SmbTempFiles {
 
     private static final String TAG = "SmbTempFiles";
 
-    /** Only has to be a suffix nothing a gallery holds ends in; a temporary answers no question. */
     static final String SUFFIX = ".tmp";
 
-    // Far past any merely-slow write; deleting a live write corrupts it, slow littering costs nothing.
+    // Far past any slow write: deleting a live one corrupts it.
     static final long ABANDONED_AFTER_MS = 5 * 60_000L;
 
     private SmbTempFiles() {
@@ -32,7 +28,6 @@ final class SmbTempFiles {
         return base + "." + System.nanoTime() + SUFFIX;
     }
 
-    /** Abandoned? Clocks are arguments (testable); zero/future mtimes read as "still writing". */
     static boolean isAbandoned(@NonNull String name, long mtimeMillis, long nowMillis) {
         if (!name.endsWith(SUFFIX)) {
             return false;
@@ -43,7 +38,7 @@ final class SmbTempFiles {
         return nowMillis - mtimeMillis >= ABANDONED_AFTER_MS;
     }
 
-    /** Sweeps one directory (lists it — call where a listing is affordable). Never throws. */
+    /** Never throws. */
     static int sweep(@Nullable SmbFile dir, long nowMillis) {
         if (dir == null) {
             return 0;
@@ -69,7 +64,7 @@ final class SmbTempFiles {
         return removed;
     }
 
-    /** Deletes one temporary; losing the race to another sweeper counts as success. */
+    /** Losing the race to another sweeper counts as success. */
     static boolean delete(@NonNull SmbFile file) {
         try {
             file.delete();
@@ -79,13 +74,12 @@ final class SmbTempFiles {
             if (alreadyGone(e)) {
                 return true;
             }
-            // The share said no. The next pass tries again; until then it is one stale file.
             Log.w(TAG, "Could not remove " + file.getName(), e);
             return false;
         }
     }
 
-    /** From the exception, not exists() — enumeration-born SmbFiles report stale attributes. */
+    /** Not exists(): SmbFiles from a listing report stale attributes. */
     private static boolean alreadyGone(@NonNull Throwable e) {
         if (!(e instanceof SmbException)) {
             return false;

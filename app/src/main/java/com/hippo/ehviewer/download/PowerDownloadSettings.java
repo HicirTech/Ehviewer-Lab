@@ -7,14 +7,13 @@
 
 package com.hippo.ehviewer.download;
 
+import android.content.SharedPreferences;
+
 import androidx.annotation.NonNull;
 
 import com.hippo.ehviewer.Settings;
+import com.hippo.ehviewer.storage.NetworkStorageSettings;
 
-/**
- * Power Download's rules (#159): four ways to start a download while reading, each with its own
- * switch and its own preset target.
- */
 public final class PowerDownloadSettings {
 
     public static final String KEY_PAGES_ENABLED = "power_download_pages_enabled";
@@ -28,11 +27,10 @@ public final class PowerDownloadSettings {
     public static final String KEY_VOLUME_ENABLED = "power_download_volume_enabled";
     public static final String KEY_VOLUME_UP_TARGET = "power_download_volume_up_target";
     public static final String KEY_VOLUME_DOWN_TARGET = "power_download_volume_down_target";
+    /** The retired "auto download to network storage" switch (#159). */
+    static final String KEY_LEGACY_AUTO_DOWNLOAD = "smb_auto_download_enabled";
 
-    /**
-     * Two, the user's call on #159: at one, just opening a gallery would count, as the
-     * first-page rule does.
-     */
+    /** At one, just opening a gallery would count, as the first-page rule does. */
     public static final int DEFAULT_PAGES_COUNT = 2;
     public static final int MIN_PAGES_COUNT = 1;
 
@@ -63,7 +61,6 @@ public final class PowerDownloadSettings {
         return Settings.getBoolean(KEY_LAST_PAGE_ENABLED, false);
     }
 
-    /** One target for the first- and last-page rules: they are one way to download, two moments. */
     @NonNull
     public static PowerDownloadTarget getEdgePageTarget() {
         return target(KEY_EDGE_PAGE_TARGET, DEFAULT_TARGET);
@@ -96,17 +93,20 @@ public final class PowerDownloadSettings {
         return target(KEY_VOLUME_DOWN_TARGET, DEFAULT_VOLUME_DOWN_TARGET);
     }
 
-    /** What the old "auto download to network storage" switch did: first page, to the share. */
-    public static void adoptLegacyAutoDownload() {
-        Settings.putBoolean(KEY_FIRST_PAGE_ENABLED, true);
-        Settings.putString(KEY_EDGE_PAGE_TARGET, PowerDownloadTarget.NETWORK_STORAGE.value);
+    /** Carries the retired switch over once, as the first-page rule to the share. */
+    public static void migrateLegacyAutoDownload(@NonNull SharedPreferences prefs) {
+        if (!prefs.contains(KEY_LEGACY_AUTO_DOWNLOAD)) {
+            return;
+        }
+        // A rule aimed at the share is never on while network storage is off.
+        if (Settings.getBoolean(KEY_LEGACY_AUTO_DOWNLOAD, false) && NetworkStorageSettings.isEnabled()) {
+            Settings.putBoolean(KEY_FIRST_PAGE_ENABLED, true);
+            Settings.putString(KEY_EDGE_PAGE_TARGET, PowerDownloadTarget.NETWORK_STORAGE.value);
+        }
+        prefs.edit().remove(KEY_LEGACY_AUTO_DOWNLOAD).apply();
     }
 
-    /**
-     * Network storage was switched off: every rule aimed at it goes off too, rather than staying
-     * on and silently doing nothing. A volume key aimed at it stops being used, and with neither
-     * key left the volume rule is off; volume-key page turning does not come back by itself.
-     */
+    /** Rules aimed at the share go off rather than silently doing nothing. */
     public static void turnOffNetworkStorageRules() {
         PowerDownloadTarget share = PowerDownloadTarget.NETWORK_STORAGE;
         if (getPagesTarget() == share) {

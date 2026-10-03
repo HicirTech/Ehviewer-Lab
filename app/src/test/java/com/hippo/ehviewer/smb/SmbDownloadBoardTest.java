@@ -17,6 +17,7 @@ import androidx.annotation.NonNull;
 
 import com.hippo.ehviewer.Settings;
 import com.hippo.ehviewer.client.data.GalleryInfo;
+import com.hippo.ehviewer.storage.NetworkStorageSettings;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -31,7 +32,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 
-/** The share side of the download queue, tested without a device side (#98): a fake SmbDownloadBoard.Device records what the board asks of it, and a shad */
+/** The share side of the download queue, tested without a device side (#98). */
 @RunWith(RobolectricTestRunner.class)
 @Config(application = Application.class,
         shadows = {SmbDownloadBoardTest.ShadowStore.class},
@@ -61,7 +62,6 @@ public class SmbDownloadBoardTest {
         }
     }
 
-    /** Records every question; answers with whatever the test seeded. */
     static final class FakeDevice implements SmbDownloadBoard.Device {
         final List<String> calls = new CopyOnWriteArrayList<>();
         List<DownloadState.Task> held = new ArrayList<>();
@@ -71,7 +71,7 @@ public class SmbDownloadBoardTest {
         @NonNull
         public DownloadState.ClientState snapshot() {
             return new DownloadState.ClientState(
-                    Settings.getSmbClientId(), "test-device", new ArrayList<>(held));
+                    NetworkStorageSettings.getSmbClientId(), "test-device", new ArrayList<>(held));
         }
 
         @Override
@@ -122,14 +122,14 @@ public class SmbDownloadBoardTest {
     @Before
     public void setUp() {
         Settings.initialize(RuntimeEnvironment.getApplication());
-        Settings.putString(Settings.KEY_SMB_HOST, "192.0.2.7");
-        Settings.putString(Settings.KEY_SMB_SHARE_NAME, "share");
-        Settings.putBoolean(Settings.KEY_NETWORK_STORAGE_ENABLED, true);
+        Settings.putString(NetworkStorageSettings.KEY_SMB_HOST, "192.0.2.7");
+        Settings.putString(NetworkStorageSettings.KEY_SMB_SHARE_NAME, "share");
+        Settings.putBoolean(NetworkStorageSettings.KEY_ENABLED, true);
         onShare.clear();
         storeWrites.clear();
         device = new FakeDevice();
         board = new SmbDownloadBoard(device);
-        selfId = Settings.getSmbClientId();
+        selfId = NetworkStorageSettings.getSmbClientId();
     }
 
     private static DownloadState.Task task(long gid, long claimedAt) {
@@ -160,7 +160,6 @@ public class SmbDownloadBoardTest {
         throw new AssertionError("board never called " + prefix + "; calls=" + device.calls);
     }
 
-    /** A task this device holds that a live device claimed more recently is not ours any more: the board tells the device to stand down, and touches nothing */
     @Test
     public void reconcileYieldsWhatWasTakenOverElsewhere() {
         device.held.add(task(42L, 1_000L));
@@ -173,7 +172,6 @@ public class SmbDownloadBoardTest {
                 storeWrites.stream().noneMatch(w -> w.startsWith("removeTask")));
     }
 
-    /** What this device published but no longer holds — a process death — comes back. */
     @Test
     public void reconcileRestoresWhatTheProcessLost() {
         onShare.add(published(selfId, true, task(7L, 1_000L)));
@@ -182,7 +180,6 @@ public class SmbDownloadBoardTest {
         await("restore:7,");
     }
 
-    /** A gallery finished this process-lifetime must not be resurrected by a stale read. */
     @Test
     public void reconcileDoesNotResurrectTheRetired() {
         device.retired.add(7L);
@@ -196,11 +193,9 @@ public class SmbDownloadBoardTest {
         }
         assertTrue("a retired gid came back: " + device.calls,
                 device.calls.stream().noneMatch(c -> c.startsWith("restore")));
-        // The board publishes instead, so the share stops advertising the stale claim.
         assertTrue(storeWrites.stream().anyMatch(w -> w.startsWith("writeSelf")));
     }
 
-    /** An owner who turned out to be alive keeps the download; nothing is stamped or enqueued. */
     @Test
     public void takeOverLeavesALiveOwnerAlone() {
         onShare.add(published("rival", true, task(42L, 1_000L)));
@@ -213,7 +208,6 @@ public class SmbDownloadBoardTest {
         assertTrue(device.calls.isEmpty());
     }
 
-    /** A dead owner's task is adopted: stamped, cleared from the owner's file, enqueued here. */
     @Test
     public void takeOverAdoptsAnOrphan() {
         onShare.add(published("rival", false, task(42L, 1_000L)));
@@ -227,7 +221,6 @@ public class SmbDownloadBoardTest {
         assertTrue(storeWrites.contains("removeTask:rival:42"));
     }
 
-    /** Builds the row a user would tap, out of what the shadowed share holds. */
     private SmbTaskInfo sharedRow(long gid) {
         for (SmbTaskInfo t : board.snapshotSharedTasks()) {
             if (t.gid == gid) {

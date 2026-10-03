@@ -25,17 +25,12 @@ import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.Response;
 
-/**
- * The gallery as a whole: completeness, delete, rename, download finalize. Per-gallery where
- * {@link SmbGalleryFiles} is per-file; only the download path needs this class.
- */
 public final class SmbGalleryLifecycle {
 
     private static final String TAG = "SmbStorage";
 
     private SmbGalleryLifecycle() {}
 
-    /** Deletes the gallery folder recursively. True when deleted or never there. */
     public static boolean deleteGalleryFolder(@NonNull GalleryInfo info) {
         SmbGalleryFiles.forgetGallery(info.gid);
         try {
@@ -53,7 +48,7 @@ public final class SmbGalleryLifecycle {
         }
     }
 
-    /** Depth-first (jcifs refuses non-empty dirs); child failures are logged and skipped. */
+    /** jcifs refuses to delete a non-empty directory. */
     private static void deleteSmbDirRecursive(@NonNull SmbFile dir) throws IOException {
         SmbFile[] children = dir.listFiles();
         if (children != null) {
@@ -72,7 +67,6 @@ public final class SmbGalleryLifecycle {
         dir.delete();
     }
 
-    /** Complete = metadata declares N pages and N image files are there. Worker thread only. */
     public static boolean isGalleryComplete(@NonNull GalleryInfo info) {
         long tPerf = SystemClock.elapsedRealtime();
         try {
@@ -105,14 +99,12 @@ public final class SmbGalleryLifecycle {
                     + " " + (SystemClock.elapsedRealtime() - tPerf) + "ms thr=" + Thread.currentThread().getName());
             return saved >= declaredPages;
         } catch (Throwable e) {
-            // Logged loudly: a silent false here means re-downloading a complete gallery.
             Log.w("SmbPerf", "isGalleryComplete gid=" + info.gid + " EXCEPTION after "
                     + (SystemClock.elapsedRealtime() - tPerf) + "ms: " + e);
             return false;
         }
     }
 
-    /** One list(), then in-memory counting — N×extensions round-trips once OOMed here. */
     private static int countSavedImages(@NonNull SmbFile galleryDir, int pageCount) throws IOException {
         String[] names = galleryDir.list();
         if (names == null || names.length == 0) {
@@ -137,10 +129,7 @@ public final class SmbGalleryLifecycle {
     private static final long RENAME_BACKOFF_START_MS = 100L;
     private static final long RENAME_BACKOFF_MAX_MS = 800L;
 
-    /**
-     * Renames the folder to match a new title (#86); must happen before the record is rewritten.
-     * Refuses an occupied target. Worker thread only.
-     */
+    /** Call before the record is rewritten. Worker thread only. */
     public static boolean renameGalleryFolder(@NonNull GalleryInfo info, @Nullable String newTitle) {
         String from = SmbPaths.buildGalleryFolderName(info);
         String to = SmbPaths.buildGalleryFolderName(info.gid, newTitle);
@@ -206,29 +195,18 @@ public final class SmbGalleryLifecycle {
             }
             SmbMetadata.writeMetadataWithDetail(context, galleryDir, info, resolvedPages);
             downloadAndWriteCover(context, galleryDir, info);
-            // The one moment this folder is certainly ours: sweep old temporaries (#75).
+            // The one moment this folder is certainly ours.
             SmbTempFiles.sweep(galleryDir, System.currentTimeMillis());
         } catch (Throwable e) {
             Log.e(TAG, "Failed to finalize SMB gallery gid=" + info.gid, e);
         } finally {
-            // Every page just changed; a reader must not see the pre-download listing.
             SmbGalleryDirectory.invalidateListing(info.gid);
         }
     }
 
     private static int readPagesFromSpiderInfo(@NonNull GalleryInfo info) {
-        InputStream is = SmbGalleryFiles.openSpiderInfoInputStream(info);
-        if (is == null) {
-            return 0;
-        }
-        try {
-            com.hippo.ehviewer.spider.SpiderInfo spiderInfo = com.hippo.ehviewer.spider.SpiderInfo.read(is);
-            return spiderInfo != null ? spiderInfo.pages : 0;
-        } catch (Throwable e) {
-            return 0;
-        } finally {
-            IOUtils.closeQuietly(is);
-        }
+        com.hippo.ehviewer.spider.SpiderInfo header = SmbGalleryFiles.readSpiderInfoHeader(info);
+        return header != null ? header.pages : 0;
     }
 
     private static void downloadAndWriteCover(@NonNull Context context, @NonNull SmbFile galleryDir, @NonNull GalleryInfo info) {

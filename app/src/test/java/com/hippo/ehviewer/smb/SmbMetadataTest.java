@@ -45,8 +45,6 @@ public class SmbMetadataTest {
         return new ArrayList<>(Arrays.asList(entries));
     }
 
-    // --- buildTagGroupsFromList ------------------------------------------------------------
-
     @Test
     public void tagGroups_nullOrEmptyListYieldsNoGroups() {
         assertEquals(0, SmbMetadata.buildTagGroupsFromList(null).length);
@@ -65,7 +63,6 @@ public class SmbMetadataTest {
 
     @Test
     public void tagGroups_keepsLaterColonsInsideTheTag() {
-        // Only the first colon separates; the rest belongs to the tag.
         GalleryTagGroup[] groups = SmbMetadata.buildTagGroupsFromList(tg("other:a:b"));
 
         assertEquals("other", groups[0].groupName);
@@ -83,7 +80,7 @@ public class SmbMetadataTest {
         assertEquals("another", groups[0].getTagAt(1));
     }
 
-    /** Documents a wart rather than endorsing it: an entry starting with ':' is treated as ungrouped and the colon stays part of the tag, because the ungroup */
+    /** Documents a wart rather than endorsing it. */
     @Test
     public void tagGroups_leadingColonIsKeptInTheTag() {
         GalleryTagGroup[] groups = SmbMetadata.buildTagGroupsFromList(tg(":leadingColon"));
@@ -94,8 +91,6 @@ public class SmbMetadataTest {
 
     @Test
     public void tagGroups_skipsEntriesWithoutATag() {
-        // "language:" has a group but an empty tag; a blank entry carries nothing at all.
-        // A bare ":" is *not* skipped — see tagGroups_leadingColonIsKeptInTheTag.
         assertEquals(0, SmbMetadata.buildTagGroupsFromList(tg("language:", "")).length);
     }
 
@@ -113,8 +108,6 @@ public class SmbMetadataTest {
         assertEquals("eggs", groups[0].getTagAt(0));
         assertEquals("lizard girl", groups[0].getTagAt(1));
     }
-
-    // --- buildOfflineDetail ----------------------------------------------------------------
 
     @Test
     public void offlineDetail_carriesTheStoredFieldsAcross() {
@@ -142,10 +135,6 @@ public class SmbMetadataTest {
         assertEquals("artist", gd.tags[1].groupName);
     }
 
-    /**
-     * GalleryDetailScene dereferences these without null checks, so the offline path has to
-     * supply them or opening a stored gallery crashes.
-     */
     @Test
     public void offlineDetail_fillsTheFieldsTheDetailSceneDereferences() {
         GalleryDetail gd = SmbMetadata.buildOfflineDetail(info());
@@ -168,10 +157,6 @@ public class SmbMetadataTest {
         assertEquals("", SmbMetadata.buildOfflineDetail(noLanguage).language);
     }
 
-    /**
-     * The preview grid is capped on purpose: one cell per page would mean one SMB prefetch per
-     * page, which froze the detail scene on large galleries (#9).
-     */
     @Test
     public void offlineDetail_capsThePreviewCount() {
         GalleryInfo small = info();
@@ -194,10 +179,6 @@ public class SmbMetadataTest {
         assertEquals(0, SmbMetadata.buildOfflineDetail(empty).previewPages);
     }
 
-    /**
-     * The preview set must not hold the detail it belongs to: that cycle
-     * (gd.previewSet -> gd) crashes when the detail is parcelled.
-     */
     @Test
     public void offlineDetail_previewSetDoesNotReferenceTheDetail() {
         GalleryDetail gd = SmbMetadata.buildOfflineDetail(info());
@@ -215,12 +196,6 @@ public class SmbMetadataTest {
         assertSame(existing, SmbMetadata.buildOfflineDetail(existing));
     }
 
-    // --- keepPathFields ------------------------------------------------------------------------
-    //
-    // A re-sync overwrites the on-share record with what e-hentai says (#16). One field may not be
-    // overwritten, because it is also where the gallery lives on disk.
-
-    /** The rule this exists for. */
     @Test
     public void keepPathFields_refusesToLetANewTitleThrough() {
         GalleryInfo local = new GalleryInfo();
@@ -234,7 +209,6 @@ public class SmbMetadataTest {
                 SmbMetadata.keepPathFields(fresh, local).title);
     }
 
-    /** The folder name built from the result must still be the one the gallery is stored under. */
     @Test
     public void keepPathFields_leavesTheFolderNameUnchanged() {
         GalleryInfo local = new GalleryInfo();
@@ -249,7 +223,6 @@ public class SmbMetadataTest {
                 SmbPaths.buildGalleryFolderName(SmbMetadata.keepPathFields(fresh, local)));
     }
 
-    /** Everything that is not a path is exactly what a re-sync is for, and must come through. */
     @Test
     public void keepPathFields_letsEveryOtherFieldThrough() {
         GalleryInfo local = new GalleryInfo();
