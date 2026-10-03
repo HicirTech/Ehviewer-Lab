@@ -317,9 +317,6 @@ public final class SpiderDen {
 
     @Nullable
     public UniFile getDownloadDirName() {
-        if (remoteStorage() != null) {
-            return null;
-        }
         synchronized (mDownloadDirLock) {
             return resolveDownloadDirLocked();
         }

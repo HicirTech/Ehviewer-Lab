@@ -337,13 +337,7 @@ public class GalleryDetailScene extends BaseScene implements View.OnClickListene
         mHideComments = args.getBoolean(KEY_HIDE_COMMENTS, false);
         if (ACTION_GALLERY_INFO.equals(action)) {
             mGalleryInfo = args.getParcelable(KEY_GALLERY_INFO);
-            GalleryDetail preloaded = args.getParcelable(KEY_GALLERY_DETAIL);
-            if (preloaded != null) {
-                mGalleryDetail = preloaded;
-                if (mGalleryInfo == null) {
-                    mGalleryInfo = preloaded;
-                }
-            }
+            mGalleryDetail = args.getParcelable(KEY_GALLERY_DETAIL);
             // Add history
             if (null != mGalleryInfo) {
                 EhDB.putHistoryInfo(mGalleryInfo);

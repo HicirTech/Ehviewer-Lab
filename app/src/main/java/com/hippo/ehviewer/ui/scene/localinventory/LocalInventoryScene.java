@@ -71,8 +71,6 @@ public class LocalInventoryScene extends ToolbarScene
         implements EasyRecyclerView.OnItemClickListener, EasyRecyclerView.OnItemLongClickListener,
         FabLayout.OnClickFabListener, EasyRecyclerView.CustomChoiceListener {
 
-    private static final int PAGE_SIZE = 50;
-
     // Secondary FAB indexes, in scene_local_inventory.xml order.
     private static final int FAB_SORT = 0;
     private static final int FAB_GO_TO = 1;
