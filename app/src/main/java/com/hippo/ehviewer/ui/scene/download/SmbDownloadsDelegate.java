@@ -8,6 +8,7 @@
 package com.hippo.ehviewer.ui.scene.download;
 
 import android.content.Context;
+import android.util.SparseBooleanArray;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
@@ -21,6 +22,7 @@ import com.hippo.ehviewer.smb.SmbDownloadBoard;
 import com.hippo.ehviewer.smb.SmbTaskInfo;
 import com.hippo.ehviewer.storage.NetworkStorage;
 import com.hippo.ehviewer.storage.NetworkStorageSettings;
+import com.hippo.ehviewer.widget.MyEasyRecyclerView;
 import com.hippo.lib.yorozuya.SimpleHandler;
 import com.hippo.util.IoThreadPoolExecutor;
 
@@ -35,6 +37,10 @@ public final class SmbDownloadsDelegate {
 
         /** The merged list is stale: rebuild and redraw. */
         void onTasksChanged();
+
+        /** The row at an adapter position, or null. */
+        @Nullable
+        DownloadInfo infoAt(int position);
     }
 
     // The watched value is published every 20s, so nothing finer is even visible.
@@ -169,12 +175,36 @@ public final class SmbDownloadsDelegate {
         }
     }
 
-    public void showTaskMenu(@NonNull DownloadInfo info) {
+    /** Shared tasks stay out of multi-select (#59): every batch action means something else for them. */
+    public boolean isTaskAt(int position) {
+        return SmbTaskInfo.isSmb(mHost.infoAt(position));
+    }
+
+    public void uncheckTasks(@NonNull MyEasyRecyclerView recyclerView) {
+        SparseBooleanArray checked = recyclerView.getCheckedItemPositions();
+        for (int i = checked.size() - 1; i >= 0; i--) {
+            int position = checked.keyAt(i);
+            if (checked.valueAt(i) && isTaskAt(position)) {
+                recyclerView.toggleItemChecked(position);
+            }
+        }
+    }
+
+    /** False when the row is not a shared task. */
+    public boolean showTaskMenuAt(int position) {
+        DownloadInfo info = mHost.infoAt(position);
+        if (!SmbTaskInfo.isSmb(info)) {
+            return false;
+        }
+        showTaskMenu((SmbTaskInfo) info);
+        return true;
+    }
+
+    private void showTaskMenu(@NonNull SmbTaskInfo task) {
         Context context = mHost.context();
-        if (context == null || !(info instanceof SmbTaskInfo)) {
+        if (context == null) {
             return;
         }
-        final SmbTaskInfo task = (SmbTaskInfo) info;
         final String title = task.title != null ? task.title : String.valueOf(task.gid);
 
         if (SmbTaskInfo.canTakeOver(task)) {

@@ -71,6 +71,11 @@ public class SmbDownloadsDelegateTest {
             @Override
             public void onTasksChanged() {
             }
+
+            @Override
+            public DownloadInfo infoAt(int position) {
+                return null;
+            }
         });
     }
 

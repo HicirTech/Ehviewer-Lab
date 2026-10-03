@@ -30,7 +30,6 @@ import android.graphics.drawable.NinePatchDrawable;
 import android.net.Uri;
 import android.os.Bundle;
 import android.util.Log;
-import android.util.SparseBooleanArray;
 import android.view.Gravity;
 import android.view.LayoutInflater;
 import android.view.MenuItem;
@@ -86,6 +85,7 @@ import com.hippo.ehviewer.ui.scene.download.part.DownloadChoiceListener;
 import com.hippo.ehviewer.ui.scene.download.part.DownloadGuideHelper;
 import com.hippo.ehviewer.ui.scene.download.part.DownloadPaginationController;
 import com.hippo.ehviewer.ui.scene.download.part.DownloadSearchController;
+import com.hippo.ehviewer.ui.scene.download.part.FabPaginationClearance;
 import com.hippo.ehviewer.widget.MyEasyRecyclerView;
 import com.hippo.ehviewer.widget.SearchBar;
 import com.hippo.lib.yorozuya.AssertUtils;
@@ -160,6 +160,14 @@ public class DownloadsScene extends ToolbarScene
                     if (mDownloadManager != null) {
                         updateForLabel();
                     }
+                }
+
+                @Override
+                @Nullable
+                public DownloadInfo infoAt(int position) {
+                    List<DownloadInfo> list = mList;
+                    int index = positionInList(position);
+                    return list != null && index >= 0 && index < list.size() ? list.get(index) : null;
                 }
             });
 
@@ -344,29 +352,6 @@ public class DownloadsScene extends ToolbarScene
         mPaginationController.updatePaginationIndicator();
         Settings.putRecentDownloadLabel(mLabel);
         mPaginationController.queryUnreadSpiderInfo();
-    }
-
-    /** Measured height: layout weight settles the bar short of its declared 40dp (#74). */
-    private void updateFabClearance() {
-        if (mFabLayout == null || !isAdded()) {
-            return;
-        }
-        Resources resources = getResources();
-        int margin = resources.getDimensionPixelOffset(R.dimen.corner_fab_margin);
-        int clearance = 0;
-        PaginationIndicator indicator = mPaginationController.getPaginationIndicator();
-        if (indicator != null && indicator.getVisibility() == View.VISIBLE) {
-            int measured = indicator.getHeight();
-            clearance = measured > 0
-                    ? measured
-                    : resources.getDimensionPixelOffset(R.dimen.download_pagination_height);
-            if (measured <= 0) {
-                // Not laid out yet: re-measure once it is.
-                indicator.post(this::updateFabClearance);
-            }
-        }
-        mFabLayout.setPadding(mFabLayout.getPaddingLeft(), mFabLayout.getPaddingTop(),
-                margin, margin + clearance);
     }
 
     @SuppressLint("StringFormatMatches")
@@ -825,7 +810,7 @@ public class DownloadsScene extends ToolbarScene
         }
 
         if (recyclerView.isInCustomChoice()) {
-            if (isSmbAt(position)) {
+            if (mSmbDelegate.isTaskAt(position)) {
                 return true;
             }
             recyclerView.toggleItemChecked(position);
@@ -887,8 +872,7 @@ public class DownloadsScene extends ToolbarScene
             return false;
         }
 
-        if (isSmbAt(position)) {
-            showSmbTaskMenu(position);
+        if (mSmbDelegate.showTaskMenuAt(position)) {
             return true;
         }
         if (!recyclerView.isInCustomChoice()) {
@@ -897,39 +881,6 @@ public class DownloadsScene extends ToolbarScene
         recyclerView.toggleItemChecked(position);
 
         return true;
-    }
-
-    /** SMB rows stay out of multi-select (#59): every batch action means something else for them. */
-    private boolean isSmbAt(int position) {
-        List<DownloadInfo> list = mList;
-        if (list == null) {
-            return false;
-        }
-        int index = positionInList(position);
-        return index >= 0 && index < list.size()
-                && SmbTaskInfo.isSmb(list.get(index));
-    }
-
-    private void showSmbTaskMenu(int position) {
-        List<DownloadInfo> list = mList;
-        if (list == null) {
-            return;
-        }
-        int index = positionInList(position);
-        if (index < 0 || index >= list.size()) {
-            return;
-        }
-        mSmbDelegate.showTaskMenu(list.get(index));
-    }
-
-    private void uncheckSmbTasks(@NonNull MyEasyRecyclerView recyclerView) {
-        SparseBooleanArray checked = recyclerView.getCheckedItemPositions();
-        for (int i = checked.size() - 1; i >= 0; i--) {
-            int position = checked.keyAt(i);
-            if (checked.valueAt(i) && isSmbAt(position)) {
-                recyclerView.toggleItemChecked(position);
-            }
-        }
     }
 
     @SuppressLint("RtlHardcoded")
@@ -967,7 +918,7 @@ public class DownloadsScene extends ToolbarScene
     public void onClickSecondaryFab(FabLayout view, FloatingActionButton fab, int position) {
         mBatchActions.onClickSecondaryFab(view, fab, position);
         if (position == 0 && mRecyclerView != null) {
-            uncheckSmbTasks(mRecyclerView);
+            mSmbDelegate.uncheckTasks(mRecyclerView);
         }
     }
 
@@ -1202,7 +1153,7 @@ public class DownloadsScene extends ToolbarScene
 
     @Override
     public void onPaginationVisibilityChanged() {
-        updateFabClearance();
+        FabPaginationClearance.update(mFabLayout, mPaginationController.getPaginationIndicator());
     }
 
     public void runOnUiThread(Runnable runnable) {
