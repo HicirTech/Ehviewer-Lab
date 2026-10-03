@@ -1,6 +1,7 @@
 package com.hippo.ehviewer.download;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 import static org.robolectric.Shadows.shadowOf;
@@ -13,6 +14,7 @@ import android.os.Looper;
 import com.hippo.ehviewer.AppConfig;
 import com.hippo.ehviewer.EhApplication;
 import com.hippo.ehviewer.EhDB;
+import com.hippo.ehviewer.R;
 import com.hippo.ehviewer.Settings;
 import com.hippo.ehviewer.client.data.GalleryInfo;
 import com.hippo.ehviewer.dao.DownloadInfo;
@@ -43,6 +45,7 @@ import org.robolectric.annotation.Implementation;
 import org.robolectric.annotation.Implements;
 import org.robolectric.shadow.api.Shadow;
 import org.robolectric.shadows.ShadowEnvironment;
+import org.robolectric.shadows.ShadowToast;
 
 /** Pins where a downloaded archive is imported, and what is left of its zip (#166). */
 @RunWith(RobolectricTestRunner.class)
@@ -193,6 +196,45 @@ public class ArchiverDownloadCompleterTest {
 
         assertEquals(Collections.singletonList(GID + ":" + DownloadInfo.STATE_FINISH), added);
         assertEquals(2, galleryFolder().length);
+    }
+
+    @Test
+    public void theImportToast_namesTheGalleryNotItsZip() throws Exception {
+        File zip = archive(AppConfig.getArchiverDir());
+
+        importArchive(zip);
+        awaitZipGone(zip);
+
+        assertEquals(app.getString(R.string.stat_download_done_line_succeeded, "archive fixture"),
+                ShadowToast.getTextOfLatestToast());
+    }
+
+    // --- the zip's name -------------------------------------------------------------------------
+
+    /** Re-uploads and updated versions often keep the exact title. */
+    @Test
+    public void twoGalleriesWithOneTitle_getTwoZips() {
+        assertNotEquals(ArchiverDownloadCompleter.createFileName("one title", 1L),
+                ArchiverDownloadCompleter.createFileName("one title", 2L));
+    }
+
+    @Test
+    public void aLongTitle_makesRoomForTheGid() {
+        StringBuilder title = new StringBuilder();
+        for (int i = 0; i < 200; i++) {
+            title.append('画'); // three bytes in UTF-8
+        }
+
+        String name = ArchiverDownloadCompleter.createFileName(title.toString(), GID);
+
+        assertTrue(name, name.endsWith("_" + GID));
+        assertTrue("one path segment holds 255 bytes",
+                (name + ".zip").getBytes(StandardCharsets.UTF_8).length <= 255);
+    }
+
+    @Test
+    public void noTitle_fallsBackToTheGidAlone() {
+        assertEquals("archiver_" + GID, ArchiverDownloadCompleter.createFileName(null, GID));
     }
 
     private static void deleteTree(File file) {

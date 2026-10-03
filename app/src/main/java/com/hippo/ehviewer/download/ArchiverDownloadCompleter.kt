@@ -9,6 +9,7 @@ import com.hippo.ehviewer.AppConfig
 import com.hippo.ehviewer.EhApplication
 import com.hippo.ehviewer.R
 import com.hippo.ehviewer.Settings
+import com.hippo.ehviewer.client.EhUtils
 import com.hippo.ehviewer.client.data.GalleryInfo
 import com.hippo.ehviewer.dao.DownloadInfo
 import com.hippo.ehviewer.gallery.GalleryProvider2
@@ -51,7 +52,9 @@ class ArchiverDownloadCompleter private constructor(appContext: Context) {
             handleFailedTask(galleryInfo, taskId)
             return
         }
-        val displayName = createFileName(galleryInfo.title, galleryInfo.gid)
+        // The gallery's name as the download list shows it, not its zip's.
+        val displayName = EhUtils.getSuitableTitle(galleryInfo)
+            ?: createFileName(galleryInfo.title, galleryInfo.gid)
         val tempFile = File(tempDir, "archiver_${galleryInfo.gid}")
 
         Thread {
@@ -223,14 +226,18 @@ class ArchiverDownloadCompleter private constructor(appContext: Context) {
             return sInstance
         }
 
+        /**
+         * The zip's name: title, then gid (#166). Re-uploads and updated versions often keep the
+         * exact title, and two galleries sharing one zip delete or resume into each other's file.
+         */
         @JvmStatic
         fun createFileName(name: String?, gid: Long): String {
-            var result = name?.let { YorozuyaFileUtils.sanitizeFilename(it) } ?: ""
-            result = truncateUtf8ToMaxBytes(result, MAX_ARCHIVER_BASENAME_UTF8_BYTES)
-            if (result.isEmpty()) {
-                result = if (gid > 0) "archiver_$gid" else "archiver"
-            }
-            return result
+            val suffix = if (gid > 0) "_$gid" else ""
+            val title = truncateUtf8ToMaxBytes(
+                name?.let { YorozuyaFileUtils.sanitizeFilename(it) } ?: "",
+                MAX_ARCHIVER_BASENAME_UTF8_BYTES - suffix.length
+            )
+            return title.ifEmpty { "archiver" } + suffix
         }
 
         /**
