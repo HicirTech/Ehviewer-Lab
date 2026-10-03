@@ -115,7 +115,6 @@ class ArchiverDownloader private constructor(appContext: Context) {
         publishProgress(task, true)
     }
 
-    /** Pauses every running task; each one resumes later from its partial file, by Range. */
     fun pauseAll() {
         for (gid in activeTasks.keys) {
             pause(gid)
@@ -140,10 +139,7 @@ class ArchiverDownloader private constructor(appContext: Context) {
         stopServiceIfIdle()
     }
 
-    /**
-     * Every task shares one service and one notification (#166): a task that ends stops it only
-     * when no other task is still downloading. Paused tasks need no foreground service.
-     */
+    /** One service serves every task (#166). */
     private fun stopServiceIfIdle() {
         if (activeTasks.values.none { !it.paused }) {
             ArchiverDownloadService.stop(appContext)

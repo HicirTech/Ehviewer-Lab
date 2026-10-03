@@ -58,7 +58,7 @@ public class SmbDirectDownloaderTest {
     static CountDownLatch deleteLatch = new CountDownLatch(1);
     /** The spider listeners the downloader registered; a test fires finish through these. */
     static final List<SpiderQueen.OnSpiderListener> listeners = new ArrayList<>();
-    /** Android 15 once the daily dataSync time is spent: every promotion is refused. */
+    /** Refuses every promotion, as once the dataSync time is spent. */
     static boolean spent = false;
 
     /** A real service a test built; attached to the downloader until destroyed. */
@@ -98,7 +98,7 @@ public class SmbDirectDownloaderTest {
         protected void removeOnSpiderListener(SpiderQueen.OnSpiderListener listener) {}
     }
 
-    /** Keeps the foreground service out of the test; spent = Android 15 refusing promotion. */
+    /** Keeps the foreground service out of the test. */
     @Implements(SmbDownloadService.class)
     public static class ShadowSmbDownloadService extends ShadowService {
 
@@ -372,7 +372,7 @@ public class SmbDirectDownloaderTest {
         assertTrue(calls.contains("startService"));
     }
 
-    // --- Android 15's daily dataSync time running out (#166) ------------------------------------
+    // --- dataSync timeout ---------------------------------------------------------------------
 
     @Test
     public void timeout_holdsEveryTaskAndStopsTheService() {

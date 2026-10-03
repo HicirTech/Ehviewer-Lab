@@ -44,8 +44,7 @@ class ArchiverDownloadCompleter private constructor(appContext: Context) {
         if (!tryBeginHandling(taskId)) {
             return
         }
-        // Without all-files access there is no external temp dir and the zip itself sits in the
-        // app's cache (#166): unpack there too, rather than fail and strand the zip out of reach.
+        // No external temp dir without all-files access (#166).
         val tempDir = AppConfig.getExternalTempDir() ?: AppConfig.getTempDir()
         if (tempDir == null) {
             endHandling(taskId)
@@ -71,8 +70,7 @@ class ArchiverDownloadCompleter private constructor(appContext: Context) {
                 }
                 postImportFailed(galleryInfo, taskId)
             } finally {
-                // Behind the success post, which forgets the task: a zip gone before that would be
-                // downloaded again by resumePending if the process died in between.
+                // After the success post: a task still pending must keep its zip.
                 mainHandler.post { deleteIfPrivate(zipFile) }
             }
         }.start()
@@ -136,8 +134,7 @@ class ArchiverDownloadCompleter private constructor(appContext: Context) {
         }
         Collections.sort(tempPictures) { file1, file2 -> file1.name.compareTo(file2.name) }
 
-        // An archive is always imported to the phone (#166). A SpiderDen routes a gallery marked
-        // for network storage to the share, and has no phone folder to give for it.
+        // Always the phone: a SpiderDen routes marked galleries to the share (#166).
         val downloadDir = SpiderDen.getGalleryDownloadDir(galleryInfo)?.takeIf { it.ensureDir() }
         if (downloadDir == null) {
             postImportFailed(galleryInfo, taskId)
@@ -226,10 +223,7 @@ class ArchiverDownloadCompleter private constructor(appContext: Context) {
             return sInstance
         }
 
-        /**
-         * The zip's name: title, then gid (#166). Re-uploads and updated versions often keep the
-         * exact title, and two galleries sharing one zip delete or resume into each other's file.
-         */
+        /** Title plus gid: re-uploads often keep the exact title (#166). */
         @JvmStatic
         fun createFileName(name: String?, gid: Long): String {
             val suffix = if (gid > 0) "_$gid" else ""
@@ -305,10 +299,7 @@ class ArchiverDownloadCompleter private constructor(appContext: Context) {
             return true
         }
 
-        /**
-         * Once an import is over, either way, a zip in the app's own cache goes: the user cannot
-         * reach it there, and the task that could use it again is gone (#166).
-         */
+        /** The user cannot reach a zip in the app's cache. */
         private fun deleteIfPrivate(zipFile: File) {
             if (zipFile.parentFile == AppConfig.getArchiverDir() && !zipFile.delete()) {
                 Log.w(TAG, "Failed to delete zip: ${zipFile.path}")

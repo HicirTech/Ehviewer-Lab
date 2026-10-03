@@ -96,8 +96,7 @@ class ArchiverDownloadService : Service() {
             return START_NOT_STICKY
         }
         if (!foregroundStarted) {
-            // Stays false when refused: later updates would post the ongoing notification through
-            // notify(), and the stop's stopForeground would leave that one stuck on screen.
+            // False when refused: an ongoing notify() would outlive the stop.
             foregroundStarted = startForegroundCompat(NOTIFICATION_ID, notification)
         } else {
             notificationManager?.notify(NOTIFICATION_ID, notification)
@@ -105,14 +104,9 @@ class ArchiverDownloadService : Service() {
         return START_STICKY
     }
 
-    /**
-     * Android 15 gives dataSync foreground services six hours a day; when they are spent the
-     * service has seconds to stop or the app crashes (#166). Tasks are paused, not lost.
-     */
     @RequiresApi(Build.VERSION_CODES.VANILLA_ICE_CREAM)
     override fun onTimeout(startId: Int, fgsType: Int) {
-        // Stop first: each pause posts its notification through startForegroundService, and
-        // stopping under such a pending start crashes the app.
+        // Stop first: stopping under a pause's pending startForegroundService crashes.
         stopForeground(STOP_FOREGROUND_REMOVE)
         foregroundStarted = false
         stopSelf()
@@ -225,8 +219,7 @@ class ArchiverDownloadService : Service() {
         return PendingIntent.getService(this, requestCode, intent, PENDING_INTENT_FLAGS)
     }
 
-    // Refused once the dataSync time is spent (#166), as DownloadService's is from the background.
-    // The download is an OkHttp call and carries on without the service's protection.
+    // Refused once the dataSync time is spent (#166).
     private fun startForegroundCompat(id: Int, notification: Notification): Boolean {
         try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {

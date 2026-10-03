@@ -57,7 +57,6 @@ import org.robolectric.shadows.ShadowToast;
                 ArchiverDownloadCompleterTest.ShadowDownloadManager.class,
                 ArchiverDownloadCompleterTest.ShadowSmbSpiderStorage.class,
         },
-        // Robolectric instruments by name prefix, so one class can be listed on its own.
         instrumentedPackages = {"com.hippo.ehviewer.EhApplication", "com.hippo.ehviewer.download",
                 "com.hippo.ehviewer.smb.SmbSpiderStorage"})
 public class ArchiverDownloadCompleterTest {
@@ -90,7 +89,7 @@ public class ArchiverDownloadCompleterTest {
         }
     }
 
-    /** The share, ready for any gallery routed to it, without a network round trip. */
+    /** Spares a routed import the network round trip. */
     @Implements(SmbSpiderStorage.class)
     public static class ShadowSmbSpiderStorage {
         @Implementation
@@ -106,15 +105,14 @@ public class ArchiverDownloadCompleterTest {
         AppConfig.initialize(app);
         // The import names the gallery's folder through the download database.
         EhDB.initialize(app);
-        // No all-files access: the app has no folder of its own on shared storage.
+        // No all-files access.
         ShadowEnvironment.setExternalStorageState(Environment.MEDIA_UNMOUNTED);
         downloads = new File(app.getCacheDir(), "phone-downloads");
-        // The cache dir can outlive one test; start from an empty download location.
+        // The cache dir outlives a test.
         deleteTree(downloads);
         assertTrue(downloads.mkdirs());
         Settings.putDownloadLocation(UniFile.fromFile(downloads));
         added.clear();
-        // A process-wide singleton: without a fresh one it keeps the first test's application.
         Field instance = ArchiverDownloadCompleter.class.getDeclaredField("sInstance");
         instance.setAccessible(true);
         instance.set(null, null);
@@ -141,15 +139,12 @@ public class ArchiverDownloadCompleterTest {
         return zip;
     }
 
-    /**
-     * Runs one import to its end: joins the worker thread the completer starts, then runs what
-     * that thread posted to the main thread (the outcome first, then the clean-up of the zip).
-     */
+    /** Runs an import to its end: its worker thread, then what it posted to the main thread. */
     private void importAndWait(File zip) throws InterruptedException {
         Set<Thread> before = Thread.getAllStackTraces().keySet();
         ArchiverDownloadCompleter.getInstance(app).importDownloadedZip(zip, gallery(), TASK_ID);
         for (Thread thread : Thread.getAllStackTraces().keySet()) {
-            // The completer's worker is a plain thread, so it keeps the default name.
+            // The worker keeps the default thread name.
             if (!before.contains(thread) && thread.getName().startsWith("Thread-")) {
                 thread.join(TimeUnit.SECONDS.toMillis(5));
                 assertFalse("the import never finished", thread.isAlive());
@@ -187,7 +182,7 @@ public class ArchiverDownloadCompleterTest {
         assertFalse(zip.exists());
     }
 
-    /** With all-files access the zip lands on shared storage, where the user can still open it. */
+    /** With all-files access the zip lands on shared storage. */
     @Test
     public void aZipOutsideTheAppCache_isKeptAfterItsImport() throws Exception {
         File shared = new File(app.getCacheDir(), "shared-archiver");
@@ -228,7 +223,6 @@ public class ArchiverDownloadCompleterTest {
 
     // --- the zip's name -------------------------------------------------------------------------
 
-    /** Re-uploads and updated versions often keep the exact title. */
     @Test
     public void twoGalleriesWithOneTitle_getTwoZips() {
         assertNotEquals(ArchiverDownloadCompleter.createFileName("one title", 1L),

@@ -27,7 +27,6 @@ import org.robolectric.shadow.api.Shadow;
                 DownloadServiceTest.ShadowEhApplication.class,
                 DownloadServiceTest.ShadowDownloadManager.class,
         },
-        // Robolectric instruments by name prefix, so one class can be listed on its own.
         instrumentedPackages = {"com.hippo.ehviewer.EhApplication", "com.hippo.ehviewer.download"})
 public class DownloadServiceTest {
 

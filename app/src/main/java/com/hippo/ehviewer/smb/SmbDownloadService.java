@@ -80,11 +80,6 @@ public final class SmbDownloadService extends Service {
         return START_STICKY;
     }
 
-    /**
-     * Android 15 gives dataSync foreground services six hours a day; when they are spent the
-     * service has seconds to stop or the app crashes (#166). Every task is held as if the user had
-     * paused it, and picks up from what is already on the share when resumed.
-     */
     @Override
     public void onTimeout(int startId, int fgsType) {
         SmbDirectDownloader.getInstance().pauseAll();
@@ -95,7 +90,7 @@ public final class SmbDownloadService extends Service {
     @Override
     public void onDestroy() {
         SmbDirectDownloader.getInstance().detachService();
-        // Normally gone with stopForeground already; this catches one posted while unpromoted.
+        // stopForeground leaves one that was posted while unpromoted.
         NotificationManager nm = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
         if (nm != null) {
             nm.cancel(NOTIFICATION_ID);
@@ -120,8 +115,7 @@ public final class SmbDownloadService extends Service {
         }
     }
 
-    // Refused from the background on API 31+, and on Android 15 once the dataSync time is spent
-    // (#166). The service then runs unpromoted, as DownloadService does, until the queue is idle.
+    // Refused as DownloadService.startForegroundCompat can be, plus the dataSync time (#166).
     private void startInForeground(Notification notification) {
         try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {

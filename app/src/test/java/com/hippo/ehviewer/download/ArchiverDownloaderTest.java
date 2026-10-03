@@ -118,7 +118,7 @@ public class ArchiverDownloaderTest {
         app = RuntimeEnvironment.getApplication();
         Settings.initialize(app);
         AppConfig.initialize(app);
-        // Every call fails at once, which ends its task the way a dead link would.
+        // Every call fails, which ends its task.
         client = new OkHttpClient.Builder()
                 .dispatcher(new Dispatcher(calls))
                 .addInterceptor(chain -> new Response.Builder()
@@ -129,7 +129,6 @@ public class ArchiverDownloaderTest {
                         .body(ResponseBody.create(null, ""))
                         .build())
                 .build();
-        // A process-wide singleton: without a fresh one it keeps the first test's application.
         Field instance = ArchiverDownloader.class.getDeclaredField("sInstance");
         instance.setAccessible(true);
         instance.set(null, null);
@@ -178,7 +177,7 @@ public class ArchiverDownloaderTest {
         assertTrue(serviceActions().contains(ArchiverDownloadService.ACTION_STOP));
     }
 
-    // --- Android 15's daily dataSync time running out -----------------------------------------
+    // --- dataSync timeout ---------------------------------------------------------------------
 
     /** What every promotion gets once the time is spent. */
     @Implements(Service.class)
