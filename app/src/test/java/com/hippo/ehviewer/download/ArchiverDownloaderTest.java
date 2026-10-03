@@ -1,12 +1,18 @@
 package com.hippo.ehviewer.download;
 
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 import static org.robolectric.Shadows.shadowOf;
 
 import android.app.Application;
+import android.app.ForegroundServiceStartNotAllowedException;
+import android.app.Notification;
+import android.app.NotificationManager;
+import android.app.Service;
 import android.content.Context;
 import android.content.Intent;
+import android.content.pm.ServiceInfo;
 
 import com.hippo.ehviewer.AppConfig;
 import com.hippo.ehviewer.EhApplication;
@@ -30,13 +36,15 @@ import okhttp3.ResponseBody;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.robolectric.Robolectric;
 import org.robolectric.RobolectricTestRunner;
 import org.robolectric.RuntimeEnvironment;
 import org.robolectric.annotation.Config;
 import org.robolectric.annotation.Implementation;
 import org.robolectric.annotation.Implements;
+import org.robolectric.shadows.ShadowService;
 
-/** Pins when the archive downloader lets its shared foreground service go (#166). */
+/** Pins when the archive downloader and its shared foreground service stop (#166). */
 @RunWith(RobolectricTestRunner.class)
 @Config(application = android.app.Application.class,
         shadows = ArchiverDownloaderTest.ShadowEhApplication.class,
@@ -128,8 +136,9 @@ public class ArchiverDownloaderTest {
         downloader = ArchiverDownloader.getInstance(app);
     }
 
-    private void start(long gid) {
-        downloader.start(app, gallery(gid), "https://example.org/archive/" + gid, "archive" + gid);
+    private long start(long gid) {
+        return downloader.start(app, gallery(gid), "https://example.org/archive/" + gid,
+                "archive" + gid);
     }
 
     /** The actions of every service start since the last call. */
@@ -167,5 +176,52 @@ public class ArchiverDownloaderTest {
         calls.runNext();
 
         assertTrue(serviceActions().contains(ArchiverDownloadService.ACTION_STOP));
+    }
+
+    // --- Android 15's daily dataSync time running out -----------------------------------------
+
+    /** What every promotion gets once the time is spent. */
+    @Implements(Service.class)
+    public static class ShadowSpentService extends ShadowService {
+        @Override
+        @Implementation
+        protected void startForeground(int id, Notification notification, int foregroundServiceType) {
+            throw new ForegroundServiceStartNotAllowedException(
+                    "Time limit already exhausted for foreground service type dataSync");
+        }
+    }
+
+    @Test
+    public void timeout_pausesEveryTaskAndStopsTheService() {
+        long taskA = start(GID_A);
+        start(GID_B);
+        ArchiverDownloadService service =
+                Robolectric.buildService(ArchiverDownloadService.class).create().get();
+
+        service.onTimeout(1, ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC);
+
+        assertTrue("the service outlived its timeout", shadowOf(service).isStoppedBySelf());
+        assertTrue(downloader.getProgress(GID_A).paused);
+        assertTrue(downloader.getProgress(GID_B).paused);
+        assertTrue("the pause would not survive the process",
+                Settings.getArchiverDownloadPaused(taskA));
+    }
+
+    @Test
+    @Config(shadows = ShadowSpentService.class)
+    public void aRefusedPromotion_leavesNoNotificationThatNoStopCanRemove() {
+        ArchiverDownloadService service =
+                Robolectric.buildService(ArchiverDownloadService.class).create().get();
+        Intent update = new Intent(app, ArchiverDownloadService.class)
+                .setAction(ArchiverDownloadService.ACTION_UPDATE)
+                .putExtra(ArchiverDownloadService.EXTRA_GID, GID_A)
+                .putExtra(ArchiverDownloadService.EXTRA_DOWNLOADED, 10L)
+                .putExtra(ArchiverDownloadService.EXTRA_TOTAL, 100L);
+
+        service.onStartCommand(update, 0, 1);
+        service.onStartCommand(update, 0, 2);
+
+        NotificationManager nm = (NotificationManager) app.getSystemService(Context.NOTIFICATION_SERVICE);
+        assertEquals(0, shadowOf(nm).size());
     }
 }

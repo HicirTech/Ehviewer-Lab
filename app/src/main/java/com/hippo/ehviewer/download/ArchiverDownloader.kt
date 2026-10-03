@@ -115,6 +115,13 @@ class ArchiverDownloader private constructor(appContext: Context) {
         publishProgress(task, true)
     }
 
+    /** Pauses every running task; each one resumes later from its partial file, by Range. */
+    fun pauseAll() {
+        for (gid in activeTasks.keys) {
+            pause(gid)
+        }
+    }
+
     fun resume(gid: Long) {
         val task = activeTasks[gid] ?: return
         if (!task.paused) {

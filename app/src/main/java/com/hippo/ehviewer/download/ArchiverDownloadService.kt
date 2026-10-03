@@ -11,6 +11,7 @@ import android.content.pm.ServiceInfo
 import android.os.Build
 import android.os.Bundle
 import android.os.IBinder
+import androidx.annotation.RequiresApi
 import androidx.core.app.NotificationCompat
 import com.hippo.ehviewer.R
 import com.hippo.ehviewer.ui.MainActivity
@@ -95,12 +96,27 @@ class ArchiverDownloadService : Service() {
             return START_NOT_STICKY
         }
         if (!foregroundStarted) {
-            startForegroundCompat(NOTIFICATION_ID, notification)
-            foregroundStarted = true
+            // Stays false when refused: later updates would post the ongoing notification through
+            // notify(), and the stop's stopForeground would leave that one stuck on screen.
+            foregroundStarted = startForegroundCompat(NOTIFICATION_ID, notification)
         } else {
             notificationManager?.notify(NOTIFICATION_ID, notification)
         }
         return START_STICKY
+    }
+
+    /**
+     * Android 15 gives dataSync foreground services six hours a day; when they are spent the
+     * service has seconds to stop or the app crashes (#166). Tasks are paused, not lost.
+     */
+    @RequiresApi(Build.VERSION_CODES.VANILLA_ICE_CREAM)
+    override fun onTimeout(startId: Int, fgsType: Int) {
+        // Stop first: each pause posts its notification through startForegroundService, and
+        // stopping under such a pending start crashes the app.
+        stopForeground(STOP_FOREGROUND_REMOVE)
+        foregroundStarted = false
+        stopSelf()
+        ArchiverDownloader.getInstance(this)?.pauseAll()
     }
 
     override fun onBind(intent: Intent?): IBinder? = null
@@ -209,11 +225,19 @@ class ArchiverDownloadService : Service() {
         return PendingIntent.getService(this, requestCode, intent, PENDING_INTENT_FLAGS)
     }
 
-    private fun startForegroundCompat(id: Int, notification: Notification) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-            startForeground(id, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC)
-        } else {
-            startForeground(id, notification)
+    // Refused once the dataSync time is spent (#166), as DownloadService's is from the background.
+    // The download is an OkHttp call and carries on without the service's protection.
+    private fun startForegroundCompat(id: Int, notification: Notification): Boolean {
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                startForeground(id, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC)
+            } else {
+                startForeground(id, notification)
+            }
+            return true
+        } catch (e: IllegalStateException) {
+            android.util.Log.w("ArchiverDownloadService", "startForeground refused", e)
+            return false
         }
     }
 

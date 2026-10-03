@@ -156,6 +156,14 @@ class DownloadService : Service(), DownloadManager.DownloadListener {
         return START_STICKY
     }
 
+    // Android 15 gives dataSync foreground services six hours a day; when they are spent the
+    // service has seconds to stop or the app crashes (#166). This is the notification's "stop
+    // all": the downloads stay listed and start again from where they were.
+    override fun onTimeout(startId: Int, fgsType: Int) {
+        mDownloadManager?.stopAllDownload()
+        checkStopSelf()
+    }
+
     private fun handleIntent(intent: Intent?) {
         var action: String? = null
         if (intent != null) {
