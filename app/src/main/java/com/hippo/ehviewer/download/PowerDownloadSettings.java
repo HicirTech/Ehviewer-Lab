@@ -29,7 +29,10 @@ public final class PowerDownloadSettings {
     public static final String KEY_VOLUME_UP_TARGET = "power_download_volume_up_target";
     public static final String KEY_VOLUME_DOWN_TARGET = "power_download_volume_down_target";
 
-    /** Two, so the pages rule never fires on the same page as the first-page rule. */
+    /**
+     * Two, the user's call on #159: at one, just opening a gallery would count, as the
+     * first-page rule does.
+     */
     public static final int DEFAULT_PAGES_COUNT = 2;
     public static final int MIN_PAGES_COUNT = 1;
 
