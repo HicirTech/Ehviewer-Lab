@@ -1,6 +1,7 @@
 package com.hippo.ehviewer.download;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
@@ -31,6 +32,7 @@ import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
@@ -139,18 +141,21 @@ public class ArchiverDownloadCompleterTest {
         return zip;
     }
 
-    private void importArchive(File zip) {
+    /**
+     * Runs one import to its end: joins the worker thread the completer starts, then runs what
+     * that thread posted to the main thread (the outcome first, then the clean-up of the zip).
+     */
+    private void importAndWait(File zip) throws InterruptedException {
+        Set<Thread> before = Thread.getAllStackTraces().keySet();
         ArchiverDownloadCompleter.getInstance(app).importDownloadedZip(zip, gallery(), TASK_ID);
-    }
-
-    /** Runs the main thread until the import lets go of the zip, which is its last step. */
-    private static void awaitZipGone(File zip) throws InterruptedException {
-        long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5);
-        while (zip.exists()) {
-            assertTrue("the import never let go of " + zip.getName(), System.nanoTime() < deadline);
-            Thread.sleep(10);
-            shadowOf(Looper.getMainLooper()).idle();
+        for (Thread thread : Thread.getAllStackTraces().keySet()) {
+            // The completer's worker is a plain thread, so it keeps the default name.
+            if (!before.contains(thread) && thread.getName().startsWith("Thread-")) {
+                thread.join(TimeUnit.SECONDS.toMillis(5));
+                assertFalse("the import never finished", thread.isAlive());
+            }
         }
+        shadowOf(Looper.getMainLooper()).idle();
     }
 
     private String[] galleryFolder() {
@@ -164,11 +169,11 @@ public class ArchiverDownloadCompleterTest {
     public void withoutAllFilesAccess_theArchiveIsImportedAndItsZipDropped() throws Exception {
         File zip = archive(AppConfig.getArchiverDir());
 
-        importArchive(zip);
-        awaitZipGone(zip);
+        importAndWait(zip);
 
         assertEquals(Collections.singletonList(GID + ":" + DownloadInfo.STATE_FINISH), added);
         assertEquals(2, galleryFolder().length);
+        assertFalse("nobody can reach a zip left in the app's cache", zip.exists());
     }
 
     @Test
@@ -176,10 +181,24 @@ public class ArchiverDownloadCompleterTest {
         File zip = new File(AppConfig.getArchiverDir(), "broken.zip");
         Files.write(zip.toPath(), "not a zip".getBytes(StandardCharsets.UTF_8));
 
-        importArchive(zip);
-        awaitZipGone(zip);
+        importAndWait(zip);
 
         assertTrue(added.isEmpty());
+        assertFalse(zip.exists());
+    }
+
+    /** With all-files access the zip lands on shared storage, where the user can still open it. */
+    @Test
+    public void aZipOutsideTheAppCache_isKeptAfterItsImport() throws Exception {
+        File shared = new File(app.getCacheDir(), "shared-archiver");
+        deleteTree(shared);
+        assertTrue(shared.mkdirs());
+        File zip = archive(shared);
+
+        importAndWait(zip);
+
+        assertEquals(Collections.singletonList(GID + ":" + DownloadInfo.STATE_FINISH), added);
+        assertTrue(zip.exists());
     }
 
     /** Marked by an earlier download to the share, or by the share's list showing it. */
@@ -188,8 +207,7 @@ public class ArchiverDownloadCompleterTest {
         File zip = archive(AppConfig.getArchiverDir());
         GalleryTargets.mark(GID);
         try {
-            importArchive(zip);
-            awaitZipGone(zip);
+            importAndWait(zip);
         } finally {
             GalleryTargets.unmark(GID);
         }
@@ -202,8 +220,7 @@ public class ArchiverDownloadCompleterTest {
     public void theImportToast_namesTheGalleryNotItsZip() throws Exception {
         File zip = archive(AppConfig.getArchiverDir());
 
-        importArchive(zip);
-        awaitZipGone(zip);
+        importAndWait(zip);
 
         assertEquals(app.getString(R.string.stat_download_done_line_succeeded, "archive fixture"),
                 ShadowToast.getTextOfLatestToast());
