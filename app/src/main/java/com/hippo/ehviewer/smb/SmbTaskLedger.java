@@ -234,7 +234,7 @@ final class SmbTaskLedger {
         }
     }
 
-    /** Holds everything (SMB went away); returns the jobs the caller must release. */
+    /** Holds everything; returns the jobs the caller must release. */
     @NonNull
     List<ActiveJob> suspendAll() {
         synchronized (lock) {

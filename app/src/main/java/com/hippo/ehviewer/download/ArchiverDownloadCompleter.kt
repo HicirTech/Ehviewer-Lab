@@ -9,11 +9,11 @@ import com.hippo.ehviewer.AppConfig
 import com.hippo.ehviewer.EhApplication
 import com.hippo.ehviewer.R
 import com.hippo.ehviewer.Settings
+import com.hippo.ehviewer.client.EhUtils
 import com.hippo.ehviewer.client.data.GalleryInfo
 import com.hippo.ehviewer.dao.DownloadInfo
 import com.hippo.ehviewer.gallery.GalleryProvider2
 import com.hippo.ehviewer.spider.SpiderDen
-import com.hippo.ehviewer.spider.SpiderQueen
 import com.hippo.lib.yorozuya.FileUtils as YorozuyaFileUtils
 import com.hippo.lib.yorozuya.StringUtils
 import com.hippo.lib.yorozuya.Utilities
@@ -44,13 +44,14 @@ class ArchiverDownloadCompleter private constructor(appContext: Context) {
         if (!tryBeginHandling(taskId)) {
             return
         }
-        val tempDir = AppConfig.getExternalTempDir()
+        val tempDir = AppConfig.getExternalTempDir() ?: AppConfig.getTempDir()
         if (tempDir == null) {
             endHandling(taskId)
             handleFailedTask(galleryInfo, taskId)
             return
         }
-        val displayName = createFileName(galleryInfo.title, galleryInfo.gid)
+        val displayName = EhUtils.getSuitableTitle(galleryInfo)
+            ?: createFileName(galleryInfo.title, galleryInfo.gid)
         val tempFile = File(tempDir, "archiver_${galleryInfo.gid}")
 
         Thread {
@@ -66,6 +67,9 @@ class ArchiverDownloadCompleter private constructor(appContext: Context) {
                     tempFile.deleteOnExit()
                 }
                 postImportFailed(galleryInfo, taskId)
+            } finally {
+                // After the success post: a task still pending must keep its zip.
+                mainHandler.post { deleteIfPrivate(zipFile) }
             }
         }.start()
     }
@@ -128,10 +132,7 @@ class ArchiverDownloadCompleter private constructor(appContext: Context) {
         }
         Collections.sort(tempPictures) { file1, file2 -> file1.name.compareTo(file2.name) }
 
-        val spiderDen = SpiderDen(galleryInfo)
-        spiderDen.setMode(SpiderQueen.MODE_DOWNLOAD)
-        spiderDen.prepareDownloadStorage()
-        val downloadDir = spiderDen.getDownloadDir()
+        val downloadDir = SpiderDen.getGalleryDownloadDir(galleryInfo)?.takeIf { it.ensureDir() }
         if (downloadDir == null) {
             postImportFailed(galleryInfo, taskId)
             return
@@ -221,12 +222,12 @@ class ArchiverDownloadCompleter private constructor(appContext: Context) {
 
         @JvmStatic
         fun createFileName(name: String?, gid: Long): String {
-            var result = name?.let { YorozuyaFileUtils.sanitizeFilename(it) } ?: ""
-            result = truncateUtf8ToMaxBytes(result, MAX_ARCHIVER_BASENAME_UTF8_BYTES)
-            if (result.isEmpty()) {
-                result = if (gid > 0) "archiver_$gid" else "archiver"
-            }
-            return result
+            val suffix = if (gid > 0) "_$gid" else ""
+            val title = truncateUtf8ToMaxBytes(
+                name?.let { YorozuyaFileUtils.sanitizeFilename(it) } ?: "",
+                MAX_ARCHIVER_BASENAME_UTF8_BYTES - suffix.length
+            )
+            return title.ifEmpty { "archiver" } + suffix
         }
 
         /**
@@ -292,6 +293,12 @@ class ArchiverDownloadCompleter private constructor(appContext: Context) {
                 return false
             }
             return true
+        }
+
+        private fun deleteIfPrivate(zipFile: File) {
+            if (zipFile.parentFile == AppConfig.getArchiverDir() && !zipFile.delete()) {
+                Log.w(TAG, "Failed to delete zip: ${zipFile.path}")
+            }
         }
 
         private fun deleteTempDir(destDir: File) {

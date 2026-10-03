@@ -156,6 +156,11 @@ class DownloadService : Service(), DownloadManager.DownloadListener {
         return START_STICKY
     }
 
+    override fun onTimeout(startId: Int, fgsType: Int) {
+        mDownloadManager?.stopAllDownload()
+        checkStopSelf()
+    }
+
     private fun handleIntent(intent: Intent?) {
         var action: String? = null
         if (intent != null) {

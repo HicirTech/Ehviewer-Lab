@@ -115,6 +115,12 @@ class ArchiverDownloader private constructor(appContext: Context) {
         publishProgress(task, true)
     }
 
+    fun pauseAll() {
+        for (gid in activeTasks.keys) {
+            pause(gid)
+        }
+    }
+
     fun resume(gid: Long) {
         val task = activeTasks[gid] ?: return
         if (!task.paused) {
@@ -130,7 +136,13 @@ class ArchiverDownloader private constructor(appContext: Context) {
         deleteZipFile(task.zipFile)
         clearTaskSettings(gid, task.taskId)
         notifyCancel(gid, task.taskId)
-        ArchiverDownloadService.stop(appContext)
+        stopServiceIfIdle()
+    }
+
+    private fun stopServiceIfIdle() {
+        if (activeTasks.values.none { !it.paused }) {
+            ArchiverDownloadService.stop(appContext)
+        }
     }
 
     private fun startInternal(
@@ -188,13 +200,13 @@ class ArchiverDownloader private constructor(appContext: Context) {
                 activeTasks.remove(info.gid)
                 if (call.isCanceled) {
                     notifyCancel(info.gid, taskId)
-                    ArchiverDownloadService.stop(appContext)
+                    stopServiceIfIdle()
                     return
                 }
                 deleteZipFile(zipFile)
                 clearTaskSettings(info.gid, taskId)
                 notifyFailure(info.gid, taskId, e)
-                ArchiverDownloadService.stop(appContext)
+                stopServiceIfIdle()
             }
 
             override fun onResponse(call: Call, response: Response) {
@@ -219,7 +231,7 @@ class ArchiverDownloader private constructor(appContext: Context) {
                     clearTaskSettings(info.gid, taskId)
                     notifyFailure(info.gid, taskId, IOException("HTTP $code"))
                     response.close()
-                    ArchiverDownloadService.stop(appContext)
+                    stopServiceIfIdle()
                     return
                 }
                 val body = response.body()
@@ -229,7 +241,7 @@ class ArchiverDownloader private constructor(appContext: Context) {
                     clearTaskSettings(info.gid, taskId)
                     notifyFailure(info.gid, taskId, IOException("Empty response body"))
                     response.close()
-                    ArchiverDownloadService.stop(appContext)
+                    stopServiceIfIdle()
                     return
                 }
                 var writeOffset = offset
@@ -283,7 +295,7 @@ class ArchiverDownloader private constructor(appContext: Context) {
                         notifySuccess(info.gid, taskId, zipFile)
                         ArchiverDownloadCompleter.getInstance(appContext)
                             ?.importDownloadedZip(zipFile, info, taskId)
-                        ArchiverDownloadService.stop(appContext)
+                        stopServiceIfIdle()
                     } catch (e: PauseSignal) {
                         if (task.call === call) {
                             publishProgress(task, true)
@@ -307,7 +319,7 @@ class ArchiverDownloader private constructor(appContext: Context) {
                         } else {
                             notifyFailure(info.gid, taskId, e)
                         }
-                        ArchiverDownloadService.stop(appContext)
+                        stopServiceIfIdle()
                     }
                 }
             }
@@ -329,7 +341,7 @@ class ArchiverDownloader private constructor(appContext: Context) {
             notifySuccess(info.gid, taskId, zipFile)
             ArchiverDownloadCompleter.getInstance(appContext)
                 ?.importDownloadedZip(zipFile, info, taskId)
-            ArchiverDownloadService.stop(appContext)
+            stopServiceIfIdle()
             return
         }
         if (task.paused) {
@@ -340,7 +352,7 @@ class ArchiverDownloader private constructor(appContext: Context) {
         deleteZipFile(zipFile)
         clearTaskSettings(info.gid, taskId)
         notifyFailure(info.gid, taskId, IOException("HTTP 416"))
-        ArchiverDownloadService.stop(appContext)
+        stopServiceIfIdle()
     }
 
     private fun publishProgress(task: ActiveTask, force: Boolean) {

@@ -11,6 +11,7 @@ import android.content.pm.ServiceInfo
 import android.os.Build
 import android.os.Bundle
 import android.os.IBinder
+import androidx.annotation.RequiresApi
 import androidx.core.app.NotificationCompat
 import com.hippo.ehviewer.R
 import com.hippo.ehviewer.ui.MainActivity
@@ -95,12 +96,20 @@ class ArchiverDownloadService : Service() {
             return START_NOT_STICKY
         }
         if (!foregroundStarted) {
-            startForegroundCompat(NOTIFICATION_ID, notification)
-            foregroundStarted = true
+            foregroundStarted = startForegroundCompat(NOTIFICATION_ID, notification)
         } else {
             notificationManager?.notify(NOTIFICATION_ID, notification)
         }
         return START_STICKY
+    }
+
+    @RequiresApi(Build.VERSION_CODES.VANILLA_ICE_CREAM)
+    override fun onTimeout(startId: Int, fgsType: Int) {
+        // Stop first: stopping under a pause's pending startForegroundService crashes.
+        stopForeground(STOP_FOREGROUND_REMOVE)
+        foregroundStarted = false
+        stopSelf()
+        ArchiverDownloader.getInstance(this)?.pauseAll()
     }
 
     override fun onBind(intent: Intent?): IBinder? = null
@@ -209,11 +218,17 @@ class ArchiverDownloadService : Service() {
         return PendingIntent.getService(this, requestCode, intent, PENDING_INTENT_FLAGS)
     }
 
-    private fun startForegroundCompat(id: Int, notification: Notification) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-            startForeground(id, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC)
-        } else {
-            startForeground(id, notification)
+    private fun startForegroundCompat(id: Int, notification: Notification): Boolean {
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                startForeground(id, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC)
+            } else {
+                startForeground(id, notification)
+            }
+            return true
+        } catch (e: IllegalStateException) {
+            android.util.Log.w("ArchiverDownloadService", "startForeground refused", e)
+            return false
         }
     }
 

@@ -6,7 +6,11 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 import static org.robolectric.Shadows.shadowOf;
 
+import android.app.ForegroundServiceStartNotAllowedException;
+import android.app.Notification;
+import android.app.NotificationManager;
 import android.content.Context;
+import android.content.pm.ServiceInfo;
 import android.os.Looper;
 
 import com.hippo.ehviewer.client.data.GalleryInfo;
@@ -22,13 +26,16 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.robolectric.Robolectric;
 import org.robolectric.RobolectricTestRunner;
 import org.robolectric.RuntimeEnvironment;
+import org.robolectric.android.controller.ServiceController;
 import org.robolectric.annotation.Config;
 import org.robolectric.annotation.Implementation;
 import org.robolectric.annotation.Implements;
 import org.robolectric.annotation.Resetter;
 import org.robolectric.shadow.api.Shadow;
+import org.robolectric.shadows.ShadowService;
 
 /** Pins the SMB download task state machine (issue #43). */
 @RunWith(RobolectricTestRunner.class)
@@ -51,6 +58,11 @@ public class SmbDirectDownloaderTest {
     static CountDownLatch deleteLatch = new CountDownLatch(1);
     /** The spider listeners the downloader registered; a test fires finish through these. */
     static final List<SpiderQueen.OnSpiderListener> listeners = new ArrayList<>();
+    /** Refuses every promotion, as once the dataSync time is spent. */
+    static boolean spent = false;
+
+    /** A real service a test built; attached to the downloader until destroyed. */
+    private ServiceController<SmbDownloadService> service;
 
     /** Replaces the real fetch engine: no worker thread, no network. */
     @Implements(SpiderQueen.class)
@@ -88,7 +100,7 @@ public class SmbDirectDownloaderTest {
 
     /** Keeps the foreground service out of the test. */
     @Implements(SmbDownloadService.class)
-    public static class ShadowSmbDownloadService {
+    public static class ShadowSmbDownloadService extends ShadowService {
 
         @Implementation
         protected static void start(Context context) {
@@ -98,6 +110,15 @@ public class SmbDirectDownloaderTest {
         @Implementation
         protected static void stop(Context context) {
             calls.add("stopService");
+        }
+
+        @Override
+        protected void startForeground(int id, Notification notification, int foregroundServiceType) {
+            if (spent) {
+                throw new ForegroundServiceStartNotAllowedException(
+                        "Time limit already exhausted for foreground service type dataSync");
+            }
+            super.startForeground(id, notification, foregroundServiceType);
         }
     }
 
@@ -156,11 +177,17 @@ public class SmbDirectDownloaderTest {
         calls.clear();
         listeners.clear();
         obtainThrows = false;
+        spent = false;
         deleteLatch = new CountDownLatch(1);
     }
 
     @After
     public void tearDown() {
+        // An attached service would stop the next test's first task from starting one.
+        if (service != null) {
+            service.destroy();
+            service = null;
+        }
         // The downloader is a process-wide singleton, so leave no task behind for the next test.
         for (SmbDirectDownloader.TaskSnapshot t : new ArrayList<>(tasks())) {
             SmbDirectDownloader.getInstance().cancel(t.gid);
@@ -343,5 +370,38 @@ public class SmbDirectDownloaderTest {
         drain();
 
         assertTrue(calls.contains("startService"));
+    }
+
+    // --- dataSync timeout ---------------------------------------------------------------------
+
+    @Test
+    public void timeout_holdsEveryTaskAndStopsTheService() {
+        SmbDirectDownloader.getInstance().start(context, gallery(1));
+        SmbDirectDownloader.getInstance().start(context, gallery(2));
+        drain();
+        service = Robolectric.buildService(SmbDownloadService.class).create();
+
+        service.get().onTimeout(1, ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC);
+        drain();
+
+        assertEquals(SmbDirectDownloader.TaskSnapshot.State.PAUSED, stateOf(1));
+        assertEquals("the queued gallery must not start in its place",
+                SmbDirectDownloader.TaskSnapshot.State.PAUSED, stateOf(2));
+        assertTrue("the queen must be released: " + calls, calls.contains("stop"));
+        assertTrue("the service outlived its timeout", shadowOf(service.get()).isStoppedBySelf());
+    }
+
+    @Test
+    public void aRefusedPromotion_isSurvivedAndLeavesNoNotificationBehind() {
+        spent = true;
+        service = Robolectric.buildService(SmbDownloadService.class).create();
+        service.get().updateNotification("title", "text", 10, 3, false);
+
+        service.destroy();
+        service = null;
+
+        NotificationManager nm =
+                (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
+        assertEquals(0, shadowOf(nm).size());
     }
 }

@@ -142,6 +142,16 @@ public final class SmbDirectDownloader {
         });
     }
 
+    /** {@link #pause} for every task at once, queued ones included (#166). */
+    public void pauseAll() {
+        SimpleHandler.getInstance().post(() -> {
+            for (SmbTaskLedger.ActiveJob job : ledger.suspendAll()) {
+                releaseQueen(job, "pause", job.info.gid);
+            }
+            afterQueueChange();
+        });
+    }
+
     /** Resume a paused task by re-enqueueing it. No-op if the task isn't paused. */
     public void resume(long gid) {
         SimpleHandler.getInstance().post(() -> {

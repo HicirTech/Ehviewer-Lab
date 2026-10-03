@@ -81,8 +81,19 @@ public final class SmbDownloadService extends Service {
     }
 
     @Override
+    public void onTimeout(int startId, int fgsType) {
+        SmbDirectDownloader.getInstance().pauseAll();
+        stopForegroundCompat();
+        stopSelf();
+    }
+
+    @Override
     public void onDestroy() {
         SmbDirectDownloader.getInstance().detachService();
+        NotificationManager nm = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
+        if (nm != null) {
+            nm.cancel(NOTIFICATION_ID);
+        }
         super.onDestroy();
     }
 
@@ -104,11 +115,15 @@ public final class SmbDownloadService extends Service {
     }
 
     private void startInForeground(Notification notification) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-            startForeground(NOTIFICATION_ID, notification,
-                    ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC);
-        } else {
-            startForeground(NOTIFICATION_ID, notification);
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                startForeground(NOTIFICATION_ID, notification,
+                        ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC);
+            } else {
+                startForeground(NOTIFICATION_ID, notification);
+            }
+        } catch (IllegalStateException e) {
+            Log.w(TAG, "startForeground refused", e);
         }
     }
 
