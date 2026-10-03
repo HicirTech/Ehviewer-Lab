@@ -1785,7 +1785,7 @@ public final class SpiderQueen implements Runnable {
 
             mSpiderDen.prepareDownloadStorage();
 
-            while (mSpiderDen.isReady() && !Thread.currentThread().isInterrupted() && runInternal())
+            while (mSpiderDen.ensureReady() && !Thread.currentThread().isInterrupted() && runInternal())
                 ;
 
             boolean finish;

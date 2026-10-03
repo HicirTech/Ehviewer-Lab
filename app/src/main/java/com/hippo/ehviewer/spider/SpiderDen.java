@@ -229,6 +229,15 @@ public final class SpiderDen {
         }
     }
 
+    /**
+     * {@link #isReady()} for a worker thread. A worker started while the queen was reading never
+     * prepared the download folder, and the queen can switch to downloading under it: without
+     * this, every worker of a busy reader quits and the download ends with no page (#159).
+     */
+    public boolean ensureReady() {
+        return isReady() || (isDownloadMode() && prepareDownloadStorage() && isReady());
+    }
+
     public boolean isReady() {
         switch (mMode) {
             case SpiderQueen.MODE_READ:
