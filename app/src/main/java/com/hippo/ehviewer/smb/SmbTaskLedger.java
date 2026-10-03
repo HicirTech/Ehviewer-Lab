@@ -234,7 +234,10 @@ final class SmbTaskLedger {
         }
     }
 
-    /** Holds everything (SMB went away); returns the jobs the caller must release. */
+    /**
+     * Holds everything (SMB went away, or Android ended the service's dataSync time); returns
+     * the jobs the caller must release.
+     */
     @NonNull
     List<ActiveJob> suspendAll() {
         synchronized (lock) {
