@@ -770,7 +770,6 @@ class DownloadAdapter(scene: DownloadsScene, callback: DownloadAdapterCallback) 
         val thumb: LoadImageView
         val title: TextView
         val uploader: TextView
-        /** Which device is saving an SMB task, and when it last checked in (#59). */
         val smbOwner: TextView
         val rating: SimpleRatingView
         val category: TextView

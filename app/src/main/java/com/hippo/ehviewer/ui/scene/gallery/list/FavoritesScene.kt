@@ -116,7 +116,6 @@ class FavoritesScene : BaseScene(), EasyRecyclerView.OnItemClickListener,
     @ViewLifeCircle
     private var mAdapter: FavoritesAdapter? = null
 
-    /** Redraws the cards once the list of galleries already on the share arrives (#83). */
     private val mSavedObserver = SmbSavedGalleries.Observer { mAdapter?.notifyDataSetChanged() }
 
     @ViewLifeCircle
@@ -244,8 +243,7 @@ class FavoritesScene : BaseScene(), EasyRecyclerView.OnItemClickListener,
 
     override fun onResume() {
         super.onResume()
-        // Settings is a separate activity, so coming back from switching SMB off does not rebuild
-        // this view. Without this the marks would sit there until it happened to be recreated.
+        // Settings is a separate activity: switching SMB off there does not rebuild this view.
         SmbSavedGalleries.getInstance().refresh()
     }
 

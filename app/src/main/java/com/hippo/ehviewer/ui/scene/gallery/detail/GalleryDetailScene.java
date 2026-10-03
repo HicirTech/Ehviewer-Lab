@@ -179,8 +179,6 @@ public class GalleryDetailScene extends BaseScene implements View.OnClickListene
     public static final String KEY_PAGE = "page";
 
     public static final String KEY_GALLERY_DETAIL = "gallery_detail";
-    /** When true, the comments section is hidden — used by the Local Inventory scene
-     *  where there are no comments to show. */
     public static final String KEY_HIDE_COMMENTS = "hide_comments";
     private static final String KEY_REQUEST_ID = "request_id";
 
@@ -339,9 +337,6 @@ public class GalleryDetailScene extends BaseScene implements View.OnClickListene
         mHideComments = args.getBoolean(KEY_HIDE_COMMENTS, false);
         if (ACTION_GALLERY_INFO.equals(action)) {
             mGalleryInfo = args.getParcelable(KEY_GALLERY_INFO);
-            // Allow callers (e.g. LocalInventoryScene) to supply a fully-formed
-            // GalleryDetail so the scene can render entirely from local data
-            // without hitting the network.
             GalleryDetail preloaded = args.getParcelable(KEY_GALLERY_DETAIL);
             if (preloaded != null) {
                 mGalleryDetail = preloaded;
@@ -720,9 +715,6 @@ public class GalleryDetailScene extends BaseScene implements View.OnClickListene
     public void onDestroyView() {
         super.onDestroyView();
 
-        // Stop any SMB preview prefetch for this gallery: once the detail page is gone there's
-        // nobody to show those previews to, and leftover reads would hog the shared prefetch pool
-        // and block whatever the user opens next. No-op for non-SMB galleries.
         if (mGalleryInfo != null) {
             SmbPreviewCache.cancelGallery(mGalleryInfo.gid);
         }
@@ -1786,10 +1778,7 @@ public class GalleryDetailScene extends BaseScene implements View.OnClickListene
         GalleryInfo galleryInfo = getGalleryInfo();
         if (galleryInfo != null) {
             if (EhApplication.getDownloadManager(mContext).getDownloadState(galleryInfo.gid) == DownloadInfo.STATE_INVALID) {
-                // The Download button always lets the user pick when SMB is enabled — Power
-                // Download's rules only govern downloads started from the reader, not this
-                // explicit click. (This once also required the old auto-download switch OFF,
-                // which silently routed everything to phone while it was on.)
+                // The user picks the target here; Power Download's rules only govern the reader.
                 if (Settings.getNetworkStorageEnabled() && NetworkStorage.active().isConfigured()) {
                     promptDownloadTarget(galleryInfo);
                 } else {

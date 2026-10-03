@@ -62,7 +62,7 @@ public final class SpiderDen {
     private long mGid;
 
     @Nullable
-    static SimpleDiskCache sCache;   // package: RemotePageBridge reads pages out of it
+    static SimpleDiskCache sCache;
 
     public static void initialize(Context context) {
         sCache = new SimpleDiskCache(new File(context.getCacheDir(), "image"),
@@ -229,11 +229,7 @@ public final class SpiderDen {
         }
     }
 
-    /**
-     * {@link #isReady()} for a worker thread. A worker started while the queen was reading never
-     * prepared the download folder, and the queen can switch to downloading under it: without
-     * this, every worker of a busy reader quits and the download ends with no page (#159).
-     */
+    /** Worker-thread {@link #isReady()}; prepares storage if the queen switched to downloading. */
     public boolean ensureReady() {
         return isReady() || (isDownloadMode() && prepareDownloadStorage() && isReady());
     }
@@ -260,7 +256,6 @@ public final class SpiderDen {
         return NetworkStorage.active().spiderStorage(mGalleryInfo, mGid);
     }
 
-    /** Spider-info writer, routed to the active backend. */
     @Nullable
     public OutputStream openSpiderInfoOutputStream(String filename) {
         GallerySpiderStorage remote = remoteStorage();
@@ -282,13 +277,11 @@ public final class SpiderDen {
         }
     }
 
-    /** Spider-info reader, routed; null when absent. */
     @Nullable
     public InputStream openSpiderInfoInputStream(String filename) {
         GallerySpiderStorage remote = remoteStorage();
         if (remote != null) {
-            // Main thread would die in jcifs mid-request and poison the shared transport; the
-            // null sends the caller to the spider-info cache, same as the exception path did.
+            // jcifs on the main thread dies mid-request and poisons the shared transport.
             if (Looper.getMainLooper().getThread() == Thread.currentThread()) {
                 android.util.Log.w("SpiderDen", "skip remote spider-info read on main thread gid=" + mGid);
                 return null;
@@ -448,10 +441,6 @@ public final class SpiderDen {
         return bridge;
     }
 
-    /**
-     * Is page {@code index} available — and in download mode, a page already in hand (cache or
-     * phone) is bridged onto the backend rather than fetched from e-hentai again.
-     */
     public boolean contain(int index) {
         if (mMode == SpiderQueen.MODE_READ) {
             return containInCache(index) || containInDownloadDir(index);
@@ -583,8 +572,7 @@ public final class SpiderDen {
             if (pipe != null) {
                 return pipe;
             }
-            // Cache fallback, like the phone path: a shared-mode queen flips the reader's den to
-            // download mode, and pages not yet uploaded are in the cache.
+            // A reader sharing this den with a download finds unuploaded pages in the cache.
             return openCacheInputStreamPipe(index);
         }
         UniFile dir = getDownloadDir();
@@ -606,7 +594,6 @@ public final class SpiderDen {
 
     @Nullable
     private InputStreamPipe openDownloadInputStreamPipeReadOnly(int index) {
-        // Must route like every other entry point, or SMB galleries read null pipes.
         GallerySpiderStorage remote = remoteStorage();
         if (remote != null) {
             return remote.openImageInputStreamPipe(index);

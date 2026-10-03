@@ -53,9 +53,6 @@ public class VersionPreference extends Preference {
             e.printStackTrace();
             version = context.getString(R.string.error_unknown);
         }
-        // Debug and release carry the same versionName, so on this screen the two builds were
-        // indistinguishable. The launcher label separates them from the outside; this says it
-        // from the inside, next to the version it qualifies.
         if (BuildConfig.DEBUG) {
             version = context.getString(R.string.settings_about_version_debug, version);
         }

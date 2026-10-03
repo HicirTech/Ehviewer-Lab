@@ -98,14 +98,7 @@ public class ContentLayout extends FrameLayout {
         mFastScroller = mContentView.findViewById(R.id.fast_scroller);
         mRecyclerView = mRefreshLayout.findViewById(R.id.recycler_view);
 
-        // When the host lays the window out edge to edge (MainActivity does; see issue #32)
-        // the navigation bar overlaps the bottom of the list. Pad the RecyclerView by that
-        // inset instead of letting the window shrink: the list already sets
-        // clipToPadding=false, so rows keep drawing all the way to the screen edge while
-        // the last one can still scroll clear of the bar. A shrunken window would instead
-        // leave a windowBackground strip under the rows, which is the colour block itself.
-        // Hosts that keep the legacy inset dispatch a zero bottom inset here, so this is a
-        // no-op for them.
+        // Edge to edge (#32): rows draw under the navigation bar and the last one scrolls clear.
         ViewCompat.setOnApplyWindowInsetsListener(this, (v, insets) -> {
             setFitPaddingBottom(insets.getInsets(WindowInsetsCompat.Type.systemBars()).bottom);
             return insets;
@@ -475,13 +468,7 @@ public class ContentLayout extends FrameLayout {
             notifyItemRangeInserted(index, 1);
         }
 
-        /**
-         * Swaps one item for a newer version of itself, in place.
-         *
-         * <p>Unlike add and remove, nothing about the paging changes: same count, same dividers,
-         * same scroll position. That is the point — it exists so a row whose content was refreshed
-         * can be redrawn without reloading its page and throwing the reader back to the top.
-         */
+        /** Replaces one item without touching paging; an out-of-range index is ignored. */
         public void replaceAt(int index, E data) {
             if (index < 0 || index >= mData.size()) {
                 return;
@@ -490,12 +477,7 @@ public class ContentLayout extends FrameLayout {
             notifyItemRangeChanged(index, 1);
         }
 
-        /**
-         * A default rather than another abstract method: every existing subclass implements the
-         * three notifications it was born with, and making this a fourth would break all of them
-         * to serve one caller. Redrawing everything is correct, merely wasteful, so a subclass that
-         * cares overrides it.
-         */
+        /** Not abstract so upstream subclasses need no change; defaults to a full redraw. */
         protected void notifyItemRangeChanged(int positionStart, int itemCount) {
             notifyDataSetChanged();
         }

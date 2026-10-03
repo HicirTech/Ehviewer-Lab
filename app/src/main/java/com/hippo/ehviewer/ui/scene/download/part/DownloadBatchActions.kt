@@ -79,7 +79,6 @@ class DownloadBatchActions(private val mHost: Host) {
         /** An extra first entry for the move dialog, or null for none (#88). */
         fun extraMoveTarget(context: Context): String?
 
-        /** The extra entry was picked for these rows (#88). */
         fun moveToExtraTarget(context: Context, infos: MutableList<DownloadInfo?>)
     }
 
@@ -113,7 +112,6 @@ class DownloadBatchActions(private val mHost: Host) {
             while (i < n) {
                 if (stateArray.valueAt(i)) {
                     val info = list[mHost.positionInList(stateArray.keyAt(i))]
-                    // Every batch action reads this loop, and a wrong row here fails silently.
                     if (!mHost.isExcludedFromBatch(info)) {
                         if (collectDownloadInfo) {
                             downloadInfoList!!.add(info)

@@ -47,7 +47,6 @@ public class ReadFragment extends BasePreferenceFragmentCompat {
         TwoStatePreference volumePage = findPreference(Settings.KEY_VOLUME_PAGE);
         if (volumePage != null) {
             volumePage.setOnPreferenceChangeListener((preference, newValue) -> {
-                // The volume keys either turn pages or download (#159).
                 if (Boolean.TRUE.equals(newValue) && PowerDownloadSettings.isVolumeEnabled()) {
                     VolumeKeyModeDialog.confirm(requireContext(), false, () -> {
                         PowerDownloadSettings.putVolumeEnabled(false);

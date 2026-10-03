@@ -46,9 +46,7 @@ class ArchiverDownloadService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        // Every stop names its startId: a start queued behind it (a re-download right after a stop
-        // or pause) was made with startForegroundService, and tearing the service down under it
-        // crashes the app with ForegroundServiceDidNotStartInTimeException.
+        // Stop by startId: stopping under a queued startForegroundService crashes the app.
         if (intent == null) {
             stopSelfIfNeeded(startId)
             return START_NOT_STICKY
@@ -309,9 +307,7 @@ class ArchiverDownloadService : Service() {
             }
         }
 
-        // Starts come from the background too: resumePending runs in Application.onCreate, and
-        // progress updates keep arriving after the user leaves. From API 31 such a start throws.
-        // The download is an OkHttp call and carries on regardless; only its notification is lost.
+        // From API 31 a background start throws; the download carries on without its notification.
         private fun startServiceCompat(context: Context, intent: Intent) {
             try {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {

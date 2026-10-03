@@ -233,10 +233,7 @@ public final class CommonOperations {
         }
     }
 
-    /**
-     * {@link #startDownload} for callers that cannot ask (Power Download, #159): instead of the
-     * label dialog it uses the remembered label while that label still exists, otherwise none.
-     */
+    /** Without the label dialog: the remembered label while it still exists, otherwise none. */
     public static void startDownloadWithoutAsking(@NonNull Context context, @NonNull GalleryInfo galleryInfo) {
         final DownloadManager dm = EhApplication.getDownloadManager(context);
         Intent intent = new Intent(context, DownloadService.class);

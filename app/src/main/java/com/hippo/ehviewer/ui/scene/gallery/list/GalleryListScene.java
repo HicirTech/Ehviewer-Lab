@@ -209,11 +209,6 @@ public final class GalleryListScene extends BaseScene
     @Nullable
     private GalleryListAdapter mAdapter;
 
-    /**
-     * Redraws the cards once the list of galleries already on the share arrives (#83). It lands a
-     * fraction of a second after the screen opens, and at most once per change, so the whole-list
-     * redraw is affordable here in a way a per-second one would not be.
-     */
     private final SmbSavedGalleries.Observer mSavedObserver = () -> {
         if (mAdapter != null) {
             mAdapter.notifyDataSetChanged();

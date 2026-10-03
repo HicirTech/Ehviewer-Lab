@@ -147,7 +147,6 @@ public class DownloadsScene extends ToolbarScene
     @Nullable
     public String mLabel;
 
-    /** The screen's SMB behaviour lives in the delegate (#59, #95); the scene keeps call sites. */
     private final SmbDownloadsDelegate mSmbDelegate =
             new SmbDownloadsDelegate(new SmbDownloadsDelegate.Host() {
                 @Override
@@ -164,7 +163,6 @@ public class DownloadsScene extends ToolbarScene
                 }
             });
 
-    /** The adapter routes its SMB row clicks here rather than growing its own SMB knowledge. */
     @NonNull
     public SmbDownloadsDelegate smbDelegate() {
         return mSmbDelegate;
@@ -333,15 +331,12 @@ public class DownloadsScene extends ToolbarScene
             }
         }
 
-        // SMB saves sit among the phone's downloads rather than in a screen of their own.
         mList = mSmbDelegate.mergeInto(mLabel, mList);
 
         if (mAdapter != null) {
             mAdapter.notifyDataSetChanged();
         }
-        // The list can now change without a DownloadManager callback -- the share is read
-        // asynchronously -- and the empty-state view was only ever switched from those callbacks.
-        // Without this the first SMB task arrives into a screen still saying there is nothing here.
+        // SMB tasks arrive without a DownloadManager callback, the usual updateView trigger.
         updateView();
         mBackList = mList;
 //        filterByCategory();
@@ -351,10 +346,7 @@ public class DownloadsScene extends ToolbarScene
         mPaginationController.queryUnreadSpiderInfo();
     }
 
-    /**
-     * Keeps the FAB clear of the pagination bar only while the bar shows (#74); measured height,
-     * because layout weight settles it short of its declared 40dp.
-     */
+    /** Measured height: layout weight settles the bar short of its declared 40dp (#74). */
     private void updateFabClearance() {
         if (mFabLayout == null || !isAdded()) {
             return;
@@ -369,7 +361,7 @@ public class DownloadsScene extends ToolbarScene
                     ? measured
                     : resources.getDimensionPixelOffset(R.dimen.download_pagination_height);
             if (measured <= 0) {
-                // Not laid out yet. Take the real height once it is, or the FAB keeps the estimate.
+                // Not laid out yet: re-measure once it is.
                 indicator.post(this::updateFabClearance);
             }
         }
@@ -896,7 +888,7 @@ public class DownloadsScene extends ToolbarScene
 
         if (isSmbAt(position)) {
             showSmbTaskMenu(position);
-            return true;   // not selectable; see isSmbAt
+            return true;
         }
         if (!recyclerView.isInCustomChoice()) {
             recyclerView.intoCustomChoiceMode();
@@ -917,7 +909,6 @@ public class DownloadsScene extends ToolbarScene
                 && SmbTaskInfo.isSmb(list.get(index));
     }
 
-    /** Resolves the adapter position and hands the row to the delegate's long-press menu. */
     private void showSmbTaskMenu(int position) {
         List<DownloadInfo> list = mList;
         if (list == null) {
@@ -930,7 +921,6 @@ public class DownloadsScene extends ToolbarScene
         mSmbDelegate.showTaskMenu(list.get(index));
     }
 
-    /** Undoes "select all" for the rows that were never selectable to begin with. */
     private void uncheckSmbTasks(@NonNull MyEasyRecyclerView recyclerView) {
         SparseBooleanArray checked = recyclerView.getCheckedItemPositions();
         for (int i = checked.size() - 1; i >= 0; i--) {
@@ -976,7 +966,6 @@ public class DownloadsScene extends ToolbarScene
     public void onClickSecondaryFab(FabLayout view, FloatingActionButton fab, int position) {
         mBatchActions.onClickSecondaryFab(view, fab, position);
         if (position == 0 && mRecyclerView != null) {
-            // Select all leaves SMB rows out (#59): batch actions mean something else for them.
             uncheckSmbTasks(mRecyclerView);
         }
     }

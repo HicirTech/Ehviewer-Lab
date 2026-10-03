@@ -74,7 +74,7 @@ public class GalleryListParserTest {
     this.file = file;
   }
 
-  /** GalleryListParser reads the thumbnail resolution out of Settings and looks up local favourites in EhDB, both of which are process-wide singletons the */
+  /** Without the Settings and EhDB singletons the parser returns an empty result. */
   @Before
   public void setUp() {
     Settings.initialize(RuntimeEnvironment.getApplication());

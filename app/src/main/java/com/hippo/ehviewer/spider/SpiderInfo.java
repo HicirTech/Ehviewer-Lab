@@ -214,8 +214,7 @@ public class SpiderInfo {
             try {
                 line = IOUtils.readAsciiLine(is, MAX_PTOKEN_FILE_LINE);
             } catch (IOException e) {
-                // EOF, an over-long line, or a read failing mid-file (a network share): keep the
-                // header and the tokens so far. Returning null here loses the reading position.
+                // Any IOException, not just EOF: keep the header, or the reading position is lost.
                 break;
             }
             int[] indexOut = new int[1];

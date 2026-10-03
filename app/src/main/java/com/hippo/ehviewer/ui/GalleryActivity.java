@@ -606,7 +606,6 @@ public class GalleryActivity extends EhActivity implements SeekBar.OnSeekBarChan
         }
         PowerDownloadTarget volumeTarget = volumeKeyTarget(keyCode);
         if (volumeTarget != PowerDownloadTarget.NONE) {
-            // Held down, a key repeats: one press, one download.
             if (event.getRepeatCount() == 0) {
                 PowerDownloader.download(this, mGalleryInfo, volumeTarget, false);
             }
@@ -814,10 +813,7 @@ public class GalleryActivity extends EhActivity implements SeekBar.OnSeekBarChan
         SimpleHandler.getInstance().post(task);
     }
 
-    /**
-     * Power Download's automatic rules (#159). Run on the main thread, where the page index and
-     * the page count are kept, whenever either changes: the count can arrive after the first page.
-     */
+    /** Main thread only, where the page index and the page count are kept. */
     private void applyPowerDownloadRules() {
         if (!canPowerDownload()) {
             return;
@@ -827,12 +823,10 @@ public class GalleryActivity extends EhActivity implements SeekBar.OnSeekBarChan
         }
     }
 
-    /** A gallery this reader knows as one, not a folder or an archive opened from outside. */
     private boolean canPowerDownload() {
         return ACTION_EH.equals(mAction) && PowerDownloader.canDownload(mGalleryInfo);
     }
 
-    /** What a volume key downloads to; NONE leaves the key to turn pages or the volume. */
     @NonNull
     private PowerDownloadTarget volumeKeyTarget(int keyCode) {
         if (Settings.getVolumePage() || !PowerDownloadSettings.isVolumeEnabled()
@@ -1192,7 +1186,7 @@ public class GalleryActivity extends EhActivity implements SeekBar.OnSeekBarChan
         CharSequence[] items;
         items = new CharSequence[]{getString(R.string.page_menu_refresh), getString(R.string.page_menu_share), getString(R.string.page_menu_save), getString(R.string.page_menu_save_to)};
         if (PowerDownloadSettings.isMenuEnabled() && canPowerDownload()) {
-            // Last, so the entries above keep the positions the listener switches on (#159).
+            // Last, so the entries above keep the positions the listener switches on.
             items = Arrays.copyOf(items, items.length + 1);
             items[items.length - 1] = PowerDownloadSettings.getMenuTarget().label(this);
         }
@@ -1220,7 +1214,7 @@ public class GalleryActivity extends EhActivity implements SeekBar.OnSeekBarChan
                 case 3: // Save to
                     saveImageTo(page);
                     break;
-                case 4: // Power Download
+                case 4:
                     PowerDownloader.download(this, mGalleryInfo,
                             PowerDownloadSettings.getMenuTarget(), false);
                     break;
@@ -1302,7 +1296,7 @@ public class GalleryActivity extends EhActivity implements SeekBar.OnSeekBarChan
                 mReverseVolumePage.setVisibility(View.GONE);
             }
             if (b && PowerDownloadSettings.isVolumeEnabled()) {
-                // The volume keys either turn pages or download (#159); onClick applies it.
+                // Confirmed here, applied in onClick with the rest of the menu.
                 VolumeKeyModeDialog.confirm(compoundButton.getContext(), false, () -> {},
                         () -> compoundButton.setChecked(false));
             }
@@ -1349,7 +1343,7 @@ public class GalleryActivity extends EhActivity implements SeekBar.OnSeekBarChan
             Settings.putShowPageInterval(showPageInterval);
             Settings.putVolumePage(volumePage);
             if (volumePage) {
-                // Confirmed in onVolumePageChange: the keys turn pages now, so they stop downloading.
+                // Confirmed in onVolumePageChange.
                 PowerDownloadSettings.putVolumeEnabled(false);
             }
             Settings.putReadingFullscreen(readingFullscreen);

@@ -86,8 +86,7 @@ public class Settings {
                 putDF(true);
             }
         }
-        // The old switch becomes Power Download's first-page rule (#159): carried over once, and
-        // only while storage is on, as a rule aimed at storage is never on while storage is off.
+        // Carried over once (#159); a rule aimed at storage is never on while storage is off.
         if (sSettingsPre.contains(KEY_SMB_AUTO_DOWNLOAD_ENABLED)) {
             if (getBoolean(KEY_SMB_AUTO_DOWNLOAD_ENABLED, false) && getNetworkStorageEnabled()) {
                 com.hippo.ehviewer.download.PowerDownloadSettings.adoptLegacyAutoDownload();
@@ -935,7 +934,6 @@ public class Settings {
     /** Selected protocol; absent for users from before the selector — resolved, never read raw. */
     public static final String KEY_STORAGE_PROTOCOL = "storage_protocol";
 
-    /** Whether the POST_NOTIFICATIONS system dialog has been shown once (#103). */
     public static final String KEY_NOTIFICATION_PERMISSION_REQUESTED
             = "notification_permission_requested";
 
@@ -1025,12 +1023,7 @@ public class Settings {
         return value != null ? value : "";
     }
 
-    /**
-     * When true, SMB connections are built without preferring/enforcing packet signing (see
-     * {@code SmbConnection.buildContext}). Signing adds a per-packet HMAC that can noticeably slow
-     * transfers on weaker CPUs (e.g. some MediaTek SoCs). Default false keeps jcifs' standard
-     * behaviour ("auto": sign only when the server requires it).
-     */
+    /** Opt-out of SMB signing, whose per-packet HMAC can slow transfers on weak CPUs. */
     public static final String KEY_SMB_SIGNING_DISABLED = "smb_signing_disabled";
     private static final boolean DEFAULT_SMB_SIGNING_DISABLED = false;
 
@@ -1038,13 +1031,7 @@ public class Settings {
         return getBoolean(KEY_SMB_SIGNING_DISABLED, DEFAULT_SMB_SIGNING_DISABLED);
     }
 
-    /**
-     * How many small files (a gallery's {@code metadata.json}) to read from the share at once.
-     *
-     * <p>Stored as a string because the settings screen offers it as a list; the bounds, the
-     * default and why it is six are in {@code SmbConcurrency}. Read through that class rather than
-     * from here, so an out-of-range value someone typed cannot reach a thread pool.
-     */
+    /** Unclamped: read it through {@code SmbConcurrency}. */
     public static final String KEY_SMB_METADATA_CONCURRENCY = "smb_metadata_concurrency";
 
     public static int getSmbMetadataConcurrency() {
@@ -1052,7 +1039,7 @@ public class Settings {
                 com.hippo.ehviewer.smb.SmbConcurrency.DEFAULT_METADATA);
     }
 
-    /** How many page images to read from the share at once. See {@code SmbConcurrency}. */
+    /** Unclamped: read it through {@code SmbConcurrency}. */
     public static final String KEY_SMB_IMAGE_CONCURRENCY = "smb_image_concurrency";
 
     public static int getSmbImageConcurrency() {
@@ -1060,24 +1047,7 @@ public class Settings {
                 com.hippo.ehviewer.smb.SmbConcurrency.DEFAULT_IMAGE);
     }
 
-    /**
-     * This installation's identity among the devices sharing the SMB share.
-     *
-     * <p>Names this device's file under {@code state/}, so it has to be stable and it has to be
-     * unique. The display name below is neither: two tablets of the same model both default to
-     * {@code SM-X926B} and would write the same file, overwriting each other's queues — and
-     * renaming a device would abandon its old file, leaving claims nobody can clear until they go
-     * stale.
-     *
-     * <p>{@code ANDROID_ID} is what the platform offers for exactly this. Since Android 8 it is
-     * scoped to the app's signing key, the user and the device, so it identifies this installation
-     * and nothing broader — and unlike a value we generate ourselves it survives clearing the app's
-     * data, which would otherwise orphan whatever this device had published.
-     *
-     * <p>The fallback is only for the cases where it is unusable: absent, or the well-known
-     * duplicate that some old devices returned for everyone. It is stored, because a value we made
-     * up is worth nothing if we forget it.
-     */
+    /** Names this device's {@code state/} file: must be unique and survive clearing app data. */
     public static final String KEY_SMB_CLIENT_ID = "smb_client_id";
 
     /** Android 2.2 shipped a bug that gave a great many devices this same id. */
@@ -1106,12 +1076,7 @@ public class Settings {
         return stored;
     }
 
-    /**
-     * What this device calls itself when another one is looking at its downloads.
-     *
-     * <p>Empty means "not set", and the getter falls back to the device model. Storing the fallback
-     * would freeze it, so a device that gets renamed in Android would keep reporting the old name.
-     */
+    /** Shown to other devices on the share; empty falls back to the device model. */
     public static final String KEY_SMB_DEVICE_NAME = "smb_device_name";
 
     @NonNull
@@ -1123,17 +1088,11 @@ public class Settings {
                 return value;
             }
         }
-        // Build.MODEL is a part number rather than a name ("SM-X926B"), but it is at least
-        // recognisable and needs no setup. The user can replace it in SMB settings.
         String model = android.os.Build.MODEL;
         return model == null || model.trim().isEmpty() ? "Android" : model.trim();
     }
 
-    /**
-     * Local Inventory sort mode. Values map to {@code SortMode} ordinals
-     * (0=DOWNLOAD_DATE_DESC, 1=POSTED_DATE_DESC, 2=TITLE_ASC, 3=CATEGORY).
-     * Persisted so the user's preferred order is remembered across sessions.
-     */
+    /** A {@code SortMode} ordinal. */
     public static final String KEY_LOCAL_INVENTORY_SORT = "local_inventory_sort";
     private static final int DEFAULT_LOCAL_INVENTORY_SORT = 0;
 

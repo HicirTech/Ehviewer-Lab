@@ -86,9 +86,7 @@ class DownloadAlbumImporter(private val mHost: Host) {
 
         val context: Context = mHost.eHContext ?: return
 
-        // No persisted grant: the tree is read once, now, and the picker's grant lasts until
-        // reboot. A persisted one per album would count against the app's cap and silently
-        // evict the oldest grant, which is usually the download location's.
+        // Not persisted: grants are capped and the oldest, often the download location's, is evicted.
         Toast.makeText(context, R.string.import_album_processing, Toast.LENGTH_LONG).show()
         Thread(Runnable { processAlbumFolder(uri) }).start()
     }

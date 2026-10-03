@@ -194,8 +194,7 @@ public class EhApplication extends RecordingApplication {
         if (EhDB.needMerge()) {
             EhDB.mergeOldDB(this);
         }
-        // After everything it reaches: resolving the zip path needs AppConfig (an NPE here, before
-        // it, was a crash on every launch), and a finished zip is imported via SpiderDen, EhDB, A7Zip.
+        // Resolving and importing a zip needs AppConfig, SpiderDen, EhDB and A7Zip (#164).
         ArchiverDownloader.resumePending(this);
 
         if (Settings.getEnableAnalytics()) {
@@ -234,10 +233,6 @@ public class EhApplication extends RecordingApplication {
             }
         }.executeOnExecutor(IoThreadPoolExecutor.Companion.getInstance());
 
-        // Record the running version so future one-time migrations have an anchor to
-        // compare against. Nothing reads it today: the only consumer used to be an
-        // upstream migration that re-armed the reader guide for versionCode < 52, which
-        // fires on every launch for this fork because our versionCode restarts at 1.
         try {
             PackageInfo pi = getPackageManager().getPackageInfo(getPackageName(), 0);
             Settings.putVersionCode(pi.versionCode);

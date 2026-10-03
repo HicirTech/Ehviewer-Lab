@@ -134,15 +134,7 @@ public class EhGalleryProvider extends GalleryProvider2 implements SpiderQueen.O
         }
     }
 
-    /**
-     * Pages the reader has asked to re-fetch, and whose fresh bytes should therefore also replace
-     * the copy on the SMB share (#16).
-     *
-     * <p>Only what the user pressed refresh on. An ordinary page turn must never write to the
-     * share — see {@code SpiderDen.openOutputStreamPipe} — and this is the exception that proves
-     * it: a page whose file on the share is corrupt reads back corrupt forever otherwise, because
-     * re-downloading it only ever refreshes the cache.
-     */
+    // Pages the user refreshed: the only pages a reader writes back to the share.
     private final Set<Integer> mRepairOnShare =
             Collections.synchronizedSet(new HashSet<Integer>());
 
@@ -202,14 +194,6 @@ public class EhGalleryProvider extends GalleryProvider2 implements SpiderQueen.O
         repairOnShareIfAsked(index);
     }
 
-    /**
-     * Writes a just-refreshed page back to the share, if that is what the refresh was for.
-     *
-     * <p>Runs after the fetch, not instead of it: the reader is already showing the good page by
-     * now, and this is only about the copy that outlives the cache. A failure is worth saying out
-     * loud — the page looks fixed, and without a word the user would find out it was not the next
-     * time the cache was cleared.
-     */
     private void repairOnShareIfAsked(int index) {
         if (!mRepairOnShare.remove(index)) {
             return;

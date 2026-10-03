@@ -361,30 +361,16 @@ public final class MainActivity extends StageActivity
         return processAnnouncer(new Announcer(clazz).setArgs(args));
     }
 
-    /**
-     * Takes over inset handling from {@code EhDrawerLayout}'s {@code fitsSystemWindows}.
-     * <p>
-     * The drawer would otherwise apply <em>both</em> insets as its own padding, shrinking
-     * the scene by the navigation bar height; the uncovered strip then draws
-     * windowBackground, which is the colour block in issue #32 (the scenes sit on
-     * contentColorPrimary, a different shade). Instead keep the status bar clearance here
-     * and forward the bottom inset down, so {@code ContentLayout} can pad its RecyclerView
-     * and let rows draw all the way to the screen edge.
-     */
+    /** Replaces the drawer's fitsSystemWindows; ContentLayout consumes the bottom inset. */
     private void applyEdgeToEdgeInsets(@NonNull View drawer) {
         WindowCompat.setDecorFitsSystemWindows(getWindow(), false);
         final View contentRoot = findViewById(android.R.id.content);
-        // Taking over the drawer's inset handling also drops the status bar scrim it used
-        // to draw, which would leave windowBackground behind the status bar. Paint the
-        // padded strip in the same colour the drawer used so the top is unchanged.
+        // Stands in for the status bar scrim the drawer no longer draws.
         contentRoot.setBackgroundColor(
                 ResourcesUtils.getAttrColor(this, androidx.appcompat.R.attr.colorPrimaryDark));
         ViewCompat.setOnApplyWindowInsetsListener(drawer, (v, insets) -> {
             Insets bars = insets.getInsets(WindowInsetsCompat.Type.systemBars());
-            // Keep the status bar clearance by padding the activity's content root: the
-            // side/top insets have to come off somewhere, and EhDrawerLayout ignores
-            // padding set on itself. Only the bottom is left unpadded so scene content can
-            // reach the screen edge.
+            // EhDrawerLayout ignores padding set on itself.
             contentRoot.setPadding(bars.left, bars.top, bars.right, 0);
             return new WindowInsetsCompat.Builder(insets)
                     .setInsets(WindowInsetsCompat.Type.systemBars(),
@@ -890,8 +876,6 @@ public final class MainActivity extends StageActivity
         if (limitsCountView != null) {
             limitsCountView.onLoadData(drawerView, true);
         }
-        // Re-evaluate on every drawer open so a Settings toggle takes effect even when
-        // MainActivity wasn't paused (e.g. setting flipped via in-process callbacks).
         updateLocalInventoryMenuVisibility();
     }
 

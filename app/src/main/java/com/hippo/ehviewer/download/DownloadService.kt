@@ -235,9 +235,7 @@ class DownloadService : Service(), DownloadManager.DownloadListener {
     }
 
     private fun startForegroundCompat(id: Int, notification: Notification) {
-        // onCreate now enters the foreground too, and a START_STICKY restart runs it with the app in
-        // the background, where API 31+ refuses. The service then runs unpromoted and stops itself
-        // once it finds nothing to do.
+        // A START_STICKY restart runs in the background, where API 31+ refuses startForeground.
         try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
                 startForeground(id, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC)
