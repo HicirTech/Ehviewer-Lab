@@ -12,10 +12,12 @@ import static org.robolectric.Shadows.shadowOf;
 import android.content.Context;
 import android.os.Looper;
 
+import com.hippo.ehviewer.R;
 import com.hippo.ehviewer.Settings;
 import com.hippo.ehviewer.client.data.GalleryInfo;
 import com.hippo.ehviewer.dao.DownloadInfo;
 import com.hippo.ehviewer.spider.SpiderQueen;
+import com.hippo.ehviewer.storage.NetworkStorage;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -31,6 +33,7 @@ import org.robolectric.annotation.Config;
 import org.robolectric.annotation.Implementation;
 import org.robolectric.annotation.Implements;
 import org.robolectric.shadow.api.Shadow;
+import org.robolectric.shadows.ShadowToast;
 
 /** Pins what stops a gallery being saved twice, and what stops it being saveable at all (#51). */
 @RunWith(RobolectricTestRunner.class)
@@ -192,7 +195,6 @@ public class SmbAutoDownloadManagerTest {
         context = RuntimeEnvironment.getApplication();
         Settings.initialize(context);
         Settings.putBoolean(Settings.KEY_NETWORK_STORAGE_ENABLED, true);
-        Settings.putBoolean(Settings.KEY_SMB_AUTO_DOWNLOAD_ENABLED, true);
         configured = true;
         alreadyComplete = false;
         accepted.clear();
@@ -214,40 +216,35 @@ public class SmbAutoDownloadManagerTest {
     // --- the enqueue gates, which differ per path --------------------------------------------
 
     @Test
-    public void autoPath_needsBothToggles() {
-        Settings.putBoolean(Settings.KEY_SMB_AUTO_DOWNLOAD_ENABLED, false);
-        SmbAutoDownloadManager.getInstance().enqueueFromFirstPage(context, gallery());
-        pump();
-        assertTrue("auto-download is off, nothing should have been enqueued", accepted.isEmpty());
-
-        Settings.putBoolean(Settings.KEY_SMB_AUTO_DOWNLOAD_ENABLED, true);
+    public void quietPath_needsTheSaveSwitch() {
         Settings.putBoolean(Settings.KEY_NETWORK_STORAGE_ENABLED, false);
-        SmbAutoDownloadManager.getInstance().enqueueFromFirstPage(context, gallery());
+        SmbAutoDownloadManager.getInstance().enqueueQuietly(context, gallery());
         pump();
         assertTrue("the master save switch is off", accepted.isEmpty());
 
         Settings.putBoolean(Settings.KEY_NETWORK_STORAGE_ENABLED, true);
-        SmbAutoDownloadManager.getInstance().enqueueFromFirstPage(context, gallery());
+        SmbAutoDownloadManager.getInstance().enqueueQuietly(context, gallery());
         pump();
         assertEquals(1, accepted.size());
     }
 
-    /** The manual path deliberately ignores the auto-download toggle, so the user can save one gallery from the detail screen without turning auto-download o */
     @Test
-    public void manualPath_needsOnlyTheSaveToggle() {
-        Settings.putBoolean(Settings.KEY_SMB_AUTO_DOWNLOAD_ENABLED, false);
+    public void manualPath_saysWhyWhenTheSaveSwitchIsOff() {
+        Settings.putBoolean(Settings.KEY_NETWORK_STORAGE_ENABLED, false);
 
         SmbAutoDownloadManager.getInstance().enqueueManual(context, gallery());
         pump();
 
-        assertEquals("manual save must work with auto-download off", 1, accepted.size());
+        assertTrue(accepted.isEmpty());
+        assertEquals(context.getString(R.string.smb_save_not_configured, NetworkStorage.active().displayName()),
+                ShadowToast.getTextOfLatestToast());
     }
 
     @Test
     public void bothPaths_needAConfiguredShare() {
         configured = false;
 
-        SmbAutoDownloadManager.getInstance().enqueueFromFirstPage(context, gallery());
+        SmbAutoDownloadManager.getInstance().enqueueQuietly(context, gallery());
         SmbAutoDownloadManager.getInstance().enqueueManual(context, gallery());
         pump();
 
@@ -263,7 +260,7 @@ public class SmbAutoDownloadManagerTest {
         album.title = "Pictures";
         album.archiveUri = "local-album:content://tree/primary%3APictures";
 
-        SmbAutoDownloadManager.getInstance().enqueueFromFirstPage(context, album);
+        SmbAutoDownloadManager.getInstance().enqueueQuietly(context, album);
         SmbAutoDownloadManager.getInstance().enqueueManual(context, album);
         pump();
 
@@ -332,5 +329,54 @@ public class SmbAutoDownloadManagerTest {
         assertEquals("cancelling left something behind, so the re-save was dropped",
                 SmbDirectDownloader.TaskSnapshot.State.ACTIVE, stateOf(GID));
         assertEquals(2, started.size());
+    }
+
+    // --- what each path says (#159) -----------------------------------------------------------
+
+    /** Asking again while this device saves costs no round trip and announces no second start. */
+    @Test
+    public void askingAgainWhileSaving_saysSoInsteadOfStartingAgain() {
+        SmbAutoDownloadManager.getInstance().enqueueManual(context, gallery());
+        pump();
+        assertEquals(SmbDirectDownloader.TaskSnapshot.State.ACTIVE, stateOf(GID));
+        ShadowToast.reset();
+
+        SmbAutoDownloadManager.getInstance().enqueueManual(context, gallery());
+        pump();
+
+        assertEquals("no second round trip to the share", 1, accepted.size());
+        assertEquals(context.getString(R.string.smb_save_already_running, NetworkStorage.active().displayName()),
+                ShadowToast.getTextOfLatestToast());
+        assertEquals(1, ShadowToast.shownToastCount());
+    }
+
+    /** The quiet path fires while the user reads: only a save that starts is worth a word. */
+    @Test
+    public void quietPath_saysNothingWhenThereIsNothingToStart() {
+        alreadyComplete = true;
+        SmbAutoDownloadManager.getInstance().enqueueQuietly(context, gallery());
+        pump();
+        assertEquals("complete on the share", 0, ShadowToast.shownToastCount());
+
+        alreadyComplete = false;
+        SmbAutoDownloadManager.getInstance().enqueueQuietly(context, gallery());
+        pump();
+        assertEquals("a save that starts is still announced", 1, ShadowToast.shownToastCount());
+
+        SmbAutoDownloadManager.getInstance().enqueueQuietly(context, gallery());
+        pump();
+        assertEquals("already saving", 1, ShadowToast.shownToastCount());
+        assertEquals(1, started.size());
+    }
+
+    @Test
+    public void manualPath_stillSaysTheGalleryIsAlreadySaved() {
+        alreadyComplete = true;
+
+        SmbAutoDownloadManager.getInstance().enqueueManual(context, gallery());
+        pump();
+
+        assertEquals(context.getString(R.string.smb_save_already_complete, NetworkStorage.active().displayName()),
+                ShadowToast.getTextOfLatestToast());
     }
 }

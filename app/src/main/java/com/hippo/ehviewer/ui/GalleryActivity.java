@@ -71,12 +71,15 @@ import com.hippo.ehviewer.AppConfig;
 import com.hippo.ehviewer.R;
 import com.hippo.ehviewer.Settings;
 import com.hippo.ehviewer.client.data.GalleryInfo;
+import com.hippo.ehviewer.download.PowerDownloadSession;
+import com.hippo.ehviewer.download.PowerDownloadSettings;
+import com.hippo.ehviewer.download.PowerDownloadTarget;
+import com.hippo.ehviewer.download.PowerDownloader;
 import com.hippo.ehviewer.event.GalleryActivityEvent;
 import com.hippo.ehviewer.gallery.ArchiveGalleryProvider;
 import com.hippo.ehviewer.gallery.DirGalleryProvider;
 import com.hippo.ehviewer.gallery.EhGalleryProvider;
 import com.hippo.ehviewer.gallery.GalleryProvider2;
-import com.hippo.ehviewer.smb.SmbAutoDownloadManager;
 import com.hippo.ehviewer.widget.GalleryGuideView;
 import com.hippo.ehviewer.widget.GalleryHeader;
 import com.hippo.ehviewer.widget.ReversibleSeekBar;
@@ -107,6 +110,7 @@ import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.util.Arrays;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -181,7 +185,7 @@ public class GalleryActivity extends EhActivity implements SeekBar.OnSeekBarChan
 
     private boolean canFinish = false;
     private boolean autoTransferring = false;
-    private boolean mSmbAutoTriggered = false;
+    private final PowerDownloadSession mPowerDownloadSession = new PowerDownloadSession();
 
     private final ConcurrentPool<NotifyTask> mNotifyTaskPool = new ConcurrentPool<>(3);
 
@@ -308,6 +312,7 @@ public class GalleryActivity extends EhActivity implements SeekBar.OnSeekBarChan
         mGalleryInfo = savedInstanceState.getParcelable(KEY_GALLERY_INFO);
         mPage = savedInstanceState.getInt(KEY_PAGE, -1);
         mCurrentIndex = savedInstanceState.getInt(KEY_CURRENT_INDEX);
+        mPowerDownloadSession.restoreFrom(savedInstanceState);
         buildProvider();
     }
 
@@ -322,6 +327,7 @@ public class GalleryActivity extends EhActivity implements SeekBar.OnSeekBarChan
         }
         outState.putInt(KEY_PAGE, mPage);
         outState.putInt(KEY_CURRENT_INDEX, mCurrentIndex);
+        mPowerDownloadSession.saveTo(outState);
     }
 
     @Override
@@ -598,6 +604,14 @@ public class GalleryActivity extends EhActivity implements SeekBar.OnSeekBarChan
                 return true;
             }
         }
+        PowerDownloadTarget volumeTarget = volumeKeyTarget(keyCode);
+        if (volumeTarget != PowerDownloadTarget.NONE) {
+            // Held down, a key repeats: one press, one download.
+            if (event.getRepeatCount() == 0) {
+                PowerDownloader.download(this, mGalleryInfo, volumeTarget, false);
+            }
+            return true;
+        }
 
         // Check keyboard and Dpad
         switch (keyCode) {
@@ -641,6 +655,9 @@ public class GalleryActivity extends EhActivity implements SeekBar.OnSeekBarChan
             if (keyCode == KeyEvent.KEYCODE_VOLUME_DOWN || keyCode == KeyEvent.KEYCODE_VOLUME_UP) {
                 return true;
             }
+        }
+        if (volumeKeyTarget(keyCode) != PowerDownloadTarget.NONE) {
+            return true;
         }
 
         // Check keyboard and Dpad
@@ -789,21 +806,46 @@ public class GalleryActivity extends EhActivity implements SeekBar.OnSeekBarChan
             mGalleryProvider.putStartPage(index);
         }
 
-        if (!mSmbAutoTriggered
-                && index == 0
-                && ACTION_EH.equals(mAction)
-                && mGalleryInfo != null
-                && Settings.getNetworkStorageEnabled()) {
-            mSmbAutoTriggered = true;
-            SmbAutoDownloadManager.getInstance().enqueueFromFirstPage(this, mGalleryInfo);
-        }
-
         NotifyTask task = mNotifyTaskPool.pop();
         if (task == null) {
             task = new NotifyTask();
         }
         task.setData(NotifyTask.KEY_CURRENT_INDEX, index);
         SimpleHandler.getInstance().post(task);
+    }
+
+    /**
+     * Power Download's automatic rules (#159). Run on the main thread, where the page index and
+     * the page count are kept, whenever either changes: the count can arrive after the first page.
+     */
+    private void applyPowerDownloadRules() {
+        if (!canPowerDownload()) {
+            return;
+        }
+        for (PowerDownloadTarget target : mPowerDownloadSession.onPageShown(mCurrentIndex, mSize)) {
+            PowerDownloader.download(this, mGalleryInfo, target, true);
+        }
+    }
+
+    /** A gallery this reader knows as one, not a folder or an archive opened from outside. */
+    private boolean canPowerDownload() {
+        return ACTION_EH.equals(mAction) && PowerDownloader.canDownload(mGalleryInfo);
+    }
+
+    /** What a volume key downloads to; NONE leaves the key to turn pages or the volume. */
+    @NonNull
+    private PowerDownloadTarget volumeKeyTarget(int keyCode) {
+        if (Settings.getVolumePage() || !PowerDownloadSettings.isVolumeEnabled()
+                || !canPowerDownload()) {
+            return PowerDownloadTarget.NONE;
+        }
+        if (keyCode == KeyEvent.KEYCODE_VOLUME_UP) {
+            return PowerDownloadSettings.getVolumeUpTarget();
+        }
+        if (keyCode == KeyEvent.KEYCODE_VOLUME_DOWN) {
+            return PowerDownloadSettings.getVolumeDownTarget();
+        }
+        return PowerDownloadTarget.NONE;
     }
 
     @Override
@@ -1147,8 +1189,13 @@ public class GalleryActivity extends EhActivity implements SeekBar.OnSeekBarChan
         AlertDialog.Builder builder = new AlertDialog.Builder(GalleryActivity.this);
         builder.setTitle(resources.getString(R.string.page_menu_title, page + 1));
 
-        final CharSequence[] items;
+        CharSequence[] items;
         items = new CharSequence[]{getString(R.string.page_menu_refresh), getString(R.string.page_menu_share), getString(R.string.page_menu_save), getString(R.string.page_menu_save_to)};
+        if (PowerDownloadSettings.isMenuEnabled() && canPowerDownload()) {
+            // Last, so the entries above keep the positions the listener switches on (#159).
+            items = Arrays.copyOf(items, items.length + 1);
+            items[items.length - 1] = PowerDownloadSettings.getMenuTarget().label(this);
+        }
         pageDialogListener(builder, items, page);
         builder.show();
     }
@@ -1172,6 +1219,10 @@ public class GalleryActivity extends EhActivity implements SeekBar.OnSeekBarChan
                     break;
                 case 3: // Save to
                     saveImageTo(page);
+                    break;
+                case 4: // Power Download
+                    PowerDownloader.download(this, mGalleryInfo,
+                            PowerDownloadSettings.getMenuTarget(), false);
                     break;
             }
         });
@@ -1250,6 +1301,11 @@ public class GalleryActivity extends EhActivity implements SeekBar.OnSeekBarChan
             } else {
                 mReverseVolumePage.setVisibility(View.GONE);
             }
+            if (b && PowerDownloadSettings.isVolumeEnabled()) {
+                // The volume keys either turn pages or download (#159); onClick applies it.
+                VolumeKeyModeDialog.confirm(compoundButton.getContext(), false, () -> {},
+                        () -> compoundButton.setChecked(false));
+            }
         }
 
         public View getView() {
@@ -1292,6 +1348,10 @@ public class GalleryActivity extends EhActivity implements SeekBar.OnSeekBarChan
             Settings.putShowBattery(showBattery);
             Settings.putShowPageInterval(showPageInterval);
             Settings.putVolumePage(volumePage);
+            if (volumePage) {
+                // Confirmed in onVolumePageChange: the keys turn pages now, so they stop downloading.
+                PowerDownloadSettings.putVolumeEnabled(false);
+            }
             Settings.putReadingFullscreen(readingFullscreen);
             Settings.putCustomScreenLightness(customScreenLightness);
             Settings.putScreenLightness(screenLightness);
@@ -1412,11 +1472,13 @@ public class GalleryActivity extends EhActivity implements SeekBar.OnSeekBarChan
                     GalleryActivity.this.mSize = mValue;
                     updateSlider();
                     updateProgress();
+                    applyPowerDownloadRules();
                     break;
                 case KEY_CURRENT_INDEX:
                     GalleryActivity.this.mCurrentIndex = mValue;
                     updateSlider();
                     updateProgress();
+                    applyPowerDownloadRules();
                     break;
                 case KEY_TAP_MENU_AREA:
                     onTapMenuArea();

@@ -69,6 +69,11 @@ public final class SmbDirectDownloader {
         return info instanceof DownloadInfo && ((DownloadInfo) info).archiveUri != null;
     }
 
+    /** Whether this device is already saving the gallery: running, or waiting its turn. */
+    public boolean isQueuedOrRunning(long gid) {
+        return ledger.localRowState(gid) != DownloadInfo.STATE_NONE;
+    }
+
     private void enqueue(@NonNull Context context, @NonNull GalleryInfo info, boolean asMove) {
         if (appContext == null) {
             appContext = context.getApplicationContext();

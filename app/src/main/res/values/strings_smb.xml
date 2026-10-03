@@ -47,6 +47,7 @@
     <string name="smb_save_started">%1$s save started: %2$s</string>
     <string name="smb_save_already_complete">Already saved to %1$s, skipping</string>
     <string name="smb_save_claimed_elsewhere">Another device is already downloading this to the %1$s share</string>
+    <string name="smb_save_already_running">Already saving to %1$s</string>
     <string name="smb_task_action_cancel">Cancel download</string>
     <string name="smb_task_cancel_message">Take “%1$s” out of the queue? Any pages already saved to the share will be deleted.</string>
     <string name="smb_task_owner_offline">Device offline</string>
@@ -64,8 +65,6 @@
     <string name="download_move_to_smb">Move to %1$s share</string>
     <string name="download_moving_to_smb">Copying to %1$s share…</string>
     <string name="download_move_to_smb_local_kept">Local imports are not copied to the %1$s share</string>
-    <string name="settings_smb_enable_auto_download">Auto Download To Network Storage</string>
-    <string name="settings_smb_enable_auto_download_summary">When enabled, opening the first page of a gallery automatically queues a background download to network storage. When off, the Download button asks each time.</string>
     <string name="settings_smb_device_name">This device\'s name</string>
     <string name="settings_smb_device_name_summary">Shown to your other devices next to the galleries this one is downloading. Defaults to the model name.</string>
     <string name="settings_smb_disable_signing">Disable SMB Signing</string>
@@ -130,4 +129,25 @@
     <string name="smb_error_share_not_found">No such share on the host</string>
     <string name="smb_error_access_denied">Access denied by the host</string>
     <string name="notifications_disabled_hint">Notifications are off — downloads will run silently in the background</string>
+
+    <!-- Power Download (#159) -->
+    <string name="settings_power_download">Power Download</string>
+    <string name="power_download_pages">Download after N pages</string>
+    <string name="power_download_pages_summary">Counts the different pages seen in this reading</string>
+    <string name="power_download_pages_count">Pages (N)</string>
+    <string name="power_download_pages_count_summary">%1$d pages</string>
+    <string name="power_download_target">Download location</string>
+    <string name="power_download_target_none">Not used</string>
+    <string name="power_download_first_page">Download on the first page</string>
+    <string name="power_download_last_page">Download on the last page</string>
+    <string name="power_download_menu">Download from the long-press menu</string>
+    <string name="power_download_menu_summary">Adds a download entry to the menu that long-pressing a page opens</string>
+    <string name="power_download_volume">Download with the volume keys</string>
+    <string name="power_download_volume_summary">The volume keys stop turning pages</string>
+    <string name="power_download_volume_up">Volume up</string>
+    <string name="power_download_volume_down">Volume down</string>
+    <string name="power_download_volume_replaces_page_turning">Downloading with the volume keys turns off turning pages with them.</string>
+    <string name="power_download_page_turning_replaces_volume">Turning pages with the volume keys turns off downloading with them.</string>
+    <string name="power_download_already_downloading">Already in the download list</string>
+    <string name="power_download_already_downloaded">Already downloaded</string>
 </resources>

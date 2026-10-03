@@ -86,6 +86,14 @@ public class Settings {
                 putDF(true);
             }
         }
+        // The old switch becomes Power Download's first-page rule (#159): carried over once, and
+        // only while storage is on, as a rule aimed at storage is never on while storage is off.
+        if (sSettingsPre.contains(KEY_SMB_AUTO_DOWNLOAD_ENABLED)) {
+            if (getBoolean(KEY_SMB_AUTO_DOWNLOAD_ENABLED, false) && getNetworkStorageEnabled()) {
+                com.hippo.ehviewer.download.PowerDownloadSettings.adoptLegacyAutoDownload();
+            }
+            sSettingsPre.edit().remove(KEY_SMB_AUTO_DOWNLOAD_ENABLED).apply();
+        }
 
     }
 
@@ -700,7 +708,7 @@ public class Settings {
         putBoolean(KEY_SHOW_PAGE_INTERVAL, value);
     }
 
-    private static final String KEY_VOLUME_PAGE = "volume_page";
+    public static final String KEY_VOLUME_PAGE = "volume_page";
     private static final boolean DEFAULT_VOLUME_PAGE = false;
 
     public static boolean getVolumePage() {
@@ -956,12 +964,8 @@ public class Settings {
                 getString(KEY_STORAGE_PROTOCOL, null), getSmbHost());
     }
 
+    /** The retired "auto download to network storage" switch, read only by fixDefaultValue (#159). */
     public static final String KEY_SMB_AUTO_DOWNLOAD_ENABLED = "smb_auto_download_enabled";
-    private static final boolean DEFAULT_SMB_AUTO_DOWNLOAD_ENABLED = false;
-
-    public static boolean getSmbAutoDownloadEnabled() {
-        return getBoolean(KEY_SMB_AUTO_DOWNLOAD_ENABLED, DEFAULT_SMB_AUTO_DOWNLOAD_ENABLED);
-    }
 
     public static final String KEY_SMB_HOST = "smb_host";
     private static final String DEFAULT_SMB_HOST = "";

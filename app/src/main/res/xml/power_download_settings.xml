@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Power Download (#159). Target entries are filled in by PowerDownloadFragment. -->
+<PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto">
+
+    <com.hippo.preference.SwitchPreference
+        android:defaultValue="false"
+        android:key="power_download_pages_enabled"
+        android:title="@string/power_download_pages"
+        android:summary="@string/power_download_pages_summary" />
+
+    <com.hippo.preference.EditTextDialogPreference
+        android:key="power_download_pages_count"
+        android:defaultValue="2"
+        android:dependency="power_download_pages_enabled"
+        android:title="@string/power_download_pages_count"
+        android:inputType="number" />
+
+    <com.hippo.preference.ListPreference
+        android:key="power_download_pages_target"
+        android:defaultValue="phone"
+        android:dependency="power_download_pages_enabled"
+        android:title="@string/power_download_target"
+        android:summary="%s" />
+
+    <com.hippo.preference.SwitchPreference
+        android:defaultValue="false"
+        android:key="power_download_first_page_enabled"
+        android:title="@string/power_download_first_page"
+        app:allowDividerAbove="true" />
+
+    <com.hippo.preference.SwitchPreference
+        android:defaultValue="false"
+        android:key="power_download_last_page_enabled"
+        android:title="@string/power_download_last_page" />
+
+    <com.hippo.preference.ListPreference
+        android:key="power_download_edge_page_target"
+        android:defaultValue="phone"
+        android:title="@string/power_download_target"
+        android:summary="%s" />
+
+    <com.hippo.preference.SwitchPreference
+        android:defaultValue="false"
+        android:key="power_download_menu_enabled"
+        android:title="@string/power_download_menu"
+        android:summary="@string/power_download_menu_summary"
+        app:allowDividerAbove="true" />
+
+    <com.hippo.preference.ListPreference
+        android:key="power_download_menu_target"
+        android:defaultValue="phone"
+        android:dependency="power_download_menu_enabled"
+        android:title="@string/power_download_target"
+        android:summary="%s" />
+
+    <com.hippo.preference.SwitchPreference
+        android:defaultValue="false"
+        android:key="power_download_volume_enabled"
+        android:title="@string/power_download_volume"
+        android:summary="@string/power_download_volume_summary"
+        app:allowDividerAbove="true" />
+
+    <com.hippo.preference.ListPreference
+        android:key="power_download_volume_up_target"
+        android:defaultValue="phone"
+        android:dependency="power_download_volume_enabled"
+        android:title="@string/power_download_volume_up"
+        android:summary="%s" />
+
+    <com.hippo.preference.ListPreference
+        android:key="power_download_volume_down_target"
+        android:defaultValue="none"
+        android:dependency="power_download_volume_enabled"
+        android:title="@string/power_download_volume_down"
+        android:summary="%s" />
+
+</PreferenceScreen>

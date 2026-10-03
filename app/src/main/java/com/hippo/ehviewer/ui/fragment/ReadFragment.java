@@ -20,9 +20,12 @@ import android.os.Bundle;
 
 import androidx.annotation.Nullable;
 import androidx.preference.Preference;
+import androidx.preference.TwoStatePreference;
 
 import com.hippo.ehviewer.R;
 import com.hippo.ehviewer.Settings;
+import com.hippo.ehviewer.download.PowerDownloadSettings;
+import com.hippo.ehviewer.ui.VolumeKeyModeDialog;
 import com.hippo.ehviewer.util.ReadingRefreshRate;
 
 public class ReadFragment extends BasePreferenceFragmentCompat {
@@ -40,6 +43,20 @@ public class ReadFragment extends BasePreferenceFragmentCompat {
             if (preference != null) {
                 getPreferenceScreen().removePreference(preference);
             }
+        }
+        TwoStatePreference volumePage = findPreference(Settings.KEY_VOLUME_PAGE);
+        if (volumePage != null) {
+            volumePage.setOnPreferenceChangeListener((preference, newValue) -> {
+                // The volume keys either turn pages or download (#159).
+                if (Boolean.TRUE.equals(newValue) && PowerDownloadSettings.isVolumeEnabled()) {
+                    VolumeKeyModeDialog.confirm(requireContext(), false, () -> {
+                        PowerDownloadSettings.putVolumeEnabled(false);
+                        volumePage.setChecked(true);
+                    }, null);
+                    return false;
+                }
+                return true;
+            });
         }
     }
 }

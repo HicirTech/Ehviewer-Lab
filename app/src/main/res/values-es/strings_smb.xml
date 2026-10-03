@@ -47,6 +47,7 @@
     <string name="smb_save_started">Guardado en %1$s iniciado: %2$s</string>
     <string name="smb_save_already_complete">Ya está guardado en %1$s, se omite</string>
     <string name="smb_save_claimed_elsewhere">Otro dispositivo ya está descargando esto al recurso compartido %1$s</string>
+    <string name="smb_save_already_running">Ya se está guardando en %1$s</string>
     <string name="smb_task_action_cancel">Cancelar descarga</string>
     <string name="smb_task_cancel_message">¿Quitar «%1$s» de la cola? Las páginas ya guardadas en el recurso compartido se eliminarán.</string>
     <string name="smb_task_owner_offline">Dispositivo sin conexión</string>
@@ -64,8 +65,6 @@
     <string name="download_move_to_smb">Mover al recurso compartido %1$s</string>
     <string name="download_moving_to_smb">Copiando al recurso compartido %1$s…</string>
     <string name="download_move_to_smb_local_kept">Las importaciones locales no se copian al recurso compartido %1$s</string>
-    <string name="settings_smb_enable_auto_download">Descarga automática a almacenamiento de red</string>
-    <string name="settings_smb_enable_auto_download_summary">Si está activado, abrir la primera página de una galería pone en cola automáticamente una descarga en segundo plano al almacenamiento de red. Si está desactivado, el botón de descarga pregunta cada vez.</string>
     <string name="settings_smb_device_name">Nombre de este dispositivo</string>
     <string name="settings_smb_device_name_summary">Se muestra a tus otros dispositivos junto a las galerías que este está descargando. Por defecto es el nombre del modelo.</string>
     <string name="settings_smb_disable_signing">Desactivar la firma SMB</string>
@@ -123,4 +122,25 @@
     <string name="smb_error_share_not_found">No existe ese recurso compartido en el host</string>
     <string name="smb_error_access_denied">El host denegó el acceso</string>
     <string name="notifications_disabled_hint">Las notificaciones están desactivadas: las descargas se ejecutarán silenciosamente en segundo plano</string>
+
+    <!-- Power Download (#159) -->
+    <string name="settings_power_download">Comportamiento de descarga mejorado</string>
+    <string name="power_download_pages">Descargar tras leer N páginas</string>
+    <string name="power_download_pages_summary">Cuenta las páginas distintas vistas en esta lectura</string>
+    <string name="power_download_pages_count">Páginas (N)</string>
+    <string name="power_download_pages_count_summary">%1$d páginas</string>
+    <string name="power_download_target">Ubicación de descarga</string>
+    <string name="power_download_target_none">Sin usar</string>
+    <string name="power_download_first_page">Descargar en la primera página</string>
+    <string name="power_download_last_page">Descargar en la última página</string>
+    <string name="power_download_menu">Descargar desde el menú de pulsación larga</string>
+    <string name="power_download_menu_summary">Añade una opción de descarga al menú que aparece al mantener pulsada una página</string>
+    <string name="power_download_volume">Descargar con los botones de volumen</string>
+    <string name="power_download_volume_summary">Los botones de volumen dejan de pasar páginas</string>
+    <string name="power_download_volume_up">Subir volumen</string>
+    <string name="power_download_volume_down">Bajar volumen</string>
+    <string name="power_download_volume_replaces_page_turning">Al descargar con los botones de volumen, dejan de pasar páginas.</string>
+    <string name="power_download_page_turning_replaces_volume">Al pasar páginas con los botones de volumen, dejan de descargar.</string>
+    <string name="power_download_already_downloading">Ya está en la lista de descargas</string>
+    <string name="power_download_already_downloaded">Ya está descargado</string>
 </resources>

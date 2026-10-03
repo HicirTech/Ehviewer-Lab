@@ -47,6 +47,7 @@
     <string name="smb_save_started">已開始儲存至 %1$s：%2$s</string>
     <string name="smb_save_already_complete">已儲存至 %1$s，略過</string>
     <string name="smb_save_claimed_elsewhere">另一台裝置正在把這本下載到 %1$s 共享</string>
+    <string name="smb_save_already_running">已在儲存至 %1$s</string>
     <string name="smb_task_action_cancel">取消下載</string>
     <string name="smb_task_cancel_message">把《%1$s》移出佇列?已經儲存到共享的頁面會一併刪除。</string>
     <string name="smb_task_owner_offline">裝置離線</string>
@@ -64,8 +65,6 @@
     <string name="download_move_to_smb">移動到 %1$s 共享</string>
     <string name="download_moving_to_smb">正在複製到 %1$s 共享…</string>
     <string name="download_move_to_smb_local_kept">本機匯入的項目不會複製到 %1$s 共享</string>
-    <string name="settings_smb_enable_auto_download">自動下載至網路儲存</string>
-    <string name="settings_smb_enable_auto_download_summary">啟用後，開啟畫廊的第一頁會自動在背景排隊下載至網路儲存。關閉時，按下載按鈕會每次詢問。</string>
     <string name="settings_smb_device_name">本機名稱</string>
     <string name="settings_smb_device_name_summary">你的其它裝置會在這台正在下載的畫廊旁看到這個名字。預設使用機型名。</string>
     <string name="settings_smb_disable_signing">停用 SMB 簽署</string>
@@ -122,4 +121,25 @@
     <string name="smb_error_share_not_found">主機上沒有這個共享</string>
     <string name="smb_error_access_denied">主機拒絕了存取</string>
     <string name="notifications_disabled_hint">通知已關閉,下載將在背景靜默進行</string>
+
+    <!-- Power Download (#159) -->
+    <string name="settings_power_download">增強式下載行為</string>
+    <string name="power_download_pages">讀滿 N 頁時下載</string>
+    <string name="power_download_pages_summary">按本次閱讀看過的不同頁數計算</string>
+    <string name="power_download_pages_count">頁數 N</string>
+    <string name="power_download_pages_count_summary">%1$d 頁</string>
+    <string name="power_download_target">下載位置</string>
+    <string name="power_download_target_none">不使用</string>
+    <string name="power_download_first_page">讀到第一頁時下載</string>
+    <string name="power_download_last_page">讀到最後一頁時下載</string>
+    <string name="power_download_menu">長按選單下載</string>
+    <string name="power_download_menu_summary">在長按頁面彈出的選單中加入下載選項</string>
+    <string name="power_download_volume">音量鍵下載</string>
+    <string name="power_download_volume_summary">開啟後音量鍵不再翻頁</string>
+    <string name="power_download_volume_up">音量上鍵</string>
+    <string name="power_download_volume_down">音量下鍵</string>
+    <string name="power_download_volume_replaces_page_turning">開啟音量鍵下載會關閉音量鍵翻頁。</string>
+    <string name="power_download_page_turning_replaces_volume">開啟音量鍵翻頁會關閉音量鍵下載。</string>
+    <string name="power_download_already_downloading">已在下載列表中</string>
+    <string name="power_download_already_downloaded">已下載</string>
 </resources>
