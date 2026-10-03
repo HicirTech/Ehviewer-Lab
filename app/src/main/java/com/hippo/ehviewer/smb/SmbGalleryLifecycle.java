@@ -205,18 +205,8 @@ public final class SmbGalleryLifecycle {
     }
 
     private static int readPagesFromSpiderInfo(@NonNull GalleryInfo info) {
-        InputStream is = SmbGalleryFiles.openSpiderInfoInputStream(info);
-        if (is == null) {
-            return 0;
-        }
-        try {
-            com.hippo.ehviewer.spider.SpiderInfo spiderInfo = com.hippo.ehviewer.spider.SpiderInfo.read(is);
-            return spiderInfo != null ? spiderInfo.pages : 0;
-        } catch (Throwable e) {
-            return 0;
-        } finally {
-            IOUtils.closeQuietly(is);
-        }
+        com.hippo.ehviewer.spider.SpiderInfo header = SmbGalleryFiles.readSpiderInfoHeader(info);
+        return header != null ? header.pages : 0;
     }
 
     private static void downloadAndWriteCover(@NonNull Context context, @NonNull SmbFile galleryDir, @NonNull GalleryInfo info) {

@@ -10,6 +10,7 @@ import androidx.annotation.Nullable;
 import com.hippo.ehviewer.EhApplication;
 import com.hippo.ehviewer.client.data.GalleryInfo;
 import com.hippo.ehviewer.spider.SpiderDen;
+import com.hippo.ehviewer.spider.SpiderInfo;
 import com.hippo.streampipe.InputStreamPipe;
 import com.hippo.streampipe.OutputStreamPipe;
 import com.hippo.lib.yorozuya.IOUtils;
@@ -120,6 +121,18 @@ public final class SmbGalleryFiles {
         } catch (Throwable e) {
             Log.e(TAG, "Failed to open SMB spider_info output gid=" + info.gid, e);
             return null;
+        }
+    }
+
+    /** Without pTokens; null when missing, unreadable or another gallery's. */
+    @Nullable
+    public static SpiderInfo readSpiderInfoHeader(@NonNull GalleryInfo info) {
+        InputStream is = openSpiderInfoInputStream(info);
+        try {
+            SpiderInfo header = SpiderInfo.readHeader(is);
+            return header != null && header.gid == info.gid ? header : null;
+        } finally {
+            IOUtils.closeQuietly(is);
         }
     }
 

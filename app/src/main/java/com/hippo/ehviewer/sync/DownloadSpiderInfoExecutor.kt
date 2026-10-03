@@ -48,9 +48,7 @@ class DownloadSpiderInfoExecutor(
     private fun getSpiderInfo(info: GalleryInfo): SpiderInfo? {
         // getGalleryDownloadDir() below would record a dirname, inventing a local download.
         if (com.hippo.ehviewer.smb.SmbTaskInfo.isSmb(info as? DownloadInfo)) {
-            return com.hippo.ehviewer.smb.SmbGalleryFiles.openSpiderInfoInputStream(info)
-                ?.use { SpiderInfo.readHeader(it) }
-                ?.takeIf { it.gid == info.gid }
+            return com.hippo.ehviewer.smb.SmbGalleryFiles.readSpiderInfoHeader(info)
         }
         val spiderInfo: SpiderInfo?
         val mDownloadDir = SpiderDen.getGalleryDownloadDir(info)
