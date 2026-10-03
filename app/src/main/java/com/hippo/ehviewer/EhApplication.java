@@ -233,6 +233,7 @@ public class EhApplication extends RecordingApplication {
             }
         }.executeOnExecutor(IoThreadPoolExecutor.Companion.getInstance());
 
+        // Update version code
         try {
             PackageInfo pi = getPackageManager().getPackageInfo(getPackageName(), 0);
             Settings.putVersionCode(pi.versionCode);
@@ -265,6 +266,13 @@ public class EhApplication extends RecordingApplication {
 
     public EhCookieStore getmEhCookieStore() {
         return mEhCookieStore;
+    }
+
+    private void update() {
+        int version = Settings.getVersionCode();
+        if (version < 52) {
+            Settings.putGuideGallery(true);
+        }
     }
 
     public void clearMemoryCache() {

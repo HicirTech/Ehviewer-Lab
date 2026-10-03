@@ -1870,6 +1870,8 @@ public final class SpiderQueen implements Runnable {
                                 GetText.getString(R.string.error_reading_failed));
                         continue;
                     }
+                    // Can't find the file, it might be removed from cache,
+                    // Reset it state and request it
                     updatePageState(index, STATE_NONE, null);
                     request(index, false, false, false);
                     continue;

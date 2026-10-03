@@ -1657,6 +1657,26 @@ public class Settings {
     }
 
 
+    public static final String USER_BACKGROUND_IMAGE = "background_image_path";
+    public static final String USER_AVATAR_IMAGE = "avatar_image_path";
+
+    public static File getUserImageFile(String key){
+        String path = getString(key,"");
+        if (path.isEmpty()){
+            return null;
+        }
+        File file = new File(path);
+        if (file.exists()){
+            return file;
+        }else {
+            return null;
+        }
+    }
+
+    public static void saveFilePath(String key,String path){
+        putString(key,path);
+    }
+
     public static final String KEY_DOWNLOAD_ORDER_ASC = "download_order_asc";
 
     public static boolean getDownloadOrder() {
