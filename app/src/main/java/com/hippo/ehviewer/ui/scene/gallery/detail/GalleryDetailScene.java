@@ -89,8 +89,8 @@ import com.hippo.ehviewer.client.parser.RateGalleryParser;
 import com.hippo.ehviewer.dao.DownloadInfo;
 import com.hippo.ehviewer.dao.Filter;
 import com.hippo.ehviewer.spider.SpiderQueen;
-import com.hippo.ehviewer.storage.NetworkStorage;
 import com.hippo.ehviewer.ui.CommonOperations;
+import com.hippo.ehviewer.ui.DownloadTargetDialog;
 import com.hippo.ehviewer.ui.GalleryActivity;
 import com.hippo.ehviewer.ui.MainActivity;
 import com.hippo.ehviewer.ui.annotation.WholeLifeCircle;
@@ -106,9 +106,7 @@ import com.hippo.ehviewer.ui.scene.gallery.list.FavoritesScene;
 import com.hippo.ehviewer.ui.scene.gallery.list.GalleryListScene;
 import com.hippo.ehviewer.ui.scene.gallery.list.GalleryListSceneDialog;
 import com.hippo.ehviewer.ui.scene.history.HistoryScene;
-import com.hippo.ehviewer.smb.SmbAutoDownloadManager;
 import com.hippo.ehviewer.smb.SmbPreviewCache;
-import com.hippo.ehviewer.storage.NetworkStorageSettings;
 import com.hippo.ehviewer.util.ClipboardUtil;
 import com.hippo.ehviewer.widget.ArchiverDownloadProgress;
 import com.hippo.ehviewer.widget.GalleryRatingBar;
@@ -1773,12 +1771,7 @@ public class GalleryDetailScene extends BaseScene implements View.OnClickListene
         GalleryInfo galleryInfo = getGalleryInfo();
         if (galleryInfo != null) {
             if (EhApplication.getDownloadManager(mContext).getDownloadState(galleryInfo.gid) == DownloadInfo.STATE_INVALID) {
-                // The user picks the target here; Power Download's rules only govern the reader.
-                if (NetworkStorageSettings.isEnabled() && NetworkStorage.active().isConfigured()) {
-                    promptDownloadTarget(galleryInfo);
-                } else {
-                    CommonOperations.startDownload(activity, galleryInfo, false);
-                }
+                DownloadTargetDialog.startDownload(mContext, activity, galleryInfo);
             } else {
                 new AlertDialog.Builder(mContext)
                         .setTitle(R.string.download_remove_dialog_title)
@@ -1787,25 +1780,6 @@ public class GalleryDetailScene extends BaseScene implements View.OnClickListene
                         .show();
             }
         }
-    }
-
-    private void promptDownloadTarget(@NonNull GalleryInfo galleryInfo) {
-        com.hippo.ehviewer.ui.NotificationPermission.onDownloadStart(mContext);
-        CharSequence[] items = new CharSequence[]{
-                getString(R.string.gallery_download_target_local),
-                getString(R.string.gallery_download_target_smb, NetworkStorage.active().displayName())
-        };
-        new AlertDialog.Builder(mContext)
-                .setTitle(R.string.gallery_download_target_title)
-                .setItems(items, (dialog, which) -> {
-                    if (which == 0) {
-                        CommonOperations.startDownload(activity, galleryInfo, false);
-                    } else {
-                        SmbAutoDownloadManager.getInstance().enqueueManual(mContext, galleryInfo);
-                    }
-                })
-                .setNegativeButton(android.R.string.cancel, null)
-                .show();
     }
 
     public void startUpdateDownload(String updateUrl) {
