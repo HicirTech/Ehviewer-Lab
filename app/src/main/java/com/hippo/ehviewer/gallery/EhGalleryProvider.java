@@ -17,16 +17,6 @@
 package com.hippo.ehviewer.gallery;
 
 import android.content.Context;
-import com.hippo.ehviewer.storage.GalleryTargets;
-import com.hippo.ehviewer.storage.NetworkStorage;
-import java.util.Set;
-import java.util.HashSet;
-import java.util.Collections;
-import com.hippo.util.IoThreadPoolExecutor;
-import com.hippo.ehviewer.spider.RemotePageBridge;
-import com.hippo.ehviewer.spider.SpiderDen;
-import com.hippo.ehviewer.R;
-import android.widget.Toast;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import com.hippo.ehviewer.client.data.GalleryInfo;
@@ -44,10 +34,12 @@ public class EhGalleryProvider extends GalleryProvider2 implements SpiderQueen.O
     private final GalleryInfo mGalleryInfo;
     @Nullable
     private SpiderQueen mSpiderQueen;
+    private final SharePageRepair mSharePageRepair;
 
     public EhGalleryProvider(Context context, GalleryInfo galleryInfo) {
         mContext = context;
         mGalleryInfo = galleryInfo;
+        mSharePageRepair = new SharePageRepair(galleryInfo);
     }
 
     @Override
@@ -134,15 +126,9 @@ public class EhGalleryProvider extends GalleryProvider2 implements SpiderQueen.O
         }
     }
 
-    // Pages the user refreshed: the only pages a reader writes back to the share.
-    private final Set<Integer> mRepairOnShare =
-            Collections.synchronizedSet(new HashSet<Integer>());
-
     @Override
     protected void onForceRequest(int index) {
-        if (GalleryTargets.isMarked(mGalleryInfo.gid)) {
-            mRepairOnShare.add(index);
-        }
+        mSharePageRepair.onForceRequest(index);
         if (mSpiderQueen != null) {
             Object object = mSpiderQueen.forceRequest(index);
             if (object instanceof Float) {
@@ -191,22 +177,7 @@ public class EhGalleryProvider extends GalleryProvider2 implements SpiderQueen.O
     @Override
     public void onPageSuccess(int index, int finished, int downloaded, int total) {
         notifyDataChanged(index);
-        repairOnShareIfAsked(index);
-    }
-
-    private void repairOnShareIfAsked(int index) {
-        if (!mRepairOnShare.remove(index)) {
-            return;
-        }
-        final Context appContext = mContext.getApplicationContext();
-        IoThreadPoolExecutor.Companion.getInstance().execute(() -> {
-            if (RemotePageBridge.copyFromCacheToRemote(mGalleryInfo, index)) {
-                return;
-            }
-            SimpleHandler.getInstance().post(() -> Toast.makeText(
-                    appContext, appContext.getString(R.string.smb_page_repair_failed,
-                            NetworkStorage.active().displayName()), Toast.LENGTH_SHORT).show());
-        });
+        mSharePageRepair.onPageSuccess(mContext, index);
     }
 
     @Override
