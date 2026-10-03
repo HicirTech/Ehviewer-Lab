@@ -17,6 +17,7 @@ EhViewer@Lab在原版EhViewer的基础上，为 HomeLab/自托管环境持续提
 - [x] 内网阅读
 - [x] 内网搜索
 - [x] 自动下载到NAS
+- [x] 可配置的下载方式(读满N页/首尾页/长按菜单/音量键)
 - [x] 内网画廊管理
 - [x] 带分页的内网画廊读取 
 - [x] 自动适配/检测最优网络线程数
@@ -28,7 +29,6 @@ EhViewer@Lab在原版EhViewer的基础上，为 HomeLab/自托管环境持续提
 - [ ] 基于HomeLab环境算力的图片优化,如超分
 - [ ] 基于HomeLab环境算力的图片翻译
 - [ ] 基于HomeLab环境下的图片去码(或许有)
-- [ ] 可调整的自动下载策略
 
 ## 版本策略 
 本项目是基于杰神(xiaojieonly)二次开发而来的下游版本, 所以版本基线和 [绿E](https://github.com/xiaojieonly/Ehviewer_CN_SXJ) 一致, 并在末尾标注 `-hl.N`
