@@ -118,7 +118,6 @@ public class ArchiverDownloaderTest {
         app = RuntimeEnvironment.getApplication();
         Settings.initialize(app);
         AppConfig.initialize(app);
-        // Every call fails, which ends its task.
         client = new OkHttpClient.Builder()
                 .dispatcher(new Dispatcher(calls))
                 .addInterceptor(chain -> new Response.Builder()
@@ -140,7 +139,6 @@ public class ArchiverDownloaderTest {
                 "archive" + gid);
     }
 
-    /** The actions of every service start since the last call. */
     private List<String> serviceActions() {
         List<String> actions = new ArrayList<>();
         Intent intent;
@@ -179,7 +177,6 @@ public class ArchiverDownloaderTest {
 
     // --- dataSync timeout ---------------------------------------------------------------------
 
-    /** What every promotion gets once the time is spent. */
     @Implements(Service.class)
     public static class ShadowSpentService extends ShadowService {
         @Override

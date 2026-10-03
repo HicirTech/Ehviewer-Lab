@@ -395,7 +395,6 @@ public class SmbDirectDownloaderTest {
     public void aRefusedPromotion_isSurvivedAndLeavesNoNotificationBehind() {
         spent = true;
         service = Robolectric.buildService(SmbDownloadService.class).create();
-        // What the downloader posts while the service runs unpromoted.
         service.get().updateNotification("title", "text", 10, 3, false);
 
         service.destroy();

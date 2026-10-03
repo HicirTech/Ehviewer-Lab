@@ -234,7 +234,7 @@ final class SmbTaskLedger {
         }
     }
 
-    /** Holds everything (SMB gone, or the dataSync time spent); returns the jobs to release. */
+    /** Holds everything; returns the jobs the caller must release. */
     @NonNull
     List<ActiveJob> suspendAll() {
         synchronized (lock) {

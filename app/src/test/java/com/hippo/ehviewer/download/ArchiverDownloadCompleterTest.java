@@ -126,7 +126,6 @@ public class ArchiverDownloadCompleterTest {
         return info;
     }
 
-    /** A two-page archive, laid out as the archiver serves one. */
     private static File archive(File dir) throws IOException {
         File zip = new File(dir, "fixture.zip");
         try (ZipOutputStream out = new ZipOutputStream(new FileOutputStream(zip))) {
@@ -139,7 +138,6 @@ public class ArchiverDownloadCompleterTest {
         return zip;
     }
 
-    /** Runs an import to its end: its worker thread, then what it posted to the main thread. */
     private void importAndWait(File zip) throws InterruptedException {
         Set<Thread> before = Thread.getAllStackTraces().keySet();
         ArchiverDownloadCompleter.getInstance(app).importDownloadedZip(zip, gallery(), TASK_ID);
@@ -182,7 +180,6 @@ public class ArchiverDownloadCompleterTest {
         assertFalse(zip.exists());
     }
 
-    /** With all-files access the zip lands on shared storage. */
     @Test
     public void aZipOutsideTheAppCache_isKeptAfterItsImport() throws Exception {
         File shared = new File(app.getCacheDir(), "shared-archiver");
@@ -196,7 +193,6 @@ public class ArchiverDownloadCompleterTest {
         assertTrue(zip.exists());
     }
 
-    /** Marked by an earlier download to the share, or by the share's list showing it. */
     @Test
     public void aGalleryMarkedForTheShare_isStillImportedToThePhone() throws Exception {
         File zip = archive(AppConfig.getArchiverDir());

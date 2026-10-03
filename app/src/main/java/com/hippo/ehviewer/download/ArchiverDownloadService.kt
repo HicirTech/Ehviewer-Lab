@@ -96,7 +96,6 @@ class ArchiverDownloadService : Service() {
             return START_NOT_STICKY
         }
         if (!foregroundStarted) {
-            // False when refused: an ongoing notify() would outlive the stop.
             foregroundStarted = startForegroundCompat(NOTIFICATION_ID, notification)
         } else {
             notificationManager?.notify(NOTIFICATION_ID, notification)
@@ -219,7 +218,6 @@ class ArchiverDownloadService : Service() {
         return PendingIntent.getService(this, requestCode, intent, PENDING_INTENT_FLAGS)
     }
 
-    // Refused once the dataSync time is spent (#166).
     private fun startForegroundCompat(id: Int, notification: Notification): Boolean {
         try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {

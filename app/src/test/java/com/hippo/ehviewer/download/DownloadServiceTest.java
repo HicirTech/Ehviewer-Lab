@@ -40,7 +40,6 @@ public class DownloadServiceTest {
         }
     }
 
-    /** A download is running until every download is stopped. */
     @Implements(DownloadManager.class)
     public static class ShadowDownloadManager {
         @Implementation

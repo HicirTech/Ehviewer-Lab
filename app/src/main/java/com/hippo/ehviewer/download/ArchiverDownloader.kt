@@ -139,7 +139,6 @@ class ArchiverDownloader private constructor(appContext: Context) {
         stopServiceIfIdle()
     }
 
-    /** One service serves every task (#166). */
     private fun stopServiceIfIdle() {
         if (activeTasks.values.none { !it.paused }) {
             ArchiverDownloadService.stop(appContext)

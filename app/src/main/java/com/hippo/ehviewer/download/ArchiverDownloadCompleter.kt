@@ -44,14 +44,12 @@ class ArchiverDownloadCompleter private constructor(appContext: Context) {
         if (!tryBeginHandling(taskId)) {
             return
         }
-        // No external temp dir without all-files access (#166).
         val tempDir = AppConfig.getExternalTempDir() ?: AppConfig.getTempDir()
         if (tempDir == null) {
             endHandling(taskId)
             handleFailedTask(galleryInfo, taskId)
             return
         }
-        // The gallery's name as the download list shows it, not its zip's.
         val displayName = EhUtils.getSuitableTitle(galleryInfo)
             ?: createFileName(galleryInfo.title, galleryInfo.gid)
         val tempFile = File(tempDir, "archiver_${galleryInfo.gid}")
@@ -134,7 +132,6 @@ class ArchiverDownloadCompleter private constructor(appContext: Context) {
         }
         Collections.sort(tempPictures) { file1, file2 -> file1.name.compareTo(file2.name) }
 
-        // Always the phone: a SpiderDen routes marked galleries to the share (#166).
         val downloadDir = SpiderDen.getGalleryDownloadDir(galleryInfo)?.takeIf { it.ensureDir() }
         if (downloadDir == null) {
             postImportFailed(galleryInfo, taskId)
@@ -223,7 +220,6 @@ class ArchiverDownloadCompleter private constructor(appContext: Context) {
             return sInstance
         }
 
-        /** Title plus gid: re-uploads often keep the exact title (#166). */
         @JvmStatic
         fun createFileName(name: String?, gid: Long): String {
             val suffix = if (gid > 0) "_$gid" else ""
@@ -299,7 +295,6 @@ class ArchiverDownloadCompleter private constructor(appContext: Context) {
             return true
         }
 
-        /** The user cannot reach a zip in the app's cache. */
         private fun deleteIfPrivate(zipFile: File) {
             if (zipFile.parentFile == AppConfig.getArchiverDir() && !zipFile.delete()) {
                 Log.w(TAG, "Failed to delete zip: ${zipFile.path}")

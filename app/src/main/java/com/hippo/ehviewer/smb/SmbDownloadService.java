@@ -90,7 +90,6 @@ public final class SmbDownloadService extends Service {
     @Override
     public void onDestroy() {
         SmbDirectDownloader.getInstance().detachService();
-        // stopForeground leaves one that was posted while unpromoted.
         NotificationManager nm = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
         if (nm != null) {
             nm.cancel(NOTIFICATION_ID);
@@ -115,7 +114,6 @@ public final class SmbDownloadService extends Service {
         }
     }
 
-    // Refused as DownloadService.startForegroundCompat can be, plus the dataSync time (#166).
     private void startInForeground(Notification notification) {
         try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
