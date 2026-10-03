@@ -128,7 +128,6 @@
     <string name="power_download_pages">N페이지를 읽으면 다운로드</string>
     <string name="power_download_pages_summary">이번에 읽으면서 본 서로 다른 페이지 수로 셉니다</string>
     <string name="power_download_pages_count">페이지 수 N</string>
-    <string name="power_download_pages_count_summary">%1$d페이지</string>
     <string name="power_download_target">저장 위치</string>
     <string name="power_download_target_none">사용 안 함</string>
     <string name="power_download_first_page">첫 페이지에서 다운로드</string>

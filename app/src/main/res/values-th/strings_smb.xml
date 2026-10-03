@@ -128,7 +128,6 @@
     <string name="power_download_pages">ดาวน์โหลดเมื่ออ่านครบ N หน้า</string>
     <string name="power_download_pages_summary">นับจำนวนหน้าที่ไม่ซ้ำกันที่เห็นในการอ่านครั้งนี้</string>
     <string name="power_download_pages_count">จำนวนหน้า N</string>
-    <string name="power_download_pages_count_summary">%1$d หน้า</string>
     <string name="power_download_target">ตำแหน่งดาวน์โหลด</string>
     <string name="power_download_target_none">ไม่ใช้</string>
     <string name="power_download_first_page">ดาวน์โหลดเมื่อถึงหน้าแรก</string>

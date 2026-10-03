@@ -128,7 +128,6 @@
     <string name="power_download_pages">N ページ読んだらダウンロード</string>
     <string name="power_download_pages_summary">今回の閲覧で表示した異なるページの数で数えます</string>
     <string name="power_download_pages_count">ページ数 N</string>
-    <string name="power_download_pages_count_summary">%1$d ページ</string>
     <string name="power_download_target">保存先</string>
     <string name="power_download_target_none">使用しない</string>
     <string name="power_download_first_page">最初のページでダウンロード</string>

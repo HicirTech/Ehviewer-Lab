@@ -29,14 +29,11 @@ import com.hippo.preference.ListPreference;
 public class PowerDownloadFragment extends BasePreferenceFragmentCompat
         implements Preference.OnPreferenceChangeListener {
 
-    private static final String[] RULE_TARGET_KEYS = {
-            PowerDownloadSettings.KEY_PAGES_TARGET,
-            PowerDownloadSettings.KEY_EDGE_PAGE_TARGET,
-            PowerDownloadSettings.KEY_MENU_TARGET,
+    private static final PowerDownloadTarget[] RULE_TARGETS = {
+            PowerDownloadTarget.PHONE, PowerDownloadTarget.NETWORK_STORAGE,
     };
-    private static final String[] VOLUME_TARGET_KEYS = {
-            PowerDownloadSettings.KEY_VOLUME_UP_TARGET,
-            PowerDownloadSettings.KEY_VOLUME_DOWN_TARGET,
+    private static final PowerDownloadTarget[] VOLUME_TARGETS = {
+            PowerDownloadTarget.NONE, PowerDownloadTarget.PHONE, PowerDownloadTarget.NETWORK_STORAGE,
     };
     private static final String[] SWITCH_KEYS = {
             PowerDownloadSettings.KEY_PAGES_ENABLED,
@@ -53,13 +50,16 @@ public class PowerDownloadFragment extends BasePreferenceFragmentCompat
     public void onCreatePreferences(@Nullable Bundle savedInstanceState, @Nullable String rootKey) {
         addPreferencesFromResource(R.xml.power_download_settings);
 
-        for (String key : RULE_TARGET_KEYS) {
-            bindTargets(key, PowerDownloadTarget.PHONE, PowerDownloadTarget.NETWORK_STORAGE);
-        }
-        for (String key : VOLUME_TARGET_KEYS) {
-            bindTargets(key, PowerDownloadTarget.NONE, PowerDownloadTarget.PHONE,
-                    PowerDownloadTarget.NETWORK_STORAGE);
-        }
+        bindTargets(PowerDownloadSettings.KEY_PAGES_TARGET, PowerDownloadSettings.getPagesTarget(),
+                RULE_TARGETS);
+        bindTargets(PowerDownloadSettings.KEY_EDGE_PAGE_TARGET, PowerDownloadSettings.getEdgePageTarget(),
+                RULE_TARGETS);
+        bindTargets(PowerDownloadSettings.KEY_MENU_TARGET, PowerDownloadSettings.getMenuTarget(),
+                RULE_TARGETS);
+        bindTargets(PowerDownloadSettings.KEY_VOLUME_UP_TARGET, PowerDownloadSettings.getVolumeUpTarget(),
+                VOLUME_TARGETS);
+        bindTargets(PowerDownloadSettings.KEY_VOLUME_DOWN_TARGET, PowerDownloadSettings.getVolumeDownTarget(),
+                VOLUME_TARGETS);
         for (String key : SWITCH_KEYS) {
             Preference preference = findPreference(key);
             if (preference != null) {
@@ -73,7 +73,12 @@ public class PowerDownloadFragment extends BasePreferenceFragmentCompat
         }
     }
 
-    private void bindTargets(@NonNull String key, @NonNull PowerDownloadTarget... targets) {
+    /**
+     * {@code current} is set explicitly: this ListPreference ignores its XML default, so a target
+     * never chosen would otherwise show no summary and no checked entry.
+     */
+    private void bindTargets(@NonNull String key, @NonNull PowerDownloadTarget current,
+                             @NonNull PowerDownloadTarget[] targets) {
         ListPreference preference = findPreference(key);
         if (preference == null) {
             return;
@@ -86,6 +91,7 @@ public class PowerDownloadFragment extends BasePreferenceFragmentCompat
         }
         preference.setEntries(entries);
         preference.setEntryValues(values);
+        preference.setValue(current.value);
         preference.setOnPreferenceChangeListener(this);
     }
 
@@ -147,10 +153,10 @@ public class PowerDownloadFragment extends BasePreferenceFragmentCompat
         return false;
     }
 
+    /** The bare number: the title already says what it counts, and "1 pages" needs no plural. */
     private void updatePagesCountSummary() {
         if (mPagesCount != null) {
-            mPagesCount.setSummary(getString(R.string.power_download_pages_count_summary,
-                    PowerDownloadSettings.getPagesCount()));
+            mPagesCount.setSummary(String.valueOf(PowerDownloadSettings.getPagesCount()));
         }
     }
 }

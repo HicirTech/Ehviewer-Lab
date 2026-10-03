@@ -128,7 +128,6 @@
     <string name="power_download_pages">Nach N Seiten herunterladen</string>
     <string name="power_download_pages_summary">Zählt die verschiedenen Seiten, die beim aktuellen Lesen angezeigt wurden</string>
     <string name="power_download_pages_count">Seiten (N)</string>
-    <string name="power_download_pages_count_summary">%1$d Seiten</string>
     <string name="power_download_target">Speicherort</string>
     <string name="power_download_target_none">Nicht verwendet</string>
     <string name="power_download_first_page">Auf der ersten Seite herunterladen</string>

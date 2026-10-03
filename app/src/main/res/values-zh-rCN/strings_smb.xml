@@ -128,7 +128,6 @@
     <string name="power_download_pages">读满 N 页时下载</string>
     <string name="power_download_pages_summary">按本次阅读看过的不同页数计</string>
     <string name="power_download_pages_count">页数 N</string>
-    <string name="power_download_pages_count_summary">%1$d 页</string>
     <string name="power_download_target">下载位置</string>
     <string name="power_download_target_none">不使用</string>
     <string name="power_download_first_page">读到第一页时下载</string>

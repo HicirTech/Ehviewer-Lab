@@ -135,7 +135,6 @@
     <string name="power_download_pages">Download after N pages</string>
     <string name="power_download_pages_summary">Counts the different pages seen in this reading</string>
     <string name="power_download_pages_count">Pages (N)</string>
-    <string name="power_download_pages_count_summary">%1$d pages</string>
     <string name="power_download_target">Download location</string>
     <string name="power_download_target_none">Not used</string>
     <string name="power_download_first_page">Download on the first page</string>
