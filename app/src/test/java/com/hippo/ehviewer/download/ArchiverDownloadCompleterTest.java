@@ -16,6 +16,8 @@ import com.hippo.ehviewer.EhDB;
 import com.hippo.ehviewer.Settings;
 import com.hippo.ehviewer.client.data.GalleryInfo;
 import com.hippo.ehviewer.dao.DownloadInfo;
+import com.hippo.ehviewer.smb.SmbSpiderStorage;
+import com.hippo.ehviewer.storage.GalleryTargets;
 import com.hippo.unifile.UniFile;
 
 import java.io.File;
@@ -48,9 +50,11 @@ import org.robolectric.shadows.ShadowEnvironment;
         shadows = {
                 ArchiverDownloadCompleterTest.ShadowEhApplication.class,
                 ArchiverDownloadCompleterTest.ShadowDownloadManager.class,
+                ArchiverDownloadCompleterTest.ShadowSmbSpiderStorage.class,
         },
         // Robolectric instruments by name prefix, so one class can be listed on its own.
-        instrumentedPackages = {"com.hippo.ehviewer.EhApplication", "com.hippo.ehviewer.download"})
+        instrumentedPackages = {"com.hippo.ehviewer.EhApplication", "com.hippo.ehviewer.download",
+                "com.hippo.ehviewer.smb.SmbSpiderStorage"})
 public class ArchiverDownloadCompleterTest {
 
     private static final long GID = 3054010L;
@@ -78,6 +82,15 @@ public class ArchiverDownloadCompleterTest {
         @Implementation
         protected void addDownload(GalleryInfo info, String label, int state) {
             added.add(info.gid + ":" + state);
+        }
+    }
+
+    /** The share, ready for any gallery routed to it, without a network round trip. */
+    @Implements(SmbSpiderStorage.class)
+    public static class ShadowSmbSpiderStorage {
+        @Implementation
+        protected boolean prepareDir() {
+            return true;
         }
     }
 
@@ -164,6 +177,22 @@ public class ArchiverDownloadCompleterTest {
         awaitZipGone(zip);
 
         assertTrue(added.isEmpty());
+    }
+
+    /** Marked by an earlier download to the share, or by the share's list showing it. */
+    @Test
+    public void aGalleryMarkedForTheShare_isStillImportedToThePhone() throws Exception {
+        File zip = archive(AppConfig.getArchiverDir());
+        GalleryTargets.mark(GID);
+        try {
+            importArchive(zip);
+            awaitZipGone(zip);
+        } finally {
+            GalleryTargets.unmark(GID);
+        }
+
+        assertEquals(Collections.singletonList(GID + ":" + DownloadInfo.STATE_FINISH), added);
+        assertEquals(2, galleryFolder().length);
     }
 
     private static void deleteTree(File file) {

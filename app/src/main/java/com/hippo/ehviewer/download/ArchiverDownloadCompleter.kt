@@ -13,7 +13,6 @@ import com.hippo.ehviewer.client.data.GalleryInfo
 import com.hippo.ehviewer.dao.DownloadInfo
 import com.hippo.ehviewer.gallery.GalleryProvider2
 import com.hippo.ehviewer.spider.SpiderDen
-import com.hippo.ehviewer.spider.SpiderQueen
 import com.hippo.lib.yorozuya.FileUtils as YorozuyaFileUtils
 import com.hippo.lib.yorozuya.StringUtils
 import com.hippo.lib.yorozuya.Utilities
@@ -134,10 +133,9 @@ class ArchiverDownloadCompleter private constructor(appContext: Context) {
         }
         Collections.sort(tempPictures) { file1, file2 -> file1.name.compareTo(file2.name) }
 
-        val spiderDen = SpiderDen(galleryInfo)
-        spiderDen.setMode(SpiderQueen.MODE_DOWNLOAD)
-        spiderDen.prepareDownloadStorage()
-        val downloadDir = spiderDen.getDownloadDir()
+        // An archive is always imported to the phone (#166). A SpiderDen routes a gallery marked
+        // for network storage to the share, and has no phone folder to give for it.
+        val downloadDir = SpiderDen.getGalleryDownloadDir(galleryInfo)?.takeIf { it.ensureDir() }
         if (downloadDir == null) {
             postImportFailed(galleryInfo, taskId)
             return
