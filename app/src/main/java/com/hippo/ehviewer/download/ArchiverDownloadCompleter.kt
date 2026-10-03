@@ -44,7 +44,9 @@ class ArchiverDownloadCompleter private constructor(appContext: Context) {
         if (!tryBeginHandling(taskId)) {
             return
         }
-        val tempDir = AppConfig.getExternalTempDir()
+        // Without all-files access there is no external temp dir and the zip itself sits in the
+        // app's cache (#166): unpack there too, rather than fail and strand the zip out of reach.
+        val tempDir = AppConfig.getExternalTempDir() ?: AppConfig.getTempDir()
         if (tempDir == null) {
             endHandling(taskId)
             handleFailedTask(galleryInfo, taskId)
@@ -66,6 +68,10 @@ class ArchiverDownloadCompleter private constructor(appContext: Context) {
                     tempFile.deleteOnExit()
                 }
                 postImportFailed(galleryInfo, taskId)
+            } finally {
+                // Behind the success post, which forgets the task: a zip gone before that would be
+                // downloaded again by resumePending if the process died in between.
+                mainHandler.post { deleteIfPrivate(zipFile) }
             }
         }.start()
     }
@@ -292,6 +298,16 @@ class ArchiverDownloadCompleter private constructor(appContext: Context) {
                 return false
             }
             return true
+        }
+
+        /**
+         * Once an import is over, either way, a zip in the app's own cache goes: the user cannot
+         * reach it there, and the task that could use it again is gone (#166).
+         */
+        private fun deleteIfPrivate(zipFile: File) {
+            if (zipFile.parentFile == AppConfig.getArchiverDir() && !zipFile.delete()) {
+                Log.w(TAG, "Failed to delete zip: ${zipFile.path}")
+            }
         }
 
         private fun deleteTempDir(destDir: File) {
