@@ -47,6 +47,7 @@
     <string name="smb_save_started">Speichern auf %1$s gestartet: %2$s</string>
     <string name="smb_save_already_complete">Bereits auf %1$s gespeichert, wird übersprungen</string>
     <string name="smb_save_claimed_elsewhere">Ein anderes Gerät lädt dies bereits auf die %1$s-Freigabe herunter</string>
+    <string name="smb_save_already_running">Wird bereits auf %1$s gespeichert</string>
     <string name="smb_task_action_cancel">Download abbrechen</string>
     <string name="smb_task_cancel_message">„%1$s“ aus der Warteschlange nehmen? Bereits auf der Freigabe gespeicherte Seiten werden gelöscht.</string>
     <string name="smb_task_owner_offline">Gerät offline</string>
@@ -64,8 +65,6 @@
     <string name="download_move_to_smb">Auf die %1$s-Freigabe verschieben</string>
     <string name="download_moving_to_smb">Kopiere auf die %1$s-Freigabe…</string>
     <string name="download_move_to_smb_local_kept">Lokale Importe werden nicht auf die %1$s-Freigabe kopiert</string>
-    <string name="settings_smb_enable_auto_download">Automatisch auf Netzwerkspeicher herunterladen</string>
-    <string name="settings_smb_enable_auto_download_summary">Wenn aktiviert, stellt das Öffnen der ersten Seite einer Galerie automatisch einen Hintergrund-Download auf den Netzwerkspeicher in die Warteschlange. Wenn deaktiviert, fragt der Download-Button jedes Mal nach.</string>
     <string name="settings_smb_device_name">Name dieses Geräts</string>
     <string name="settings_smb_device_name_summary">Wird deinen anderen Geräten neben den Galerien angezeigt, die dieses Gerät herunterlädt. Standard ist der Modellname.</string>
     <string name="settings_smb_disable_signing">SMB-Signierung deaktivieren</string>
@@ -123,4 +122,24 @@
     <string name="smb_error_share_not_found">Keine solche Freigabe auf dem Host</string>
     <string name="smb_error_access_denied">Zugriff vom Host verweigert</string>
     <string name="notifications_disabled_hint">Benachrichtigungen sind aus — Downloads laufen still im Hintergrund</string>
+
+    <!-- Power Download (#159) -->
+    <string name="settings_power_download">Erweitertes Download-Verhalten</string>
+    <string name="power_download_pages">Nach N Seiten herunterladen</string>
+    <string name="power_download_pages_summary">Zählt die verschiedenen Seiten, die beim aktuellen Lesen angezeigt wurden</string>
+    <string name="power_download_pages_count">Seiten (N)</string>
+    <string name="power_download_target">Speicherort</string>
+    <string name="power_download_target_none">Nicht verwendet</string>
+    <string name="power_download_first_page">Auf der ersten Seite herunterladen</string>
+    <string name="power_download_last_page">Auf der letzten Seite herunterladen</string>
+    <string name="power_download_menu">Über das Langdruck-Menü herunterladen</string>
+    <string name="power_download_menu_summary">Fügt dem Menü, das sich bei langem Drücken auf eine Seite öffnet, einen Download-Eintrag hinzu</string>
+    <string name="power_download_volume">Mit den Lautstärketasten herunterladen</string>
+    <string name="power_download_volume_summary">Die Lautstärketasten blättern nicht mehr um</string>
+    <string name="power_download_volume_up">Lauter</string>
+    <string name="power_download_volume_down">Leiser</string>
+    <string name="power_download_volume_replaces_page_turning">Wenn die Lautstärketasten herunterladen, blättern sie nicht mehr um.</string>
+    <string name="power_download_page_turning_replaces_volume">Wenn die Lautstärketasten umblättern, laden sie nicht mehr herunter.</string>
+    <string name="power_download_already_downloading">Bereits in der Download-Liste</string>
+    <string name="power_download_already_downloaded">Bereits heruntergeladen</string>
 </resources>

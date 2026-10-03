@@ -1786,10 +1786,10 @@ public class GalleryDetailScene extends BaseScene implements View.OnClickListene
         GalleryInfo galleryInfo = getGalleryInfo();
         if (galleryInfo != null) {
             if (EhApplication.getDownloadManager(mContext).getDownloadState(galleryInfo.gid) == DownloadInfo.STATE_INVALID) {
-                // The Download button always lets the user pick when SMB is enabled — the
-                // auto-download toggle only governs the implicit reader-triggered enqueue,
-                // not this explicit click. (Previously this also required auto-download
-                // OFF, which silently routed everything to phone when auto was on.)
+                // The Download button always lets the user pick when SMB is enabled — Power
+                // Download's rules only govern downloads started from the reader, not this
+                // explicit click. (This once also required the old auto-download switch OFF,
+                // which silently routed everything to phone while it was on.)
                 if (Settings.getNetworkStorageEnabled() && NetworkStorage.active().isConfigured()) {
                     promptDownloadTarget(galleryInfo);
                 } else {

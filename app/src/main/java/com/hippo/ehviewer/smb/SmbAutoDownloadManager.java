@@ -7,16 +7,16 @@ import android.widget.Toast;
 import androidx.annotation.NonNull;
 
 import com.hippo.ehviewer.R;
-import com.hippo.ehviewer.Settings;
 import com.hippo.ehviewer.client.data.GalleryInfo;
 import com.hippo.ehviewer.storage.NetworkStorage;
 import com.hippo.lib.yorozuya.SimpleHandler;
 import com.hippo.util.IoThreadPoolExecutor;
 
 /**
- * "Save to SMB" enqueues, auto (reader) and manual (detail). No local already-saving record —
- * the share's claims are the only answer (a shadow set once wedged silently). Skips complete or
- * claimed galleries, writes the metadata skeleton, hands off to SmbDirectDownloader.
+ * "Save to SMB" enqueues, quiet (Power Download's automatic rules, #159) and manual (detail,
+ * reader menu, volume key). No local already-saving record — the share's claims are the only
+ * answer (a shadow set once wedged silently). Skips galleries this device is already saving,
+ * complete ones and claimed ones, writes the metadata skeleton, hands off to SmbDirectDownloader.
  */
 public final class SmbAutoDownloadManager {
 
@@ -29,45 +29,60 @@ public final class SmbAutoDownloadManager {
         return INSTANCE;
     }
 
-    /** Called from the reader on first page open. Auto-download must be explicitly enabled. */
-    public void enqueueFromFirstPage(@NonNull Context context, @NonNull GalleryInfo galleryInfo) {
-        if (!Settings.getNetworkStorageEnabled() || !Settings.getSmbAutoDownloadEnabled()
-                || !NetworkStorage.active().isConfigured()) {
+    /**
+     * Power Download's automatic rules (#159): says nothing unless a save actually starts or
+     * fails, since they fire while the user reads.
+     */
+    public void enqueueQuietly(@NonNull Context context, @NonNull GalleryInfo galleryInfo) {
+        if (!SmbDownloadBoard.smbAvailable()) {
             return;
         }
-        enqueueInternal(context, galleryInfo);
+        enqueueInternal(context, galleryInfo, true);
     }
 
-    /** Called from the detail screen "Save to SMB" choice. Bypasses the auto-download toggle. */
+    /** A deliberate ask: the detail screen's "Save to SMB", a reader menu entry or a volume key. */
     public void enqueueManual(@NonNull Context context, @NonNull GalleryInfo galleryInfo) {
-        if (!Settings.getNetworkStorageEnabled() || !NetworkStorage.active().isConfigured()) {
+        if (!SmbDownloadBoard.smbAvailable()) {
             Toast.makeText(context.getApplicationContext(),
                     context.getString(R.string.smb_save_not_configured, NetworkStorage.active().displayName()),
                     Toast.LENGTH_SHORT).show();
             return;
         }
-        enqueueInternal(context, galleryInfo);
+        enqueueInternal(context, galleryInfo, false);
     }
 
-    private void enqueueInternal(@NonNull Context context, @NonNull GalleryInfo galleryInfo) {
+    private void enqueueInternal(@NonNull Context context, @NonNull GalleryInfo galleryInfo,
+                                 boolean quiet) {
         // Before the skeleton write below: that alone would put a folder for it on the share.
         if (SmbDirectDownloader.isLocalImport(galleryInfo)) {
             return;
         }
-        com.hippo.ehviewer.ui.NotificationPermission.onDownloadStart(context);
         final Context appContext = context.getApplicationContext();
+        // The downloader's own queue, not a record of what was asked: asking again while it is
+        // saving costs no round trip and must not announce a second start (#159).
+        if (SmbDirectDownloader.getInstance().isQueuedOrRunning(galleryInfo.gid)) {
+            if (!quiet) {
+                toast(appContext, appContext.getString(R.string.smb_save_already_running, NetworkStorage.active().displayName()));
+            }
+            return;
+        }
+        com.hippo.ehviewer.ui.NotificationPermission.onDownloadStart(context);
 
         IoThreadPoolExecutor.Companion.getInstance().execute(() -> {
             try {
                 if (NetworkStorage.active().lifecycle().isGalleryComplete(galleryInfo)) {
-                    toast(appContext, appContext.getString(R.string.smb_save_already_complete, NetworkStorage.active().displayName()));
+                    if (!quiet) {
+                        toast(appContext, appContext.getString(R.string.smb_save_already_complete, NetworkStorage.active().displayName()));
+                    }
                     return;
                 }
                 // Another device may already be on it. Checked here rather than in the downloader
                 // because this is the one place a gallery enters the queue from outside, and
                 // because there is already an SMB round trip on this thread to share.
                 if (SmbDownloadBoard.getInstance().isClaimedElsewhere(galleryInfo.gid)) {
-                    toast(appContext, appContext.getString(R.string.smb_save_claimed_elsewhere, NetworkStorage.active().displayName()));
+                    if (!quiet) {
+                        toast(appContext, appContext.getString(R.string.smb_save_claimed_elsewhere, NetworkStorage.active().displayName()));
+                    }
                     return;
                 }
                 try {

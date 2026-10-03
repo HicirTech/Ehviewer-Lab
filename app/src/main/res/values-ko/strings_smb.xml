@@ -47,6 +47,7 @@
     <string name="smb_save_started">%1$s 저장 시작: %2$s</string>
     <string name="smb_save_already_complete">이미 %1$s에 저장되어 있어 건너뜁니다</string>
     <string name="smb_save_claimed_elsewhere">다른 기기가 이미 이 갤러리를 %1$s 공유에 다운로드하고 있습니다</string>
+    <string name="smb_save_already_running">이미 %1$s에 저장하는 중입니다</string>
     <string name="smb_task_action_cancel">다운로드 취소</string>
     <string name="smb_task_cancel_message">‘%1$s’을(를) 대기열에서 뺄까요? 이미 공유에 저장된 페이지는 삭제됩니다.</string>
     <string name="smb_task_owner_offline">기기 오프라인</string>
@@ -64,8 +65,6 @@
     <string name="download_move_to_smb">%1$s 공유로 이동</string>
     <string name="download_moving_to_smb">%1$s 공유로 복사하는 중…</string>
     <string name="download_move_to_smb_local_kept">로컬에서 가져온 항목은 %1$s 공유로 복사되지 않습니다</string>
-    <string name="settings_smb_enable_auto_download">네트워크 저장소에 자동 다운로드</string>
-    <string name="settings_smb_enable_auto_download_summary">켜면 갤러리의 첫 페이지를 열 때 네트워크 저장소로의 백그라운드 다운로드가 자동으로 대기열에 추가됩니다. 끄면 다운로드 버튼을 누를 때마다 물어봅니다.</string>
     <string name="settings_smb_device_name">이 기기의 이름</string>
     <string name="settings_smb_device_name_summary">이 기기가 다운로드 중인 갤러리 옆에 다른 기기에서 표시되는 이름입니다. 기본값은 모델명입니다.</string>
     <string name="settings_smb_disable_signing">SMB 서명 사용 안 함</string>
@@ -123,4 +122,24 @@
     <string name="smb_error_share_not_found">호스트에 그런 공유가 없습니다</string>
     <string name="smb_error_access_denied">호스트가 접근을 거부했습니다</string>
     <string name="notifications_disabled_hint">알림이 꺼져 있어 다운로드가 백그라운드에서 조용히 진행됩니다</string>
+
+    <!-- Power Download (#159) -->
+    <string name="settings_power_download">향상된 다운로드 동작</string>
+    <string name="power_download_pages">N페이지를 읽으면 다운로드</string>
+    <string name="power_download_pages_summary">이번에 읽으면서 본 서로 다른 페이지 수로 셉니다</string>
+    <string name="power_download_pages_count">페이지 수 N</string>
+    <string name="power_download_target">저장 위치</string>
+    <string name="power_download_target_none">사용 안 함</string>
+    <string name="power_download_first_page">첫 페이지에서 다운로드</string>
+    <string name="power_download_last_page">마지막 페이지에서 다운로드</string>
+    <string name="power_download_menu">길게 누르기 메뉴에서 다운로드</string>
+    <string name="power_download_menu_summary">페이지를 길게 눌러 여는 메뉴에 다운로드 항목을 추가합니다</string>
+    <string name="power_download_volume">볼륨 키로 다운로드</string>
+    <string name="power_download_volume_summary">볼륨 키로 더 이상 페이지를 넘기지 않습니다</string>
+    <string name="power_download_volume_up">볼륨 업</string>
+    <string name="power_download_volume_down">볼륨 다운</string>
+    <string name="power_download_volume_replaces_page_turning">볼륨 키 다운로드를 켜면 볼륨 키 페이지 넘기기가 꺼집니다.</string>
+    <string name="power_download_page_turning_replaces_volume">볼륨 키 페이지 넘기기를 켜면 볼륨 키 다운로드가 꺼집니다.</string>
+    <string name="power_download_already_downloading">이미 다운로드 목록에 있습니다</string>
+    <string name="power_download_already_downloaded">이미 다운로드했습니다</string>
 </resources>

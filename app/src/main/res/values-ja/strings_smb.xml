@@ -47,6 +47,7 @@
     <string name="smb_save_started">%1$s への保存を開始しました: %2$s</string>
     <string name="smb_save_already_complete">%1$s に保存済みのためスキップします</string>
     <string name="smb_save_claimed_elsewhere">別の端末がすでにこれを %1$s 共有にダウンロードしています</string>
+    <string name="smb_save_already_running">すでに %1$s に保存中です</string>
     <string name="smb_task_action_cancel">ダウンロードをキャンセル</string>
     <string name="smb_task_cancel_message">「%1$s」をキューから外しますか？共有に保存済みのページも削除されます。</string>
     <string name="smb_task_owner_offline">端末はオフラインです</string>
@@ -64,8 +65,6 @@
     <string name="download_move_to_smb">%1$s 共有へ移動</string>
     <string name="download_moving_to_smb">%1$s 共有へコピー中…</string>
     <string name="download_move_to_smb_local_kept">ローカルから取り込んだ項目は %1$s 共有にコピーされません</string>
-    <string name="settings_smb_enable_auto_download">ネットワークストレージへ自動ダウンロード</string>
-    <string name="settings_smb_enable_auto_download_summary">有効にすると、ギャラリーの最初のページを開いたときに、ネットワークストレージへのバックグラウンドダウンロードが自動的にキューに入ります。無効の場合は、ダウンロードボタンを押すたびに確認します。</string>
     <string name="settings_smb_device_name">この端末の名前</string>
     <string name="settings_smb_device_name_summary">この端末がダウンロード中のギャラリーの横に、他の端末から見える名前です。既定ではモデル名になります。</string>
     <string name="settings_smb_disable_signing">SMB 署名を無効にする</string>
@@ -123,4 +122,24 @@
     <string name="smb_error_share_not_found">ホストにその共有はありません</string>
     <string name="smb_error_access_denied">ホストにアクセスを拒否されました</string>
     <string name="notifications_disabled_hint">通知がオフのため、ダウンロードはバックグラウンドで静かに実行されます</string>
+
+    <!-- Power Download (#159) -->
+    <string name="settings_power_download">拡張ダウンロード動作</string>
+    <string name="power_download_pages">N ページ読んだらダウンロード</string>
+    <string name="power_download_pages_summary">今回の閲覧で表示した異なるページの数で数えます</string>
+    <string name="power_download_pages_count">ページ数 N</string>
+    <string name="power_download_target">保存先</string>
+    <string name="power_download_target_none">使用しない</string>
+    <string name="power_download_first_page">最初のページでダウンロード</string>
+    <string name="power_download_last_page">最後のページでダウンロード</string>
+    <string name="power_download_menu">長押しメニューからダウンロード</string>
+    <string name="power_download_menu_summary">ページを長押しして開くメニューにダウンロード項目を追加します</string>
+    <string name="power_download_volume">音量ボタンでダウンロード</string>
+    <string name="power_download_volume_summary">音量ボタンでページをめくらなくなります</string>
+    <string name="power_download_volume_up">音量アップ</string>
+    <string name="power_download_volume_down">音量ダウン</string>
+    <string name="power_download_volume_replaces_page_turning">音量ボタンでのダウンロードをオンにすると、音量ボタンでのページめくりはオフになります。</string>
+    <string name="power_download_page_turning_replaces_volume">音量ボタンでのページめくりをオンにすると、音量ボタンでのダウンロードはオフになります。</string>
+    <string name="power_download_already_downloading">すでにダウンロードリストにあります</string>
+    <string name="power_download_already_downloaded">ダウンロード済みです</string>
 </resources>

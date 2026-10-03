@@ -14,6 +14,7 @@ import com.hippo.preference.EditTextDialogPreference;
 
 import com.hippo.ehviewer.R;
 import com.hippo.ehviewer.Settings;
+import com.hippo.ehviewer.download.PowerDownloadSettings;
 import com.hippo.ehviewer.smb.SmbBenchmark;
 import com.hippo.ehviewer.storage.NetworkStorage;
 import com.hippo.lib.yorozuya.SimpleHandler;
@@ -31,8 +32,6 @@ public class NetworkStorageSettingsFragment extends BasePreferenceFragmentCompat
     @Nullable
     private SmbConnectionPreference mConnection;
     @Nullable
-    private TwoStatePreference mAutoDownloadSwitch;
-    @Nullable
     private EditTextDialogPreference mDeviceName;
     private Preference mBenchmark;
     private Preference mAutoTune;
@@ -49,7 +48,6 @@ public class NetworkStorageSettingsFragment extends BasePreferenceFragmentCompat
         mMasterSwitch = findPreference(Settings.KEY_NETWORK_STORAGE_ENABLED);
         mProtocol = findPreference(Settings.KEY_STORAGE_PROTOCOL);
         mConnection = findPreference("smb_connection");
-        mAutoDownloadSwitch = findPreference(Settings.KEY_SMB_AUTO_DOWNLOAD_ENABLED);
         mDeviceName = findPreference(Settings.KEY_SMB_DEVICE_NAME);
         mBenchmark = findPreference("smb_benchmark");
         mAutoTune = findPreference("smb_auto_tune");
@@ -74,9 +72,6 @@ public class NetworkStorageSettingsFragment extends BasePreferenceFragmentCompat
             mProtocol.setOnPreferenceChangeListener(this);
         }
         applyProtocol(Settings.getStorageProtocol());
-        if (mAutoDownloadSwitch != null) {
-            mAutoDownloadSwitch.setOnPreferenceChangeListener(this);
-        }
         if (mDeviceName != null) {
             cacheHint(mDeviceName, null);
             mDeviceName.setOnPreferenceChangeListener(this);
@@ -123,11 +118,10 @@ public class NetworkStorageSettingsFragment extends BasePreferenceFragmentCompat
         }
         if (preference == mMasterSwitch) {
             boolean enabled = Boolean.TRUE.equals(newValue);
-            // When the master switch turns off, also force auto-download off (writing to
-            // SharedPreferences directly so the saved state survives a restart) and grey
-            // out the dependent UI immediately.
-            if (!enabled && mAutoDownloadSwitch != null && mAutoDownloadSwitch.isChecked()) {
-                mAutoDownloadSwitch.setChecked(false);
+            // When the master switch turns off, every Power Download rule aimed at network
+            // storage goes off with it (#159), and the dependent UI greys out immediately.
+            if (!enabled) {
+                PowerDownloadSettings.turnOffNetworkStorageRules();
             }
             applyMasterState(enabled);
             // Take effect now rather than the next time some screen happens to ask. Turning this
@@ -145,9 +139,6 @@ public class NetworkStorageSettingsFragment extends BasePreferenceFragmentCompat
         }
         if (preference == mProtocol) {
             applyProtocol(value);
-            return true;
-        }
-        if (preference == mAutoDownloadSwitch) {
             return true;
         }
         if (preference == mDeviceName) {
@@ -176,7 +167,6 @@ public class NetworkStorageSettingsFragment extends BasePreferenceFragmentCompat
     private void applyMasterState(boolean enabled) {
         if (mProtocol != null) mProtocol.setEnabled(enabled);
         if (mConnection != null) mConnection.setEnabled(enabled);
-        if (mAutoDownloadSwitch != null) mAutoDownloadSwitch.setEnabled(enabled);
         if (mDeviceName != null) mDeviceName.setEnabled(enabled);
         if (mBenchmark != null) mBenchmark.setEnabled(enabled);
         if (mAutoTune != null) mAutoTune.setEnabled(enabled);

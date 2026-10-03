@@ -48,6 +48,7 @@
     <string name="smb_save_started">已开始保存到 %1$s：%2$s</string>
     <string name="smb_save_already_complete">已保存到 %1$s，跳过</string>
     <string name="smb_save_claimed_elsewhere">另一台设备正在把这本下载到 %1$s 共享</string>
+    <string name="smb_save_already_running">已在保存到 %1$s</string>
     <string name="smb_task_action_cancel">取消下载</string>
     <string name="smb_task_cancel_message">把《%1$s》移出队列?已经保存到共享的页面会一并删除。</string>
     <string name="smb_task_owner_offline">设备离线</string>
@@ -65,8 +66,6 @@
     <string name="download_move_to_smb">移动到 %1$s 共享</string>
     <string name="download_moving_to_smb">正在复制到 %1$s 共享…</string>
     <string name="download_move_to_smb_local_kept">本地导入的项目不会复制到 %1$s 共享</string>
-    <string name="settings_smb_enable_auto_download">自动下载到网络存储</string>
-    <string name="settings_smb_enable_auto_download_summary">开启后，打开画廊的第一页会自动在后台排队下载到网络存储。关闭时，按下载按钮会每次询问。</string>
     <string name="settings_smb_device_name">本机名称</string>
     <string name="settings_smb_device_name_summary">你的其它设备会在这台正在下载的画廊旁看到这个名字。默认使用机型名。</string>
     <string name="settings_smb_disable_signing">禁用 SMB 签名</string>
@@ -123,4 +122,24 @@
     <string name="smb_error_share_not_found">主机上没有这个共享</string>
     <string name="smb_error_access_denied">主机拒绝了访问</string>
     <string name="notifications_disabled_hint">通知已关闭,下载将在后台静默进行</string>
+
+    <!-- Power Download (#159) -->
+    <string name="settings_power_download">增强式下载行为</string>
+    <string name="power_download_pages">读满 N 页时下载</string>
+    <string name="power_download_pages_summary">按本次阅读看过的不同页数计</string>
+    <string name="power_download_pages_count">页数 N</string>
+    <string name="power_download_target">下载位置</string>
+    <string name="power_download_target_none">不使用</string>
+    <string name="power_download_first_page">读到第一页时下载</string>
+    <string name="power_download_last_page">读到最后一页时下载</string>
+    <string name="power_download_menu">长按菜单下载</string>
+    <string name="power_download_menu_summary">在长按页面弹出的菜单里加入下载选项</string>
+    <string name="power_download_volume">音量键下载</string>
+    <string name="power_download_volume_summary">开启后音量键不再翻页</string>
+    <string name="power_download_volume_up">音量上键</string>
+    <string name="power_download_volume_down">音量下键</string>
+    <string name="power_download_volume_replaces_page_turning">开启音量键下载会关闭音量键翻页。</string>
+    <string name="power_download_page_turning_replaces_volume">开启音量键翻页会关闭音量键下载。</string>
+    <string name="power_download_already_downloading">已在下载列表中</string>
+    <string name="power_download_already_downloaded">已下载</string>
 </resources>

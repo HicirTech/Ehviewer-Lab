@@ -83,7 +83,7 @@ public final class SmbDownloadBoard {
     }
 
     /** The gate every SMB surface shares: master switch on and a share configured. */
-    static boolean smbAvailable() {
+    public static boolean smbAvailable() {
         return Settings.getNetworkStorageEnabled() && NetworkStorage.active().isConfigured();
     }
 
