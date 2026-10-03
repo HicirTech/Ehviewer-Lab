@@ -17,10 +17,7 @@
 package com.hippo.ehviewer.ui;
 
 import android.app.Activity;
-import android.content.Context;
 import android.content.Intent;
-
-import androidx.annotation.NonNull;
 
 import com.hippo.app.ListCheckBoxDialogBuilder;
 import com.hippo.ehviewer.EhApplication;
@@ -231,27 +228,6 @@ public final class CommonOperations {
                     .setTitle(R.string.download)
                     .show();
         }
-    }
-
-    /** Without the label dialog: the remembered label while it still exists, otherwise none. */
-    public static void startDownloadWithoutAsking(@NonNull Context context, @NonNull GalleryInfo galleryInfo) {
-        final DownloadManager dm = EhApplication.getDownloadManager(context);
-        Intent intent = new Intent(context, DownloadService.class);
-        if (dm.containDownloadInfo(galleryInfo.gid)) {
-            LongList toStart = new LongList();
-            toStart.add(galleryInfo.gid);
-            intent.setAction(DownloadService.ACTION_START_RANGE);
-            intent.putExtra(DownloadService.KEY_GID_LIST, toStart);
-        } else {
-            String label = Settings.getHasDefaultDownloadLabel() ? Settings.getDefaultDownloadLabel() : null;
-            if (label != null && !dm.containLabel(label)) {
-                label = null;
-            }
-            intent.setAction(DownloadService.ACTION_START);
-            intent.putExtra(DownloadService.KEY_LABEL, label);
-            intent.putExtra(DownloadService.KEY_GALLERY_INFO, galleryInfo);
-        }
-        context.startService(intent);
     }
 
     public static void ensureNoMediaFile(UniFile file) {
