@@ -7,6 +7,9 @@
 
 package com.hippo.ehviewer.smb;
 
+import android.os.Looper;
+import android.util.Log;
+
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
@@ -20,6 +23,8 @@ import java.io.InputStream;
 import java.io.OutputStream;
 
 public final class SmbSpiderStorage implements GallerySpiderStorage {
+
+    private static final String TAG = "SmbSpiderStorage";
 
     @NonNull
     private final GalleryInfo info;
@@ -47,6 +52,11 @@ public final class SmbSpiderStorage implements GallerySpiderStorage {
     @Nullable
     @Override
     public InputStream openSpiderInfoInputStream() {
+        // jcifs on the main thread dies mid-request and poisons the shared transport.
+        if (Looper.getMainLooper().getThread() == Thread.currentThread()) {
+            Log.w(TAG, "skip spider-info read on main thread gid=" + info.gid);
+            return null;
+        }
         return SmbGalleryFiles.openSpiderInfoInputStream(info);
     }
 

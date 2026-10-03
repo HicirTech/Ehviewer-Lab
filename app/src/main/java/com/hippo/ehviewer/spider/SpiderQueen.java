@@ -811,16 +811,17 @@ public final class SpiderQueen implements Runnable {
         }
 
         SpiderInfo fromDownload = null;
-        InputStream infoIs = mSpiderDen.openSpiderInfoInputStream(SPIDER_INFO_FILENAME);
-        if (infoIs != null) {
-            try {
-                SpiderInfo read = SpiderInfo.read(infoIs);
-                if (isValidSpiderInfo(read, mGalleryInfo)) {
-                    fromDownload = read;
-                }
-            } finally {
-                IOUtils.closeQuietly(infoIs);
+        UniFile downloadDir = mSpiderDen.getDownloadDir();
+        if (downloadDir != null) {
+            UniFile file = downloadDir.findFile(SPIDER_INFO_FILENAME);
+            SpiderInfo read = SpiderInfo.read(file);
+            if (isValidSpiderInfo(read, mGalleryInfo)) {
+                fromDownload = read;
             }
+        }
+        SpiderInfo fromShare = RemoteSpiderInfo.read(mGalleryInfo);
+        if (isValidSpiderInfo(fromShare, mGalleryInfo)) {
+            fromDownload = fromShare;
         }
 
         SpiderInfo fromCache = readSpiderInfoFromCache(mGalleryInfo.gid);
@@ -945,18 +946,19 @@ public final class SpiderQueen implements Runnable {
     }
 
     private synchronized void writeSpiderInfoToLocal(@NonNull SpiderInfo spiderInfo) {
-        // Progress goes to the share or an existing download folder; never creates a local one.
-        OutputStream infoOs = mSpiderDen.openSpiderInfoOutputStream(SPIDER_INFO_FILENAME);
-        if (infoOs != null) {
+        // Sync reading progress into an existing download folder; does not create one.
+        UniFile downloadDir = mSpiderDen.getDownloadDir();
+        if (downloadDir != null) {
+            UniFile file = downloadDir.createFile(SPIDER_INFO_FILENAME);
             try {
-                spiderInfo.write(infoOs);
+                spiderInfo.write(file.openOutputStream());
             } catch (Throwable e) {
                 ExceptionUtils.throwIfFatal(e);
                 // Ignore
-            } finally {
-                IOUtils.closeQuietly(infoOs);
             }
         }
+
+        RemoteSpiderInfo.write(mGalleryInfo, spiderInfo);
 
         // Write to cache
         OutputStreamPipe pipe = mSpiderInfoCache.getOutputStreamPipe(Long.toString(mGalleryInfo.gid));

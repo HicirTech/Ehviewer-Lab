@@ -45,7 +45,6 @@ import com.hippo.lib.yorozuya.Utilities;
 
 import java.io.File;
 import java.io.IOException;
-import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.Locale;
 
@@ -60,6 +59,7 @@ public final class SpiderDen {
 
 
     private long mGid;
+    private final RemotePageBridge mRemoteBridge;
 
     @Nullable
     static SimpleDiskCache sCache;
@@ -158,6 +158,7 @@ public final class SpiderDen {
     public SpiderDen(GalleryInfo galleryInfo) {
         mGalleryInfo = galleryInfo;
         mGid = galleryInfo.gid;
+        mRemoteBridge = new RemotePageBridge(galleryInfo, mGid);
     }
 
     /**
@@ -250,57 +251,10 @@ public final class SpiderDen {
         }
     }
 
-    /** The remote backend for this gallery, or null = phone storage. The one selection point. */
+    /** The remote backend for this gallery, or null for phone storage. */
     @Nullable
     private GallerySpiderStorage remoteStorage() {
         return NetworkStorage.active().spiderStorage(mGalleryInfo, mGid);
-    }
-
-    @Nullable
-    public OutputStream openSpiderInfoOutputStream(String filename) {
-        GallerySpiderStorage remote = remoteStorage();
-        if (remote != null) {
-            return remote.openSpiderInfoOutputStream();
-        }
-        UniFile dir = getDownloadDir();
-        if (dir == null) {
-            return null;
-        }
-        UniFile file = dir.createFile(filename);
-        if (file == null) {
-            return null;
-        }
-        try {
-            return file.openOutputStream();
-        } catch (IOException e) {
-            return null;
-        }
-    }
-
-    @Nullable
-    public InputStream openSpiderInfoInputStream(String filename) {
-        GallerySpiderStorage remote = remoteStorage();
-        if (remote != null) {
-            // jcifs on the main thread dies mid-request and poisons the shared transport.
-            if (Looper.getMainLooper().getThread() == Thread.currentThread()) {
-                android.util.Log.w("SpiderDen", "skip remote spider-info read on main thread gid=" + mGid);
-                return null;
-            }
-            return remote.openSpiderInfoInputStream();
-        }
-        UniFile dir = getDownloadDir();
-        if (dir == null) {
-            return null;
-        }
-        UniFile file = dir.findFile(filename);
-        if (file == null) {
-            return null;
-        }
-        try {
-            return file.openInputStream();
-        } catch (IOException e) {
-            return null;
-        }
     }
 
     @Nullable
@@ -376,6 +330,11 @@ public final class SpiderDen {
     }
 
     private boolean copyFromCacheToDownloadDir(int index) {
+        GallerySpiderStorage remote = remoteStorage();
+        if (remote != null) {
+            return RemotePageBridge.copyFromCacheToRemote(mGalleryInfo, index)
+                    || mRemoteBridge.copyFromPhone(index, remote);
+        }
         if (sCache == null) {
             return false;
         }
@@ -424,33 +383,11 @@ public final class SpiderDen {
         }
     }
 
-    /** Lazily built; a benign race at worst builds it twice with the same answer. */
-    @Nullable
-    private RemotePageBridge mRemoteBridge;
-
-    @NonNull
-    private RemotePageBridge remoteBridge() {
-        RemotePageBridge bridge = mRemoteBridge;
-        if (bridge == null) {
-            bridge = new RemotePageBridge(mGalleryInfo, mGid);
-            mRemoteBridge = bridge;
-        }
-        return bridge;
-    }
-
     public boolean contain(int index) {
         if (mMode == SpiderQueen.MODE_READ) {
             return containInCache(index) || containInDownloadDir(index);
         } else if (mMode == SpiderQueen.MODE_DOWNLOAD) {
-            if (containInDownloadDir(index)) {
-                return true;
-            }
-            GallerySpiderStorage remote = remoteStorage();
-            if (remote != null) {
-                return RemotePageBridge.copyFromCacheToRemote(mGalleryInfo, index)
-                        || remoteBridge().copyFromPhone(index, remote);
-            }
-            return copyFromCacheToDownloadDir(index);
+            return containInDownloadDir(index) || copyFromCacheToDownloadDir(index);
         } else {
             return false;
         }

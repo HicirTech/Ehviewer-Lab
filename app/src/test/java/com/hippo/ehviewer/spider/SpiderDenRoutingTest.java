@@ -335,10 +335,17 @@ public class SpiderDenRoutingTest {
 
     @Test
     public void spiderInfo_routesThroughTheBackendWhenPresent() {
-        SpiderDen den = den(SpiderQueen.MODE_DOWNLOAD);
+        SpiderInfo spiderInfo = new SpiderInfo();
+        spiderInfo.gid = GID;
+        spiderInfo.token = info.token;
+        spiderInfo.pages = 1;
+        spiderInfo.pTokenMap = new android.util.SparseArray<>();
 
-        assertNotNull(den.openSpiderInfoOutputStream(".ehviewer"));
-        assertTrue(ShadowSmbSpiderStorage.calls.contains("openSpiderInfoOutputStream"));
+        RemoteSpiderInfo.write(info, spiderInfo);
+        RemoteSpiderInfo.read(info);
+
+        assertEquals("[openSpiderInfoOutputStream, openSpiderInfoInputStream]",
+                ShadowSmbSpiderStorage.calls.toString());
     }
 
     @Test
