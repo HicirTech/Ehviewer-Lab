@@ -10,8 +10,6 @@ import com.hippo.ehviewer.storage.DownloadState;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
-import androidx.annotation.NonNull;
-
 import com.hippo.ehviewer.Settings;
 import com.hippo.ehviewer.smb.SmbDownloadBoard;
 import com.hippo.ehviewer.smb.SmbTaskInfo;

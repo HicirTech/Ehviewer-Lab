@@ -16,7 +16,6 @@ import androidx.annotation.Nullable;
 import com.hippo.ehviewer.storage.GalleryRef;
 import java.io.InputStream;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.Future;
 import java.util.concurrent.ThreadPoolExecutor;

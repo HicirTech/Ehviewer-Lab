@@ -9,8 +9,6 @@ package com.hippo.ehviewer.ui.scene.localinventory;
 import com.hippo.ehviewer.storage.GalleryRef;
 import com.hippo.ehviewer.storage.SortMode;
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertTrue;
 
 import com.hippo.ehviewer.client.data.GalleryInfo;
 import com.hippo.ehviewer.smb.SmbCoverPrefetch;

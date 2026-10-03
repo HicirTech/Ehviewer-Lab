@@ -7,7 +7,6 @@ import com.hippo.conaco.ProgressNotifier;
 import com.hippo.ehviewer.storage.NetworkStorage;
 import com.hippo.streampipe.InputStreamPipe;
 
-import java.io.IOException;
 import java.io.InputStream;
 
 /** Holds gid and title only: a GalleryInfo back-reference cycles when parcelled. */

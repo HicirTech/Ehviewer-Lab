@@ -15,7 +15,6 @@ import jcifs.config.PropertyConfiguration;
 import jcifs.context.BaseContext;
 import jcifs.context.SingletonContext;
 import jcifs.smb.NtlmPasswordAuthenticator;
-import jcifs.smb.SmbFile;
 
 public final class SmbConnection {
 
