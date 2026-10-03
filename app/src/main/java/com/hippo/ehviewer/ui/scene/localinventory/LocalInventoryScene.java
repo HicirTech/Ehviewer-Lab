@@ -16,6 +16,7 @@ import android.graphics.drawable.ColorDrawable;
 import android.os.Bundle;
 import android.view.Gravity;
 import android.view.LayoutInflater;
+import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.TextView;
@@ -28,6 +29,7 @@ import androidx.recyclerview.widget.RecyclerView;
 import androidx.recyclerview.widget.StaggeredGridLayoutManager;
 
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
+import com.google.android.material.navigation.NavigationView;
 import com.hippo.android.resource.AttrResources;
 import com.hippo.drawerlayout.DrawerLayout;
 import com.hippo.easyrecyclerview.EasyRecyclerView;
@@ -164,6 +166,17 @@ public class LocalInventoryScene extends ToolbarScene
     private Map<Long, InventoryBadges.Mark> mDownloadMarks = Collections.emptyMap();
 
     private static final Object PAYLOAD_BADGE = new Object();
+
+    /** Shown only while network storage is on, titled with the backend's name. */
+    public static void updateDrawerItem(@Nullable NavigationView navView) {
+        if (navView == null) {
+            return;
+        }
+        MenuItem item = navView.getMenu().findItem(R.id.nav_local_inventory);
+        item.setVisible(NetworkStorageSettings.isEnabled());
+        item.setTitle(navView.getContext().getString(
+                R.string.local_inventory, NetworkStorage.active().displayName()));
+    }
 
     @Override
     public int getNavCheckedItem() {
