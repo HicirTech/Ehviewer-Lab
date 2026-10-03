@@ -22,7 +22,6 @@ import org.robolectric.annotation.Config;
 public class PowerDownloadSessionTest {
 
     private static final int SIZE = 20;
-    /** What a reader reports while the page count is still being fetched. */
     private static final int SIZE_UNKNOWN = -1;
 
     private static final Set<PowerDownloadTarget> NOTHING = EnumSet.noneOf(PowerDownloadTarget.class);
@@ -56,7 +55,7 @@ public class PowerDownloadSessionTest {
         }
     }
 
-    /** The default N is 2, and counting starts wherever the reader opens. */
+    /** The default N is 2. */
     @Test
     public void pagesRule_countsDifferentPagesFromWhereverReadingStarts() {
         Settings.putBoolean(PowerDownloadSettings.KEY_PAGES_ENABLED, true);
@@ -127,7 +126,6 @@ public class PowerDownloadSessionTest {
         assertEquals(NOTHING, session.onPageShown(-1, SIZE));
     }
 
-    /** A rotation recreates the reader; the reading goes on. */
     @Test
     public void aRotationKeepsWhatWasSeenAndWhatWasAskedFor() {
         pagesRule(3, PowerDownloadTarget.PHONE);

@@ -29,7 +29,7 @@ import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.nio.file.Files;
 
-/** What makes the cover prefetch acceptable in an architecture whose only durable store is the share: <b>bytes live in memory, and the one disk file invo */
+/** The cover prefetch: bytes live in memory, and the one disk file involved dies with its pipe. */
 @RunWith(RobolectricTestRunner.class)
 @Config(application = android.app.Application.class)
 public class SmbCoverPrefetchTest {
@@ -120,9 +120,6 @@ public class SmbCoverPrefetchTest {
         }
     }
 
-    // --- the disk boundary -------------------------------------------------------------------
-
-    /** The property this class exists to hold: serving a cover writes one shim, the decode reads it, and by the time the pipe is closed the disk is exactly a */
     @Test
     public void theDecodeShimDoesNotOutliveTheDecode() throws Exception {
         put(1L, new byte[]{1, 2, 3});
@@ -136,13 +133,10 @@ public class SmbCoverPrefetchTest {
                 shimDir.listFiles() == null ? 0 : shimDir.listFiles().length);
     }
 
-    /** The bytes come from memory; an unknown gid means "go ask the share", not an error. */
     @Test
     public void anUnbufferedGidYieldsNoPipe() {
         assertNull(SmbCoverPrefetch.pipeFor(999L));
     }
-
-    // --- eviction ----------------------------------------------------------------------------
 
     @Test
     public void evictForgetsExactlyItsOwnGallery() throws Exception {
@@ -156,7 +150,6 @@ public class SmbCoverPrefetchTest {
                 SmbCoverPrefetch.pipeFor(1001L));
     }
 
-    /** The buffer is bounded; past the cap the least recently touched entries fall out. */
     @Test
     public void theBufferDropsTheColdestPastItsCap() throws Exception {
         byte[] threeMb = new byte[3 * 1024 * 1024];
@@ -172,9 +165,6 @@ public class SmbCoverPrefetchTest {
         assertNotNull(SmbCoverPrefetch.pipeFor(3L));
     }
 
-    // --- the hl.8 leftovers ------------------------------------------------------------------
-
-    /** hl.8 shipped covers as named files under cache/smb_cover. */
     @Test
     public void theLegacyNamedFileCacheIsSweptAway() throws Exception {
         File stale = new File(legacyDir, "123");
@@ -182,9 +172,7 @@ public class SmbCoverPrefetchTest {
             os.write("cover bytes from hl.8".getBytes());
         }
 
-        // Invoked directly rather than through prefetch(): the public entry point consults
-        // Settings, which does not exist under this Robolectric config, and this test is about
-        // the sweep, not about configuration gating.
+        // Not through prefetch(): it consults Settings, which this Robolectric config never sets up.
         Method m = SmbCoverPrefetch.class.getDeclaredMethod("sweepLegacyOnce");
         m.setAccessible(true);
         m.invoke(null);

@@ -43,7 +43,6 @@ public class SmbConnectionTest {
         resetBaseContextCache();
     }
 
-    /** The cache is static and the suite shares one JVM; every test starts from a cold one. */
     private static void resetBaseContextCache() throws Exception {
         Field ctx = SmbConnection.class.getDeclaredField("sBase");
         ctx.setAccessible(true);
@@ -60,28 +59,21 @@ public class SmbConnectionTest {
         assertFalse(SmbConnection.isConfigured());
     }
 
-    /** One base context per setting, not per call — the cache is what keeps jcifs' connection pool shared. */
     @Test
     public void theBaseContextIsOneInstanceWhileTheSettingHoldsStill() {
         Settings.putBoolean(Settings.KEY_SMB_SIGNING_DISABLED, true);
         assertSame(SmbConnection.buildContext(), SmbConnection.buildContext());
     }
 
-    /**
-     * Flipping the signing setting is the one thing that rebuilds the base context — the
-     * no-signing path needs its own PropertyConfiguration and its own pool.
-     */
     @Test
     public void flippingSigningRebuildsTheBaseContext() {
         CIFSContext before = SmbConnection.buildContext();
         Settings.putBoolean(Settings.KEY_SMB_SIGNING_DISABLED, true);
         CIFSContext after = SmbConnection.buildContext();
         assertNotSame(before, after);
-        // And it is itself cached until the setting moves again.
         assertSame(after, SmbConnection.buildContext());
     }
 
-    /** A username in settings must reach jcifs as NTLM credentials, verbatim. */
     @Test
     public void credentialsComeFromSettings() {
         Settings.putString(Settings.KEY_SMB_USERNAME, "panda");
@@ -93,7 +85,6 @@ public class SmbConnectionTest {
         assertEquals("bamboo", credentials.getPassword());
     }
 
-    /** The URL the whole layer builds on is exactly the four settings through SmbPaths — the normalized accessors, not the raw strings, which is why the expe */
     @Test
     public void theShareUrlIsComposedFromSettings() {
         assertEquals(

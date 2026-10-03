@@ -15,18 +15,13 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
-/** The two things SmbConcurrency has to get right, neither of which is obvious from reading it: a stored value that cannot be trusted, and a pool resize */
+/** What SmbConcurrency must get right: an untrusted stored value, and a pool resize. */
 public class SmbConcurrencyTest {
 
     private static ThreadPoolExecutor pool(int size) {
         return new ThreadPoolExecutor(size, size, 10L, TimeUnit.SECONDS,
                 new LinkedBlockingQueue<>());
     }
-
-    // --- clamp ----------------------------------------------------------------------------
-    //
-    // The value comes out of a preference a user edits. Zero would mean a pool that runs nothing,
-    // and the share read would simply never return — a hang is a worse answer than a default.
 
     @Test
     public void clamp_keepsAnythingInRange() {
@@ -47,16 +42,10 @@ public class SmbConcurrencyTest {
         assertEquals(6, SmbConcurrency.clamp(10_000, 6));
     }
 
-    /** One is a real answer — "do not overlap anything" — and must survive. */
     @Test
     public void clamp_keepsOne() {
         assertEquals(1, SmbConcurrency.clamp(1, 6));
     }
-
-    // --- resize ---------------------------------------------------------------------------
-    //
-    // ThreadPoolExecutor throws if core is ever set above maximum, so growing and shrinking need
-    // the two calls in opposite orders. Doing it one way for both is the bug these guard.
 
     @Test
     public void resize_growsWithoutThrowing() {
@@ -78,7 +67,6 @@ public class SmbConcurrencyTest {
         assertEquals(2, p.getMaximumPoolSize());
     }
 
-    /** Back and forth, because a resize that only works once is a resize that works by accident. */
     @Test
     public void resize_survivesRepeatedChangesInBothDirections() {
         ThreadPoolExecutor p = pool(6);

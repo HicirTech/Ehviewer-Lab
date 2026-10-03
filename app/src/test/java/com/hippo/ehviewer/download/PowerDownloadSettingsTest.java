@@ -29,8 +29,6 @@ public class PowerDownloadSettingsTest {
         Settings.initialize(context);
     }
 
-    // --- network storage switched off -------------------------------------------------------
-
     @Test
     public void storageOff_turnsOffEveryRuleAimedAtIt_andOnlyThose() {
         Settings.putBoolean(PowerDownloadSettings.KEY_PAGES_ENABLED, true);
@@ -88,8 +86,6 @@ public class PowerDownloadSettingsTest {
                 PowerDownloadSettings.isVolumeEnabled());
     }
 
-    // --- the old "auto download to network storage" switch -------------------------------------
-
     @Test
     public void theOldSwitchOn_becomesTheFirstPageRuleToTheShare() {
         Settings.putBoolean(Settings.KEY_NETWORK_STORAGE_ENABLED, true);
@@ -115,7 +111,6 @@ public class PowerDownloadSettingsTest {
         assertFalse(legacyKeyStored());
     }
 
-    /** An old install could hold the switch on with storage off; the rule must not appear on. */
     @Test
     public void theOldSwitchOnWithStorageOff_isNotCarriedOver() {
         Settings.putBoolean(Settings.KEY_NETWORK_STORAGE_ENABLED, false);
@@ -131,8 +126,6 @@ public class PowerDownloadSettingsTest {
         return PreferenceManager.getDefaultSharedPreferences(context)
                 .contains(Settings.KEY_SMB_AUTO_DOWNLOAD_ENABLED);
     }
-
-    // --- stored values ------------------------------------------------------------------------
 
     @Test
     public void aPagesCountBelowOneReadsAsOne_andGarbageAsTheDefault() {

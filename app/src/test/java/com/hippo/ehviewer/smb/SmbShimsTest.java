@@ -62,7 +62,6 @@ public class SmbShimsTest {
         }
     }
 
-    /** A killed process leaves its shims behind; the next process's first use removes them. */
     @Test
     public void firstUseSweepsTheLeftovers() throws Exception {
         touch("smb_img_123.tmp");
@@ -74,7 +73,6 @@ public class SmbShimsTest {
         assertFalse(new File(dir, "smb_preview_456.tmp").exists());
     }
 
-    /** Once per process only — a live shim created after the sweep must survive later calls. */
     @Test
     public void theSweepDoesNotEatLiveShims() throws Exception {
         SmbShims.dir();

@@ -16,10 +16,6 @@ public class SmbDownloadStateStoreTest {
         assertTrue(SmbDownloadStateStore.isAlive(NOW - 1_000L, NOW));
     }
 
-    /**
-     * Several missed beats, not one. A heartbeat every 20 seconds against a 90 second window means
-     * a congested share or a moment of bad WiFi does not hand somebody's download away.
-     */
     @Test
     public void aFileUntouchedPastTheWindowIsNot() {
         assertTrue(SmbDownloadStateStore.isAlive(
@@ -28,14 +24,12 @@ public class SmbDownloadStateStoreTest {
                 NOW - DownloadState.STALE_AFTER_MS, NOW));
     }
 
-    /** A timestamp ahead of this device's clock means the two disagree about the time, not that the file is impossibly old. */
     @Test
     public void aFileDatedInTheFutureIsAlive() {
         assertTrue(SmbDownloadStateStore.isAlive(NOW + 10 * DownloadState.STALE_AFTER_MS,
                 NOW));
     }
 
-    /** No usable timestamp: treating it as alive would make the task permanently unreclaimable. */
     @Test
     public void aFileWithNoTimestampIsNotAlive() {
         assertFalse(SmbDownloadStateStore.isAlive(0L, NOW));

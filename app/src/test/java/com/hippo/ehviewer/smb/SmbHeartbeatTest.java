@@ -25,16 +25,11 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
-/**
- * The beat writer (#144): the schedule follows shouldBeat, only a landed publish counts as
- * being in touch, and silence past the staleness window triggers the re-read. The fixed delay
- * itself is 20s, so the beat body is driven directly (reflection, not a visibility change).
- */
+/** The beat writer (#144); beat() is driven directly, as its fixed delay is 20s. */
 @RunWith(RobolectricTestRunner.class)
 @Config(application = android.app.Application.class)
 public class SmbHeartbeatTest {
 
-    /** A shell whose answers the test scripts. */
     private static final class ScriptedShell implements SmbHeartbeat.Shell {
         volatile boolean beatWanted;
         volatile boolean publishLands = true;
@@ -93,7 +88,6 @@ public class SmbHeartbeatTest {
         assertNull("work done, the beat must stop", beatingOf(hb));
     }
 
-    /** A publish that failed to land must not count as having been in touch with the share. */
     @Test
     public void onlyALandedPublishCounts() throws Exception {
         ScriptedShell shell = new ScriptedShell();
@@ -111,7 +105,6 @@ public class SmbHeartbeatTest {
         assertEquals(1, shell.publishes.get());
     }
 
-    /** Silent past the staleness window: others may have adopted the queue — go and look. */
     @Test
     public void returningFromSilenceRereadsTheQueue() throws Exception {
         ScriptedShell shell = new ScriptedShell();
@@ -134,7 +127,6 @@ public class SmbHeartbeatTest {
         assertEquals(0, shell.backFromSilence.get());
     }
 
-    /** Before the first successful publish there is no silence to return from. */
     @Test
     public void theFirstBeatIsNeverAReturn() throws Exception {
         ScriptedShell shell = new ScriptedShell();

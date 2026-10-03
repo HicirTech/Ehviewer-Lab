@@ -22,7 +22,7 @@ import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.nio.file.Files;
 
-/** The #129 shape: preview bytes live in a bounded memory buffer, and the one disk file involved is an anonymous shim that dies with its pipe. */
+/** Preview bytes live in a bounded memory buffer; the disk shim dies with its pipe (#129). */
 @RunWith(RobolectricTestRunner.class)
 @Config(application = android.app.Application.class)
 public class SmbPreviewCacheTest {
@@ -109,9 +109,6 @@ public class SmbPreviewCacheTest {
         }
     }
 
-    // --- the disk boundary -------------------------------------------------------------------
-
-    /** Serving a preview writes one shim, the decode reads it, and after close the disk is clean. */
     @Test
     public void theDecodeShimDoesNotOutliveTheDecode() throws Exception {
         put(1L, 0, new byte[]{1, 2, 3});
@@ -125,13 +122,11 @@ public class SmbPreviewCacheTest {
                 shimDir.listFiles() == null ? 0 : shimDir.listFiles().length);
     }
 
-    /** The bytes come from memory; an unbuffered page means "go ask the share", not an error. */
     @Test
     public void anUnbufferedPageYieldsNoPipe() {
         assertNull(SmbPreviewCache.pipeFor(999L, 0));
     }
 
-    /** Pages are individual entries — index 0 buffered says nothing about index 1. */
     @Test
     public void pagesAreBufferedPerIndex() throws Exception {
         put(1L, 0, new byte[]{1});
@@ -139,8 +134,6 @@ public class SmbPreviewCacheTest {
         assertNotNull(SmbPreviewCache.pipeFor(1L, 0));
         assertNull(SmbPreviewCache.pipeFor(1L, 1));
     }
-
-    // --- eviction ----------------------------------------------------------------------------
 
     @Test
     public void evictForgetsExactlyItsOwnGallery() throws Exception {
@@ -159,7 +152,6 @@ public class SmbPreviewCacheTest {
                 SmbPreviewCache.pipeFor(10L, 0));
     }
 
-    /** The buffer is bounded; past the cap the least recently touched pages fall out. */
     @Test
     public void theBufferDropsTheColdestPastItsCap() throws Exception {
         byte[] sixMb = new byte[6 * 1024 * 1024];
@@ -175,9 +167,6 @@ public class SmbPreviewCacheTest {
         assertNotNull(SmbPreviewCache.pipeFor(1L, 2));
     }
 
-    // --- the named-file leftovers ------------------------------------------------------------
-
-    /** Earlier builds shipped previews as named files under cache/smb_preview. */
     @Test
     public void theLegacyNamedFileCacheIsSweptAway() throws Exception {
         File stale = new File(legacyDir, "123-0");
@@ -185,8 +174,7 @@ public class SmbPreviewCacheTest {
             os.write("preview bytes from the old build".getBytes());
         }
 
-        // Invoked directly rather than through prefetchGallery(): the public entry point
-        // consults Settings, and this test is about the sweep, not configuration gating.
+        // Directly: prefetchGallery() would consult Settings first.
         Method m = SmbPreviewCache.class.getDeclaredMethod("sweepLegacyOnce");
         m.setAccessible(true);
         m.invoke(null);

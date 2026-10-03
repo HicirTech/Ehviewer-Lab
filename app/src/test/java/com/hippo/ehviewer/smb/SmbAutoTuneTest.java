@@ -14,10 +14,7 @@ import org.junit.Test;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
-/**
- * The sweep itself needs a share; the choice it makes from the sweep does not, and the choice is
- * where the subtle mistakes live. Plain JUnit over {@link SmbAutoTune#pickBest}.
- */
+/** How {@link SmbAutoTune#pickBest} picks a level from a sweep's timings. */
 public class SmbAutoTuneTest {
 
     private static Map<Integer, Long> times(Object... kv) {
@@ -34,42 +31,35 @@ public class SmbAutoTuneTest {
                 1, 6095, 2, 3780, 4, 2113, 6, 1402, 8, 1051, 16, 484)));
     }
 
-    /** The tie-break, and the reason it exists: run-to-run noise is bigger than a few percent, and of two levels that close, the one holding fewer sockets op */
     @Test
     public void aLowerLevelWithinTheMarginBeatsTheNominalWinner() {
         assertEquals(6, SmbAutoTune.pickBest(times(1, 612, 2, 409, 4, 245, 6, 166, 8, 160)));
     }
 
-    /** The margin is inclusive: a level exactly on the boundary counts. */
     @Test
     public void aLevelExactlyOnTheMarginStillCounts() {
         assertEquals(4, SmbAutoTune.pickBest(times(4, 108, 8, 100)));
     }
 
-    /** But a genuinely faster higher level is not thrown away by the tie-break. */
     @Test
     public void theMarginDoesNotSwallowARealImprovement() {
         assertEquals(16, SmbAutoTune.pickBest(times(6, 1402, 8, 1051, 12, 720, 16, 484)));
     }
 
-    /** Serial can win. A share that dislikes concurrency should get concurrency of one. */
     @Test
     public void serialWinsWhenSerialIsFastest() {
         assertEquals(1, SmbAutoTune.pickBest(times(1, 100, 2, 150, 4, 300, 8, 700)));
     }
 
-    /** An empty sweep falls back to the default rather than crowning nothing. */
     @Test
     public void anEmptySweepYieldsTheDefault() {
         assertEquals(SmbConcurrency.DEFAULT_METADATA,
                 SmbAutoTune.pickBest(new LinkedHashMap<>()));
     }
 
-    /** Whatever wins must already be a value the clamp will accept back. */
     @Test
     public void theWinnerIsAlwaysWithinTheSettableRange() {
         assertEquals(64, SmbAutoTune.pickBest(times(48, 900, 64, 500)));
-        // A corrupt map with an out-of-range key must not leak through.
         assertEquals(SmbConcurrency.DEFAULT_METADATA,
                 SmbAutoTune.pickBest(times(999, 100L)));
     }

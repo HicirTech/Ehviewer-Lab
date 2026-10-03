@@ -15,10 +15,8 @@ public class SmbDeviceColorTest {
 
     private static final String ANDROID_ID = "a1b2c3d4e5f60718";
 
-    /** Stated here rather than read back from SmbDeviceColor, which used to expose a paletteSize() that existed for these two assertions and nothing else. */
     private static final int PALETTE_SIZE = 16;
 
-    /** The property everything else rests on. */
     @Test
     public void theSameIdAlwaysGivesTheSameColour() {
         int first = SmbDeviceColor.of(ANDROID_ID);
@@ -28,7 +26,6 @@ public class SmbDeviceColorTest {
         }
     }
 
-    /** A dot has to be drawn, so the colour has to be one — fully opaque, out of the known set. */
     @Test
     public void everyColourIsOpaqueAndFromThePalette() {
         Set<Integer> palette = new HashSet<>();
@@ -42,7 +39,6 @@ public class SmbDeviceColorTest {
                 palette.size() <= PALETTE_SIZE);
     }
 
-    /** Telling two devices apart is the entire job, so different ids must usually differ. */
     @Test
     public void differentIdsUsuallyGetDifferentColours() {
         int same = 0;
@@ -53,15 +49,10 @@ public class SmbDeviceColorTest {
             }
         }
 
-        // Two of sixteen slots collide about a sixteenth of the time; well under a fifth leaves
-        // room for the luck of these particular ids without letting a constant answer through.
+        // Chance collisions run near 1 in 16; under 1 in 5 still rejects a constant colour.
         assertTrue("colours collided " + same + " times in 500 pairs", same < 100);
     }
 
-    /**
-     * Ids differing in one character are the realistic case — Android ids are the same length and
-     * drawn from the same sixteen characters — and are the case a weak spread would clump.
-     */
     @Test
     public void neighbouringIdsAreNotAllTheSameColour() {
         Set<Integer> colours = new HashSet<>();
@@ -73,7 +64,6 @@ public class SmbDeviceColorTest {
                 colours.size() >= 5);
     }
 
-    /** Pins the spread as a stated property rather than a measured accident. */
     @Test
     public void everyColourInThePaletteIsReachable() {
         Set<Integer> seen = new HashSet<>();
@@ -85,7 +75,6 @@ public class SmbDeviceColorTest {
                 PALETTE_SIZE, seen.size());
     }
 
-    /** Renaming a device is a display change; it must not renumber anything. */
     @Test
     public void theColourFollowsTheIdAndNotTheName() {
         assertNotEquals("distinct ids are the premise",
@@ -93,7 +82,6 @@ public class SmbDeviceColorTest {
         assertEquals(SmbDeviceColor.of(ANDROID_ID), SmbDeviceColor.of(ANDROID_ID));
     }
 
-    /** Fixed seed: a distribution assertion that fails only on some runs is worse than none. */
     private static String[] randomIds(int count) {
         Random random = new Random(20260810L);
         String[] out = new String[count];

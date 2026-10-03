@@ -33,11 +33,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
-/**
- * A move puts the gallery on the share under its gid (#88). A local import -- an archive or an
- * album -- has a made-up gid, so it stays on the phone, and the user is told rather than left with
- * a move that silently did nothing.
- */
+/** A move skips local imports, whose gids are made up, and says so (#88). */
 @RunWith(RobolectricTestRunner.class)
 @Config(application = android.app.Application.class,
         shadows = {SmbDownloadsDelegateTest.ShadowSmbDirectDownloader.class},
@@ -48,7 +44,6 @@ public class SmbDownloadsDelegateTest {
             "content://com.android.externalstorage.documents/document/primary%3Aa.zip";
     private static final String ALBUM_URI = "local-album:content://tree/primary%3APictures";
 
-    /** One gid per startMove call that got through. */
     static final List<Long> moved = Collections.synchronizedList(new ArrayList<>());
 
     private Context context;

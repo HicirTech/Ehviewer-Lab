@@ -44,7 +44,6 @@ public class PowerDownloaderTest {
 
     private static final long GID = 2793140L;
 
-    /** The phone download list's answer for GID. */
     static int phoneState;
     static final List<Long> phoneStarts = new ArrayList<>();
     static final List<String> shareAsks = new ArrayList<>();
@@ -104,8 +103,6 @@ public class PowerDownloaderTest {
         shareAsks.clear();
     }
 
-    // --- to the phone -------------------------------------------------------------------------
-
     @Test
     public void phone_aNewGalleryStartsAndSaysSo() {
         PowerDownloader.download(context, gallery(), PowerDownloadTarget.PHONE, true);
@@ -140,7 +137,6 @@ public class PowerDownloaderTest {
         assertTrue(phoneStarts.isEmpty());
     }
 
-    /** The download list would restart it, re-running its spider, and say "added" again. */
     @Test
     public void phone_aFinishedDownloadIsNotRunAgain() {
         phoneState = DownloadInfo.STATE_FINISH;
@@ -154,8 +150,6 @@ public class PowerDownloaderTest {
         assertTrue(phoneStarts.isEmpty());
     }
 
-    // --- to network storage, and nowhere ------------------------------------------------------
-
     @Test
     public void share_aRuleAsksQuietlyAndATapAsksOutLoud() {
         PowerDownloader.download(context, gallery(), PowerDownloadTarget.NETWORK_STORAGE, true);
@@ -165,7 +159,6 @@ public class PowerDownloaderTest {
         assertTrue(phoneStarts.isEmpty());
     }
 
-    /** A local album opens in the reader like a gallery, but it already is the only copy. */
     @Test
     public void aLocalImportGoesNowhere() {
         DownloadInfo album = new DownloadInfo();

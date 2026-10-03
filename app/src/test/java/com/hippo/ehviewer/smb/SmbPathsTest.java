@@ -18,7 +18,7 @@ import org.junit.runner.RunWith;
 import org.robolectric.RobolectricTestRunner;
 import org.robolectric.annotation.Config;
 
-/** Unit tests for the share-URL construction extracted into SmbPaths. */
+/** Unit tests for the share-URL construction in SmbPaths. */
 @RunWith(RobolectricTestRunner.class)
 @Config(application = android.app.Application.class)
 public class SmbPathsTest {
@@ -43,15 +43,12 @@ public class SmbPathsTest {
 
     @Test
     public void shareUrl_spaceInShareEncodedAsPercent20() {
-        // URLEncoder would emit "+" for a space; buildShareUrl converts it back to %20 so the
-        // result is a valid smb URL rather than form-encoded.
         assertEquals("smb://host/Public%20Documents/",
                 SmbPaths.buildShareUrl("host", "445", "Public Documents", "/"));
     }
 
     @Test
     public void shareUrl_reservedCharInShareEncoded() {
-        // '$' is reserved and must be percent-encoded (%24); it must not survive raw.
         assertEquals("smb://host/Family%24/",
                 SmbPaths.buildShareUrl("host", "445", "Family$", "/"));
     }
@@ -64,16 +61,9 @@ public class SmbPathsTest {
 
     @Test
     public void shareUrl_nullHostAndPathTreatedAsEmpty() {
-        // Pure helper must not NPE on nulls even though Settings never hands it any.
         assertEquals("smb:///media",
                 SmbPaths.buildShareUrl(null, null, "media", null));
     }
-
-    // --- buildGalleryRootUrl ------------------------------------------------------------------
-    //
-    // Galleries moved a level down, out of the configured share path, so that the per-client
-    // download state and the gallery index have somewhere to live that the gallery listing never
-    // enumerates. Everything reading or writing a gallery goes through this.
 
     @Test
     public void galleryRoot_appendsTheGalleryDirectory() {
@@ -81,10 +71,6 @@ public class SmbPathsTest {
                 SmbPaths.buildGalleryRootUrl("smb://host/media/ehviewer/"));
     }
 
-    /**
-     * buildShareUrl always ends in a slash today, but a caller that hands over one without would
-     * otherwise produce "…ehviewerdownload/" — a silently wrong path rather than a failure.
-     */
     @Test
     public void galleryRoot_insertsTheSeparatorWhenTheShareUrlLacksOne() {
         assertEquals("smb://host/media/download/",
@@ -98,19 +84,12 @@ public class SmbPathsTest {
                         SmbPaths.buildShareUrl("192.168.1.10", "445", "media", "/ehviewer/")));
     }
 
-    /** The share root itself stays reachable — it is what the connection test checks. */
     @Test
     public void galleryRoot_isBelowTheShareRootNotInsteadOfIt() {
         String share = SmbPaths.buildShareUrl("host", "445", "media", "/");
         assertEquals("smb://host/media/", share);
         assertTrue(SmbPaths.buildGalleryRootUrl(share).startsWith(share));
     }
-
-    // --- isGalleryFolderName -----------------------------------------------------------------
-    //
-    // The share root is never only galleries, and the enumeration cannot afford to check each
-    // directory for a metadata.json. So "is this ours" is decided from the name alone, and these
-    // pin what that decision does at the edges.
 
     @Test
     public void galleryFolder_acceptsWhatBuildGalleryFolderNameProduces() {
@@ -120,7 +99,6 @@ public class SmbPathsTest {
         assertTrue(SmbPaths.isGalleryFolderName(SmbPaths.buildGalleryFolderName(info)));
     }
 
-    /** The untitled fallback still has to be recognised as a gallery. */
     @Test
     public void galleryFolder_acceptsTheUntitledFallback() {
         GalleryInfo info = new GalleryInfo();
@@ -130,10 +108,6 @@ public class SmbPathsTest {
         assertTrue(SmbPaths.isGalleryFolderName("7-gallery"));
     }
 
-    /**
-     * The directories that actually turn up next to the galleries. None of these begin with a
-     * dot, which is why skipping hidden entries would not have been enough.
-     */
     @Test
     public void galleryFolder_rejectsWhatNasSoftwareLeavesBehind() {
         assertFalse("Synology thumbnails", SmbPaths.isGalleryFolderName("@eaDir"));
@@ -144,7 +118,6 @@ public class SmbPathsTest {
         assertFalse("our own gallery dir", SmbPaths.isGalleryFolderName("download"));
     }
 
-    /** A title that happens to start with digits must not be mistaken for a gid. */
     @Test
     public void galleryFolder_requiresDigitsBeforeTheDash() {
         assertFalse(SmbPaths.isGalleryFolderName("12ab-title"));
@@ -158,7 +131,6 @@ public class SmbPathsTest {
         assertFalse(SmbPaths.isGalleryFolderName("123"));
     }
 
-    /** A title containing its own dashes is ordinary; only the first one delimits the gid. */
     @Test
     public void galleryFolder_acceptsDashesInsideTheTitle() {
         assertTrue(SmbPaths.isGalleryFolderName("123-a-b-c"));
@@ -170,16 +142,6 @@ public class SmbPathsTest {
         assertFalse(SmbPaths.isGalleryFolderName(""));
     }
 
-    // --- parseGid ----------------------------------------------------------------------------
-    //
-    // The folder name is the only place a gid can be read without opening anything, which is what
-    // makes "which galleries are on the share?" one directory enumeration instead of one
-    // metadata.json read per gallery (#83). A wrong answer here marks the wrong card.
-
-    /**
-     * The round trip is the point: a name this app wrote must give back the gid it was written
-     * from. Break the pairing and nothing fails — galleries just quietly stop being recognised.
-     */
     @Test
     public void parseGid_recoversWhatBuildGalleryFolderNameEncoded() {
         GalleryInfo info = new GalleryInfo();
@@ -189,13 +151,11 @@ public class SmbPathsTest {
         assertEquals(4035531L, SmbPaths.parseGid(SmbPaths.buildGalleryFolderName(info)));
     }
 
-    /** A title full of its own dashes is ordinary; only the first one delimits the gid. */
     @Test
     public void parseGid_stopsAtTheFirstDash() {
         assertEquals(123L, SmbPaths.parseGid("123-a-b-c"));
     }
 
-    /** Whatever the name test rejects, this rejects — or the two would disagree about a folder. */
     @Test
     public void parseGid_refusesEverythingIsGalleryFolderNameRefuses() {
         String[] notGalleries = {
@@ -209,7 +169,6 @@ public class SmbPathsTest {
         }
     }
 
-    /** A run of digits too long for a long must be refused rather than wrapped. */
     @Test
     public void parseGid_refusesANumberTooLargeToBeAGid() {
         String huge = "99999999999999999999999-title";
@@ -218,18 +177,11 @@ public class SmbPathsTest {
         assertEquals(SmbPaths.NOT_A_GALLERY, SmbPaths.parseGid(huge));
     }
 
-    /** Real gids are large; nothing here may assume they fit in an int. */
     @Test
     public void parseGid_handlesGidsBeyondIntRange() {
         assertEquals(3_000_000_000L, SmbPaths.parseGid("3000000000-title"));
     }
 
-    // --- buildGalleryFolderName(gid, title) ---------------------------------------------------
-    //
-    // Renaming needs the name a gallery would have under a title its record does not carry yet
-    // (#86). Deriving that by hand at the call site is how two spellings of the same rule appear.
-
-    /** The overload and the original must agree, or a rename computes a destination nothing reads. */
     @Test
     public void folderName_theOverloadAgreesWithTheRecordVersion() {
         GalleryInfo info = new GalleryInfo();
@@ -240,7 +192,6 @@ public class SmbPathsTest {
                 SmbPaths.buildGalleryFolderName(info.gid, info.title));
     }
 
-    /** A renamed folder must still be recognised as a gallery, and still yield its gid. */
     @Test
     public void folderName_aRenamedFolderIsStillOursAndStillCarriesTheGid() {
         String renamed = SmbPaths.buildGalleryFolderName(4035531L, "A Completely New Title");
@@ -249,7 +200,6 @@ public class SmbPathsTest {
         assertEquals(4035531L, SmbPaths.parseGid(renamed));
     }
 
-    /** The empty-title fallback is part of the rule, so both spellings have to share it. */
     @Test
     public void folderName_theOverloadFallsBackTheSameWayOnAnEmptyTitle() {
         GalleryInfo info = new GalleryInfo();

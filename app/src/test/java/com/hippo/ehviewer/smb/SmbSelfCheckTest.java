@@ -109,7 +109,6 @@ public class SmbSelfCheckTest {
                 "user", "pass", false);
     }
 
-    /** A dead host fails the first stage; the later stages are never claimed. */
     @Test
     public void anUnreachableShareFailsAtConnect() {
         connectFails = true;
@@ -121,7 +120,6 @@ public class SmbSelfCheckTest {
         assertFalse(r.writeOk);
     }
 
-    /** Reachable but unlistable: connected, unreadable — not a write problem. */
     @Test
     public void anUnlistableShareFailsAtRead() {
         listFails = true;
@@ -133,7 +131,6 @@ public class SmbSelfCheckTest {
         assertFalse(r.readOnly());
     }
 
-    /** The browse-only case: readable, not writable — and reported exactly that way. */
     @Test
     public void aReadOnlyShareFailsAtWriteOnly() {
         writeFails = true;
@@ -146,7 +143,6 @@ public class SmbSelfCheckTest {
         assertTrue(r.readOnly());
     }
 
-    /** Write proves itself by reading its own bytes back — and the temp file goes away. */
     @Test
     public void aHealthyShareRoundTripsAndCleansUp() {
         SelfCheck r = SmbSelfCheck.run(draft());
@@ -157,7 +153,6 @@ public class SmbSelfCheckTest {
                 deleted.get(0).endsWith(SmbTempFiles.SUFFIX));
     }
 
-    /** An empty draft is not a connection to probe. */
     @Test
     public void anEmptyDraftFailsImmediately() {
         SelfCheck r = SmbSelfCheck.run(new ConnectionDraft("", "", "", "", "", "", false));

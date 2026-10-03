@@ -18,9 +18,8 @@ import org.junit.runner.RunWith;
 import org.robolectric.RobolectricTestRunner;
 import org.robolectric.annotation.Config;
 
-/** Probe: feed the eh-mock-server response formats through EhViewer's real parsers, proving the mock is something the app can actually talk to. */
-// Force a stub Application: the real EhApplication.onCreate registers broadcast receivers and other
-// device-only services that blow up on the JVM, and the parser contract here needs none of it.
+/** Feeds the eh-mock-server response formats through EhViewer's real parsers. */
+// The real EhApplication.onCreate starts device-only services that fail on the JVM.
 @Config(application = Application.class)
 @RunWith(RobolectricTestRunner.class)
 public class MockServerContractTest {

@@ -175,8 +175,6 @@ public class ArchiverDownloaderTest {
         assertTrue(serviceActions().contains(ArchiverDownloadService.ACTION_STOP));
     }
 
-    // --- dataSync timeout ---------------------------------------------------------------------
-
     @Implements(Service.class)
     public static class ShadowSpentService extends ShadowService {
         @Override

@@ -51,12 +51,10 @@ import org.robolectric.shadows.ShadowToast;
 public class SmbAutoDownloadManagerTest {
 
     private static final long GID = 4035531L;
-    /** A local album's made-up gid: an import timestamp, as 2.0.2.5 assigns it. */
     private static final long ALBUM_GID = 1727000000001L;
 
     /** One entry per enqueue that got past the gates. */
     static final List<Long> accepted = Collections.synchronizedList(new ArrayList<>());
-    /** One entry per download actually begun -- the thing that must not happen twice. */
     static final List<Long> started = Collections.synchronizedList(new ArrayList<>());
     static boolean configured = true;
     static boolean alreadyComplete = false;
@@ -87,7 +85,6 @@ public class SmbAutoDownloadManagerTest {
 
     @Implements(SmbInventory.class)
     public static class ShadowSmbInventory {
-        /** Starting a job now checks whether the gallery already has metadata on the share, so that a download restored or adopted rather than enqueued still get */
         @Implementation
         protected static GalleryInfo readGalleryMetadata(GalleryInfo hint) {
             return hint;   // already there; nothing for startJob to write
@@ -102,7 +99,6 @@ public class SmbAutoDownloadManagerTest {
         }
     }
 
-    /** Keeps the real fetch engine out; the downloader itself stays real. */
     @Implements(SpiderQueen.class)
     public static class ShadowSpiderQueen {
         @Implementation
@@ -121,7 +117,6 @@ public class SmbAutoDownloadManagerTest {
         protected void removeOnSpiderListener(SpiderQueen.OnSpiderListener l) {}
     }
 
-    /** The enqueue path now asks the share whether another device already claimed the gallery (#59). */
     @Implements(SmbDownloadStateStore.class)
     public static class ShadowSmbDownloadStateStore {
 
@@ -155,7 +150,6 @@ public class SmbAutoDownloadManagerTest {
 
     /** Long enough that a busy CI runner is not a failure; only a stuck test ever waits this. */
     private static final long PUMP_DEADLINE_MS = 20_000L;
-    /** Rounds of nothing arriving before the work is taken to have finished crossing threads. */
     private static final int PUMP_QUIET_ROUNDS = 25;
 
     /** Lets whatever was handed to a background thread find its way back to the main one. */
@@ -165,8 +159,7 @@ public class SmbAutoDownloadManagerTest {
         long deadline = System.currentTimeMillis() + PUMP_DEADLINE_MS;
         int quiet = 0;
         while (quiet < PUMP_QUIET_ROUNDS && System.currentTimeMillis() < deadline) {
-            // The IO pool is the first hop; on a loaded CI runner it can sit scheduled-but-idle
-            // past any quiet window measured on the main looper alone (the 2026-08-15 flake).
+            // Work can sit queued in the IO pool past a quiet window seen on the main looper alone.
             boolean ioBusy = io.getActiveCount() > 0 || !io.getQueue().isEmpty();
             boolean hadWork = !shadowOf(Looper.getMainLooper()).isIdle();
             shadowOf(Looper.getMainLooper()).idle();
@@ -203,7 +196,6 @@ public class SmbAutoDownloadManagerTest {
 
     @After
     public void tearDown() {
-        // Both are process-wide singletons; leave nothing for the next test.
         SmbDirectDownloader.getInstance().cancel(GID);
         SmbDirectDownloader.getInstance().cancel(ALBUM_GID);
         pump();
@@ -212,8 +204,6 @@ public class SmbAutoDownloadManagerTest {
         accepted.clear();
         started.clear();
     }
-
-    // --- the enqueue gates, which differ per path --------------------------------------------
 
     @Test
     public void quietPath_needsTheSaveSwitch() {
@@ -251,7 +241,6 @@ public class SmbAutoDownloadManagerTest {
         assertTrue(accepted.isEmpty());
     }
 
-    /** A local album opens in the reader like a gallery, but its gid is made up (2.0.2.5). */
     @Test
     public void bothPaths_neverQueueALocalImport() {
         DownloadInfo album = new DownloadInfo();
@@ -268,9 +257,6 @@ public class SmbAutoDownloadManagerTest {
         assertTrue(started.isEmpty());
     }
 
-    // --- one download per gallery, and always saveable again -------------------------------------
-
-    /** Two taps in the same breath, before the first has been through the gates. */
     @Test
     public void twoEnqueuesInFlightAtOnceStillStartOneDownload() {
         SmbAutoDownloadManager.getInstance().enqueueManual(context, gallery());
@@ -280,10 +266,6 @@ public class SmbAutoDownloadManagerTest {
         assertEquals("the same gallery must not be fetched twice", 1, started.size());
     }
 
-    /**
-     * Two enqueues, one download. With no local mark left to short-circuit the second, this now
-     * rests on the downloader's own queue rather than on remembering what was asked for.
-     */
     @Test
     public void enqueuingTwiceStartsOneDownload() {
         SmbAutoDownloadManager.getInstance().enqueueManual(context, gallery());
@@ -296,7 +278,6 @@ public class SmbAutoDownloadManagerTest {
         assertEquals(SmbDirectDownloader.TaskSnapshot.State.ACTIVE, stateOf(GID));
     }
 
-    /** The other half, and the regression this test class exists for: a gallery has to stay saveable. */
     @Test
     public void aGalleryAlreadyOnTheShareCanBeSavedAgainOnceItIsGone() {
         alreadyComplete = true;
@@ -331,9 +312,6 @@ public class SmbAutoDownloadManagerTest {
         assertEquals(2, started.size());
     }
 
-    // --- what each path says (#159) -----------------------------------------------------------
-
-    /** Asking again while this device saves costs no round trip and announces no second start. */
     @Test
     public void askingAgainWhileSaving_saysSoInsteadOfStartingAgain() {
         SmbAutoDownloadManager.getInstance().enqueueManual(context, gallery());
@@ -350,7 +328,6 @@ public class SmbAutoDownloadManagerTest {
         assertEquals(1, ShadowToast.shownToastCount());
     }
 
-    /** The quiet path fires while the user reads: only a save that starts is worth a word. */
     @Test
     public void quietPath_saysNothingWhenThereIsNothingToStart() {
         alreadyComplete = true;

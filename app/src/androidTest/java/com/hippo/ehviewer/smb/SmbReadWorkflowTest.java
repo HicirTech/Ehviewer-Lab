@@ -40,7 +40,7 @@ import java.util.concurrent.Future;
 
 import jcifs.smb.SmbFile;
 
-/** Read-workflow coverage over every share the runner points it at — in practice the HDD and the SSD NAS targets — through the exact production read path */
+/** The production read path over every share given in eh.targets. */
 @RunWith(AndroidJUnit4.class)
 @LargeTest
 public class SmbReadWorkflowTest {
@@ -82,7 +82,7 @@ public class SmbReadWorkflowTest {
     public void setUp() {
         Bundle args = InstrumentationRegistry.getArguments();
         String spec = args.getString("eh.targets", "");
-        // label:share:/path,label:share:/path — colon-limited so the path keeps its slashes.
+        // label:share:/path,label:share:/path
         for (String one : spec.split(",")) {
             String[] parts = one.split(":", 3);
             if (parts.length == 3 && !parts[0].isEmpty()) {
@@ -112,10 +112,7 @@ public class SmbReadWorkflowTest {
         if (mTargets.isEmpty()) {
             return;     // skipped before the snapshot; nothing to restore
         }
-        // commit(), not Settings.putString(): that goes through apply(), whose disk write is
-        // asynchronous — and `am instrument` kills this process the moment the run ends, which
-        // is exactly soon enough to drop it. The first version of this restore "worked" all
-        // run long and left the device pointed at the HDD target anyway.
+        // commit(), not Settings.putString(): am instrument kills the process before apply() lands.
         boolean written = androidx.preference.PreferenceManager
                 .getDefaultSharedPreferences(InstrumentationRegistry.getInstrumentation()
                         .getTargetContext())
@@ -128,8 +125,6 @@ public class SmbReadWorkflowTest {
         assertTrue("restoring the device's SMB configuration failed", written);
         clearListingCache();
     }
-
-    // --- the stages -------------------------------------------------------------------------
 
     @Test
     public void metadataReadsOffEveryTarget() throws Exception {
@@ -160,10 +155,7 @@ public class SmbReadWorkflowTest {
                 }
             }
             long metaMs = SystemClock.elapsedRealtime() - t1;
-            // A folder without readable metadata is the share's ordinary condition —
-            // the inventory skips it, so does this. Both LG_Panda copies carry a
-            // couple. What the floor catches is the read path itself failing, or the
-            // whole sample quietly answering from the wrong place.
+            // Folders without readable metadata are ordinary; the floor catches a broken read path.
             assertTrue(target.label + ": only " + ok + "/" + sample.size()
                             + " metadata reads succeeded; missing: " + missing,
                     ok >= sample.size() * 9 / 10);
@@ -212,8 +204,6 @@ public class SmbReadWorkflowTest {
         });
     }
 
-    // --- plumbing ---------------------------------------------------------------------------
-
     private interface Stage {
         void run(Target target) throws Exception;
     }
@@ -229,7 +219,6 @@ public class SmbReadWorkflowTest {
         }
     }
 
-    /** Metadata for the first {@code count} galleries of the currently configured target. */
     private List<GalleryInfo> firstInfos(int count, String label) {
         List<GalleryRef> refs = SmbInventory.listGalleryRefs();
         assertTrue(label + ": expected a library of at least " + mMinGalleries
@@ -249,7 +238,6 @@ public class SmbReadWorkflowTest {
         return infos;
     }
 
-    /** Streams a page off the share and throws the bytes away, counting them. */
     private static long drain(@NonNull SmbFile page) throws Exception {
         byte[] scratch = new byte[64 * 1024];
         long total = 0;

@@ -32,7 +32,6 @@ public class SmbClientIdentityTest {
         Settings.putString(Settings.KEY_SMB_DEVICE_NAME, "");
     }
 
-    /** The whole point: an identity, not a value regenerated per call. */
     @Test
     public void clientId_isStableAcrossCallsAndRestarts() {
         String first = Settings.getSmbClientId();
@@ -43,7 +42,6 @@ public class SmbClientIdentityTest {
         assertEquals(first, Settings.getSmbClientId());
     }
 
-    /** Clearing the app's data is the case the platform id exists to survive. */
     @Test
     public void clientId_survivesLosingTheStoredFallback() {
         String first = Settings.getSmbClientId();
@@ -52,7 +50,6 @@ public class SmbClientIdentityTest {
         assertEquals(first, Settings.getSmbClientId());
     }
 
-    /** Without a platform id there is nothing to lean on, so one is made up — and then kept. */
     @Test
     public void clientId_fallsBackToAStoredValueWhenThereIsNoPlatformId() {
         plantAndroidId(null);
@@ -64,10 +61,6 @@ public class SmbClientIdentityTest {
         assertEquals("the made-up id must be kept, not remade", first, Settings.getSmbClientId());
     }
 
-    /**
-     * Android 2.2 handed the same id to a great many devices. Trusting it would give every one of
-     * them the same file on the share — each overwriting the others' queue.
-     */
     @Test
     public void clientId_refusesTheKnownDuplicatePlatformId() {
         plantAndroidId("9774d56d682e549c");
@@ -76,7 +69,6 @@ public class SmbClientIdentityTest {
         assertFalse("9774d56d682e549c".equals(Settings.getSmbClientId()));
     }
 
-    /** Whatever it is, it has to work as a file name on the share. */
     @Test
     public void clientId_isSafeAsAFileName() {
         String id = Settings.getSmbClientId();
@@ -86,7 +78,6 @@ public class SmbClientIdentityTest {
         assertFalse(id.contains(" "));
     }
 
-    /** Renaming the device must not change which state file is its own. */
     @Test
     public void deviceName_isIndependentOfTheClientId() {
         String id = Settings.getSmbClientId();
@@ -96,7 +87,6 @@ public class SmbClientIdentityTest {
         assertEquals(id, Settings.getSmbClientId());
     }
 
-    /** Unset or blank falls back to something recognisable rather than publishing nothing. */
     @Test
     public void deviceName_fallsBackWhenBlank() {
         Settings.putString(Settings.KEY_SMB_DEVICE_NAME, "");

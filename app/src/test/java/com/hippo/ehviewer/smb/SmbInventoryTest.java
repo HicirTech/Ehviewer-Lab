@@ -129,7 +129,6 @@ public class SmbInventoryTest {
                         .getBytes(StandardCharsets.UTF_8));
     }
 
-    /** Not every directory on the share is a gallery: state/, download/ siblings and whatever else the NAS carries must not be counted — they inflate the pag */
     @Test
     public void foreignFoldersAreNotGalleries() {
         listings.put(rootPath, new String[]{"42-Answer/", "state/", "misc backups/"});
@@ -139,10 +138,6 @@ public class SmbInventoryTest {
                 "42-Answer", refs.get(0).folderName);
     }
 
-    /**
-     * The ordering key is the folder's creation time — reading a gallery bumps its mtime and
-     * must not bump its place — with mtime only as the fallback when createTime is absent.
-     */
     @Test
     public void theOrderingKeyPrefersCreateTimeAndFallsBackToMtime() {
         listings.put(rootPath, new String[]{"1-A/", "2-B/"});
@@ -156,7 +151,6 @@ public class SmbInventoryTest {
                 2000L, refs.get(1).folderMtime);
     }
 
-    /** The eager load reads every gallery's metadata and returns them all. */
     @Test
     public void loadInventoryReadsEveryGallery() {
         listings.put(rootPath, new String[]{"1-A/", "2-B/"});
@@ -168,7 +162,6 @@ public class SmbInventoryTest {
         assertEquals(2L, loaded.get(1).gid);
     }
 
-    /** One unreadable gallery must not lose the others. */
     @Test
     public void oneUnreadableGalleryDoesNotLoseTheRest() {
         listings.put(rootPath, new String[]{"1-A/", "2-B/", "3-C/"});
@@ -180,7 +173,6 @@ public class SmbInventoryTest {
         assertEquals(2, loaded.size());
     }
 
-    /** A folder without metadata is located by the lazy path, then reads as null, not as a crash. */
     @Test
     public void aRefWithoutMetadataReadsAsNull() {
         listings.put(rootPath, new String[]{"7-G/"});
@@ -190,7 +182,6 @@ public class SmbInventoryTest {
         assertTrue(SmbInventory.readGalleryInfo(refs.get(0)) == null);
     }
 
-    /** An unconfigured share is an empty list everywhere, never an exception. */
     @Test
     public void nothingConfiguredMeansEmptyAnswers() {
         Settings.putString(Settings.KEY_SMB_HOST, "");

@@ -36,7 +36,6 @@ import org.robolectric.shadow.api.Shadow;
                 CommonOperationsTest.ShadowEhApplication.class,
                 CommonOperationsTest.ShadowDownloadManager.class,
         },
-        // Robolectric instruments by name prefix, so one class can be listed on its own.
         instrumentedPackages = {"com.hippo.ehviewer.EhApplication", "com.hippo.ehviewer.download"})
 public class CommonOperationsTest {
 
@@ -102,7 +101,6 @@ public class CommonOperationsTest {
         assertEquals("Later", intent.getStringExtra(DownloadService.KEY_LABEL));
     }
 
-    /** startDownload would ask here; this path cannot, so the default list takes it. */
     @Test
     public void aRememberedLabelThatWasDeleted_fallsBackToTheDefaultList() {
         Settings.putHasDefaultDownloadLabel(true);

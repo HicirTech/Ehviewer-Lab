@@ -83,7 +83,6 @@ public class InventoryBadgesTest {
                 com.hippo.ehviewer.dao.DownloadInfo.STATE_DOWNLOAD);
     }
 
-    /** A claim becomes a mark carrying owner and fraction. */
     @Test
     public void marksCarryOwnerAndProgress() throws Exception {
         tasksOnShare.add(task(42L, 5, 10));
@@ -94,7 +93,6 @@ public class InventoryBadgesTest {
         assertEquals(0.5f, mark.progress, 0.0001f);
     }
 
-    /** An unchanged answer is not re-delivered — a delivery is a round of redraw checks. */
     @Test
     public void unchangedMarksAreNotRedelivered() throws Exception {
         tasksOnShare.add(task(42L, 5, 10));
@@ -107,7 +105,6 @@ public class InventoryBadgesTest {
         assertEquals(2, heard.size());
     }
 
-    /** SMB off means empty marks, delivered once, without touching the share. */
     @Test
     public void disabledSmbClearsTheMarks() throws Exception {
         tasksOnShare.add(task(42L, 5, 10));
@@ -118,7 +115,6 @@ public class InventoryBadgesTest {
         assertTrue(heard.get(1).isEmpty());
     }
 
-    /** An unknown total is an empty ring, not a full one. */
     @Test
     public void unknownTotalReadsAsZeroProgress() {
         assertEquals(0f, InventoryBadges.fractionOf(task(1L, 3, 0)), 0.0001f);

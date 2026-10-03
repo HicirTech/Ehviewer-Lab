@@ -32,11 +32,7 @@ import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * The bridge publishes through pipes that rename-on-close whether the copy finished or not; a
- * failed copy must therefore take the just-published name back off the share (#150), or the
- * truncated page reads as saved forever.
- */
+/** A failed bridge copy takes its just-published page back off the share (#150). */
 @RunWith(RobolectricTestRunner.class)
 @Config(application = android.app.Application.class,
         shadows = {RemotePageBridgeTest.ShadowSpiderDen.class},
@@ -53,7 +49,6 @@ public class RemotePageBridgeTest {
         }
     }
 
-    /** Records the calls; its output stream optionally dies mid-copy. */
     private static final class RecordingStorage implements GallerySpiderStorage {
         final List<String> calls = new ArrayList<>();
         boolean writeFails;
@@ -135,7 +130,6 @@ public class RemotePageBridgeTest {
         phoneDir = UniFile.fromFile(dir);
     }
 
-    /** The failed copy's publish is rolled back through the same seam it went in by. */
     @Test
     public void aFailedPhoneCopyTakesThePublishedNameBackOff() {
         storage.writeFails = true;
@@ -149,7 +143,6 @@ public class RemotePageBridgeTest {
                 storage.calls.indexOf("close:0") < storage.calls.indexOf("remove:0"));
     }
 
-    /** A copy that failed before the pipe opened published nothing — and deletes nothing. */
     @Test
     public void aFailureBeforeOpeningDeletesNothing() {
         storage.openFails = true;
@@ -161,7 +154,6 @@ public class RemotePageBridgeTest {
                 -1, storage.calls.indexOf("remove:0"));
     }
 
-    /** A finished copy is left alone. */
     @Test
     public void aSuccessfulPhoneCopyIsNotDeleted() {
         RemotePageBridge bridge = new RemotePageBridge(gallery, gallery.gid);

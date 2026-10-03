@@ -74,8 +74,7 @@ public class InventoryOpsTest {
 
     @Implements(SmbDirectDownloader.class)
     public static class ShadowSmbDirectDownloader {
-        // The real singleton may predate this shadow config (sandboxes are reused across test
-        // classes), leaving it bound to a default shadow. A fresh instance binds to this one.
+        // Sandboxes are reused across classes: the real singleton may be bound to another shadow.
         static SmbDirectDownloader fresh;
 
         @Implementation
@@ -142,7 +141,6 @@ public class InventoryOpsTest {
         }
     }
 
-    /** Records everything the screen would hear. */
     static final class Heard implements InventoryOps.Listener {
         final List<String> events = new ArrayList<>();
 
@@ -188,7 +186,6 @@ public class InventoryOpsTest {
         return gi;
     }
 
-    /** A failed fetch replaces nothing; the count says so. */
     @Test
     public void resyncReplacesOnlyWhatCameBack() {
         resyncable.add(1L);
@@ -200,7 +197,6 @@ public class InventoryOpsTest {
                 Arrays.asList("evictCover:1"), calls);
     }
 
-    /** A gallery mid-download is cancelled (cancel wipes the folder), never erased underneath. */
     @Test
     public void deletingADownloadingGalleryCancelsInstead() {
         downloading.add(1L);
@@ -211,17 +207,15 @@ public class InventoryOpsTest {
         assertEquals(Arrays.asList("cancel:1", "evictCover:1"), calls);
     }
 
-    /** A folder that would not delete keeps its row — no deleted event for it. */
     @Test
     public void aFailedDeleteKeepsItsRow() {
-        deletable.add(1L);   // 2 refuses
+        deletable.add(1L);
         ops.deleteGalleries(RuntimeEnvironment.getApplication(),
                 Arrays.asList(gallery(1), gallery(2)));
         ShadowLooper.idleMainLooper();
         assertEquals(Arrays.asList("deleted:1", "deleteDone:1/2"), heard.events);
     }
 
-    /** Repair is an enqueue per gallery, nothing more. */
     @Test
     public void repairEnqueuesEachGallery() {
         ops.repairMissingPages(RuntimeEnvironment.getApplication(),

@@ -57,7 +57,6 @@ public class SortModeTest {
 
         assertEquals("recent", list.get(0).info.title);
         assertEquals("old", list.get(1).info.title);
-        // null posted normalises to "" which sorts last under reverse string order.
         assertEquals("undated", list.get(2).info.title);
     }
 
@@ -65,7 +64,6 @@ public class SortModeTest {
     public void titleAsc_caseInsensitive_andFallsBackToTitleJpn() {
         SortMode.Entry banana = entry(gallery("banana", null, "", 0), 0L);
         SortMode.Entry apple = entry(gallery("Apple", null, "", 0), 0L);
-        // No primary title: should sort by titleJpn ("cherry").
         SortMode.Entry cherry = entry(gallery(null, "cherry", "", 0), 0L);
 
         List<SortMode.Entry> list = sorted(SortMode.TITLE_ASC, banana, cherry, apple);
@@ -83,13 +81,10 @@ public class SortModeTest {
 
         List<SortMode.Entry> list = sorted(SortMode.CATEGORY, cat2b, cat1z, cat1a);
 
-        // Category 1 first (a, z by title), then category 2.
         assertEquals("a", list.get(0).info.title);
         assertEquals("z", list.get(1).info.title);
         assertEquals("b", list.get(2).info.title);
     }
-
-    // --- helpers -------------------------------------------------------------------------------
 
     private static GalleryInfo gallery(String title, String titleJpn, String posted, int category) {
         GalleryInfo gi = new GalleryInfo();

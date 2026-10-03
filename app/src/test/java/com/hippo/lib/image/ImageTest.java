@@ -24,12 +24,8 @@ import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.nio.file.Files;
 
-/**
- * The decoder accepts the in-memory echo stream as well as a file stream (#155): the production
- * crash was the decode path casting every pipe to FileInputStream on the way in.
- */
-// Pinned below P: Robolectric's ImageDecoder shadow supports neither a mapped buffer nor
-// setTargetSampleSize; the P+ arm is covered on-device by ImageDecodeTest.
+/** The decoder accepts the in-memory echo stream as well as a file stream (#155). */
+// Below P: Robolectric's ImageDecoder shadow lacks mapped buffers and setTargetSampleSize.
 @RunWith(RobolectricTestRunner.class)
 @Config(application = android.app.Application.class, sdk = 27)
 public class ImageTest {
@@ -46,7 +42,6 @@ public class ImageTest {
         png = bytes.toByteArray();
     }
 
-    /** The echo pipe hands the decoder a memory stream; it must decode, not crash (#155). */
     @Test
     public void aMemoryStreamDecodes() {
         Image image = Image.decode(new ByteArrayInputStream(png), false);
@@ -56,7 +51,6 @@ public class ImageTest {
         assertEquals(6, image.getHeight());
     }
 
-    /** The mmap fast path for real files is untouched. */
     @Test
     public void aFileStreamStillDecodes() throws Exception {
         File file = Files.createTempFile("image-test", ".png").toFile();
