@@ -77,6 +77,7 @@ import com.hippo.ehviewer.client.EhUrl;
 import com.hippo.ehviewer.client.EhUrlOpener;
 import com.hippo.ehviewer.client.EhUtils;
 import com.hippo.ehviewer.client.data.ListUrlBuilder;
+import com.hippo.ehviewer.storage.NetworkStorageSettings;
 import com.hippo.ehviewer.ui.scene.AnalyticsScene;
 import com.hippo.ehviewer.ui.scene.BaseScene;
 import com.hippo.ehviewer.ui.scene.sign.CookieSignInScene;
@@ -599,7 +600,7 @@ public final class MainActivity extends StageActivity
         }
         MenuItem item = mNavView.getMenu().findItem(R.id.nav_local_inventory);
         if (item != null) {
-            item.setVisible(Settings.getNetworkStorageEnabled());
+            item.setVisible(NetworkStorageSettings.isEnabled());
             item.setTitle(getString(R.string.local_inventory, NetworkStorage.active().displayName()));
         }
     }

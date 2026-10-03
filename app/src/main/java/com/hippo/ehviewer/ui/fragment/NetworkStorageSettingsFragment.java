@@ -16,7 +16,9 @@ import com.hippo.ehviewer.R;
 import com.hippo.ehviewer.Settings;
 import com.hippo.ehviewer.download.PowerDownloadSettings;
 import com.hippo.ehviewer.smb.SmbBenchmark;
+import com.hippo.ehviewer.smb.SmbConcurrency;
 import com.hippo.ehviewer.storage.NetworkStorage;
+import com.hippo.ehviewer.storage.NetworkStorageSettings;
 import com.hippo.lib.yorozuya.SimpleHandler;
 import com.hippo.util.IoThreadPoolExecutor;
 
@@ -44,14 +46,14 @@ public class NetworkStorageSettingsFragment extends BasePreferenceFragmentCompat
     public void onCreatePreferences(@Nullable Bundle savedInstanceState, @Nullable String rootKey) {
         addPreferencesFromResource(R.xml.network_storage_settings);
 
-        mMasterSwitch = findPreference(Settings.KEY_NETWORK_STORAGE_ENABLED);
-        mProtocol = findPreference(Settings.KEY_STORAGE_PROTOCOL);
+        mMasterSwitch = findPreference(NetworkStorageSettings.KEY_ENABLED);
+        mProtocol = findPreference(NetworkStorageSettings.KEY_PROTOCOL);
         mConnection = findPreference("smb_connection");
-        mDeviceName = findPreference(Settings.KEY_SMB_DEVICE_NAME);
+        mDeviceName = findPreference(NetworkStorageSettings.KEY_SMB_DEVICE_NAME);
         mBenchmark = findPreference("smb_benchmark");
         mAutoTune = findPreference("smb_auto_tune");
-        mMetadataConcurrency = findPreference(Settings.KEY_SMB_METADATA_CONCURRENCY);
-        mImageConcurrency = findPreference(Settings.KEY_SMB_IMAGE_CONCURRENCY);
+        mMetadataConcurrency = findPreference(SmbConcurrency.KEY_METADATA);
+        mImageConcurrency = findPreference(SmbConcurrency.KEY_IMAGE);
 
         for (EditTextDialogPreference pref : new EditTextDialogPreference[]{
                 mMetadataConcurrency, mImageConcurrency}) {
@@ -67,12 +69,12 @@ public class NetworkStorageSettingsFragment extends BasePreferenceFragmentCompat
         if (mProtocol != null) {
             mProtocol.setOnPreferenceChangeListener(this);
         }
-        applyProtocol(Settings.getStorageProtocol());
+        applyProtocol(NetworkStorageSettings.getProtocol());
         if (mDeviceName != null) {
             cacheHint(mDeviceName, null);
             mDeviceName.setOnPreferenceChangeListener(this);
             // Resolved, so an unset field shows the published model name.
-            updateTextSummary(mDeviceName, Settings.getSmbDeviceName());
+            updateTextSummary(mDeviceName, NetworkStorageSettings.getSmbDeviceName());
         }
         if (mBenchmark != null) {
             mBenchmark.setOnPreferenceClickListener(preference -> {
@@ -87,7 +89,7 @@ public class NetworkStorageSettingsFragment extends BasePreferenceFragmentCompat
             });
         }
 
-        applyMasterState(Settings.getNetworkStorageEnabled());
+        applyMasterState(NetworkStorageSettings.isEnabled());
     }
 
     @Override
@@ -114,7 +116,7 @@ public class NetworkStorageSettingsFragment extends BasePreferenceFragmentCompat
             }
             applyMasterState(enabled);
             // Posted: the new value is persisted only after this listener returns true.
-            com.hippo.lib.yorozuya.SimpleHandler.getInstance().post(() ->
+            SimpleHandler.getInstance().post(() ->
                     com.hippo.ehviewer.smb.SmbDirectDownloader.getInstance()
                             .onSmbAvailabilityChanged());
             return true;
@@ -124,11 +126,7 @@ public class NetworkStorageSettingsFragment extends BasePreferenceFragmentCompat
             return true;
         }
         if (preference == mDeviceName) {
-            // Not Settings.getSmbDeviceName(): it still holds the old value here.
-            String model = android.os.Build.MODEL;
-            updateTextSummary(mDeviceName, value.trim().isEmpty()
-                    ? (model == null || model.trim().isEmpty() ? "Android" : model.trim())
-                    : value);
+            updateTextSummary(mDeviceName, NetworkStorageSettings.smbDeviceNameOrModel(value));
         }
         return true;
     }
@@ -220,9 +218,9 @@ public class NetworkStorageSettingsFragment extends BasePreferenceFragmentCompat
             SimpleHandler.getInstance().post(() -> {
                 // Saved before the isAdded check: minutes of measurement outlive the screen.
                 if (result.ok) {
-                    Settings.putString(Settings.KEY_SMB_METADATA_CONCURRENCY,
+                    Settings.putString(SmbConcurrency.KEY_METADATA,
                             String.valueOf(result.bestMetadata));
-                    Settings.putString(Settings.KEY_SMB_IMAGE_CONCURRENCY,
+                    Settings.putString(SmbConcurrency.KEY_IMAGE,
                             String.valueOf(result.bestImage));
                 }
                 if (mAutoTune != null) {

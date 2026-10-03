@@ -108,6 +108,7 @@ import com.hippo.ehviewer.ui.scene.gallery.list.GalleryListSceneDialog;
 import com.hippo.ehviewer.ui.scene.history.HistoryScene;
 import com.hippo.ehviewer.smb.SmbAutoDownloadManager;
 import com.hippo.ehviewer.smb.SmbPreviewCache;
+import com.hippo.ehviewer.storage.NetworkStorageSettings;
 import com.hippo.ehviewer.util.ClipboardUtil;
 import com.hippo.ehviewer.widget.ArchiverDownloadProgress;
 import com.hippo.ehviewer.widget.GalleryRatingBar;
@@ -1773,7 +1774,7 @@ public class GalleryDetailScene extends BaseScene implements View.OnClickListene
         if (galleryInfo != null) {
             if (EhApplication.getDownloadManager(mContext).getDownloadState(galleryInfo.gid) == DownloadInfo.STATE_INVALID) {
                 // The user picks the target here; Power Download's rules only govern the reader.
-                if (Settings.getNetworkStorageEnabled() && NetworkStorage.active().isConfigured()) {
+                if (NetworkStorageSettings.isEnabled() && NetworkStorage.active().isConfigured()) {
                     promptDownloadTarget(galleryInfo);
                 } else {
                     CommonOperations.startDownload(activity, galleryInfo, false);

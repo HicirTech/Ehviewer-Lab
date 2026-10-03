@@ -8,6 +8,7 @@ import android.content.Context;
 import android.preference.PreferenceManager;
 
 import com.hippo.ehviewer.Settings;
+import com.hippo.ehviewer.storage.NetworkStorageSettings;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -88,8 +89,8 @@ public class PowerDownloadSettingsTest {
 
     @Test
     public void theOldSwitchOn_becomesTheFirstPageRuleToTheShare() {
-        Settings.putBoolean(Settings.KEY_NETWORK_STORAGE_ENABLED, true);
-        Settings.putBoolean(Settings.KEY_SMB_AUTO_DOWNLOAD_ENABLED, true);
+        Settings.putBoolean(NetworkStorageSettings.KEY_ENABLED, true);
+        Settings.putBoolean(PowerDownloadSettings.KEY_LEGACY_AUTO_DOWNLOAD, true);
 
         Settings.initialize(context);
 
@@ -102,8 +103,8 @@ public class PowerDownloadSettingsTest {
 
     @Test
     public void theOldSwitchOff_leavesEveryRuleOff() {
-        Settings.putBoolean(Settings.KEY_NETWORK_STORAGE_ENABLED, true);
-        Settings.putBoolean(Settings.KEY_SMB_AUTO_DOWNLOAD_ENABLED, false);
+        Settings.putBoolean(NetworkStorageSettings.KEY_ENABLED, true);
+        Settings.putBoolean(PowerDownloadSettings.KEY_LEGACY_AUTO_DOWNLOAD, false);
 
         Settings.initialize(context);
 
@@ -113,8 +114,8 @@ public class PowerDownloadSettingsTest {
 
     @Test
     public void theOldSwitchOnWithStorageOff_isNotCarriedOver() {
-        Settings.putBoolean(Settings.KEY_NETWORK_STORAGE_ENABLED, false);
-        Settings.putBoolean(Settings.KEY_SMB_AUTO_DOWNLOAD_ENABLED, true);
+        Settings.putBoolean(NetworkStorageSettings.KEY_ENABLED, false);
+        Settings.putBoolean(PowerDownloadSettings.KEY_LEGACY_AUTO_DOWNLOAD, true);
 
         Settings.initialize(context);
 
@@ -124,7 +125,7 @@ public class PowerDownloadSettingsTest {
 
     private boolean legacyKeyStored() {
         return PreferenceManager.getDefaultSharedPreferences(context)
-                .contains(Settings.KEY_SMB_AUTO_DOWNLOAD_ENABLED);
+                .contains(PowerDownloadSettings.KEY_LEGACY_AUTO_DOWNLOAD);
     }
 
     @Test

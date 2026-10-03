@@ -14,6 +14,7 @@ import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
 
 import com.hippo.ehviewer.Settings;
+import com.hippo.ehviewer.storage.NetworkStorageSettings;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -35,11 +36,11 @@ public class SmbConnectionTest {
     @Before
     public void setUp() throws Exception {
         Settings.initialize(RuntimeEnvironment.getApplication());
-        Settings.putString(Settings.KEY_SMB_HOST, "192.0.2.7");
-        Settings.putString(Settings.KEY_SMB_SHARE_NAME, "share");
-        Settings.putString(Settings.KEY_SMB_SHARE_PATH, "galleries");
-        Settings.putString(Settings.KEY_SMB_USERNAME, "");
-        Settings.putString(Settings.KEY_SMB_PASSWORD, "");
+        Settings.putString(NetworkStorageSettings.KEY_SMB_HOST, "192.0.2.7");
+        Settings.putString(NetworkStorageSettings.KEY_SMB_SHARE_NAME, "share");
+        Settings.putString(NetworkStorageSettings.KEY_SMB_SHARE_PATH, "galleries");
+        Settings.putString(NetworkStorageSettings.KEY_SMB_USERNAME, "");
+        Settings.putString(NetworkStorageSettings.KEY_SMB_PASSWORD, "");
         resetBaseContextCache();
     }
 
@@ -52,23 +53,23 @@ public class SmbConnectionTest {
     @Test
     public void configurationNeedsBothHostAndShare() {
         assertTrue(SmbConnection.isConfigured());
-        Settings.putString(Settings.KEY_SMB_HOST, "");
+        Settings.putString(NetworkStorageSettings.KEY_SMB_HOST, "");
         assertFalse(SmbConnection.isConfigured());
-        Settings.putString(Settings.KEY_SMB_HOST, "192.0.2.7");
-        Settings.putString(Settings.KEY_SMB_SHARE_NAME, "");
+        Settings.putString(NetworkStorageSettings.KEY_SMB_HOST, "192.0.2.7");
+        Settings.putString(NetworkStorageSettings.KEY_SMB_SHARE_NAME, "");
         assertFalse(SmbConnection.isConfigured());
     }
 
     @Test
     public void theBaseContextIsOneInstanceWhileTheSettingHoldsStill() {
-        Settings.putBoolean(Settings.KEY_SMB_SIGNING_DISABLED, true);
+        Settings.putBoolean(NetworkStorageSettings.KEY_SMB_SIGNING_DISABLED, true);
         assertSame(SmbConnection.buildContext(), SmbConnection.buildContext());
     }
 
     @Test
     public void flippingSigningRebuildsTheBaseContext() {
         CIFSContext before = SmbConnection.buildContext();
-        Settings.putBoolean(Settings.KEY_SMB_SIGNING_DISABLED, true);
+        Settings.putBoolean(NetworkStorageSettings.KEY_SMB_SIGNING_DISABLED, true);
         CIFSContext after = SmbConnection.buildContext();
         assertNotSame(before, after);
         assertSame(after, SmbConnection.buildContext());
@@ -76,8 +77,8 @@ public class SmbConnectionTest {
 
     @Test
     public void credentialsComeFromSettings() {
-        Settings.putString(Settings.KEY_SMB_USERNAME, "panda");
-        Settings.putString(Settings.KEY_SMB_PASSWORD, "bamboo");
+        Settings.putString(NetworkStorageSettings.KEY_SMB_USERNAME, "panda");
+        Settings.putString(NetworkStorageSettings.KEY_SMB_PASSWORD, "bamboo");
         CIFSContext context = SmbConnection.buildContext();
         NtlmPasswordAuthenticator credentials =
                 (NtlmPasswordAuthenticator) context.getCredentials();
@@ -88,8 +89,8 @@ public class SmbConnectionTest {
     @Test
     public void theShareUrlIsComposedFromSettings() {
         assertEquals(
-                SmbPaths.buildShareUrl(Settings.getSmbHost(), Settings.getSmbPort(),
-                        Settings.getSmbShareName(), Settings.getSmbSharePath()),
+                SmbPaths.buildShareUrl(NetworkStorageSettings.getSmbHost(), NetworkStorageSettings.getSmbPort(),
+                        NetworkStorageSettings.getSmbShareName(), NetworkStorageSettings.getSmbSharePath()),
                 SmbConnection.buildSmbUrl());
         assertEquals(
                 SmbPaths.buildGalleryRootUrl(SmbConnection.buildSmbUrl()),

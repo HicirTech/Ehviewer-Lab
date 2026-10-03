@@ -3,11 +3,11 @@ package com.hippo.ehviewer.smb;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
-import com.hippo.ehviewer.Settings;
 import com.hippo.ehviewer.client.data.GalleryInfo;
 import com.hippo.ehviewer.spider.SpiderQueen;
 
 import com.hippo.ehviewer.storage.DownloadState;
+import com.hippo.ehviewer.storage.NetworkStorageSettings;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -313,7 +313,7 @@ final class SmbTaskLedger {
             }
         }
         return new DownloadState.ClientState(
-                Settings.getSmbClientId(), Settings.getSmbDeviceName(), tasks);
+                NetworkStorageSettings.getSmbClientId(), NetworkStorageSettings.getSmbDeviceName(), tasks);
     }
 
     /** Caller holds {@code lock}. */

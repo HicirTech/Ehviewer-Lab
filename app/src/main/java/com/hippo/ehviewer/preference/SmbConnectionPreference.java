@@ -19,9 +19,9 @@ import androidx.annotation.Nullable;
 import androidx.appcompat.app.AlertDialog;
 
 import com.hippo.ehviewer.R;
-import com.hippo.ehviewer.Settings;
 import com.hippo.ehviewer.storage.ConnectionDraft;
 import com.hippo.ehviewer.storage.NetworkStorage;
+import com.hippo.ehviewer.storage.NetworkStorageSettings;
 import com.hippo.ehviewer.storage.SelfCheck;
 import com.hippo.preference.DialogPreference;
 import com.hippo.util.IoThreadPoolExecutor;
@@ -100,14 +100,14 @@ public class SmbConnectionPreference extends DialogPreference {
         mPassword = view.findViewById(R.id.smb_password);
         mSigning = view.findViewById(R.id.smb_signing_disabled);
         mResult = view.findViewById(R.id.check_result);
-        set(mHost, Settings.getSmbHost());
-        set(mPort, Settings.getSmbPort());
-        set(mShareName, Settings.getSmbShareName());
-        set(mSharePath, Settings.getSmbSharePath());
-        set(mUsername, Settings.getSmbUsername());
-        set(mPassword, Settings.getSmbPassword());
+        set(mHost, NetworkStorageSettings.getSmbHost());
+        set(mPort, NetworkStorageSettings.getSmbPort());
+        set(mShareName, NetworkStorageSettings.getSmbShareName());
+        set(mSharePath, NetworkStorageSettings.getSmbSharePath());
+        set(mUsername, NetworkStorageSettings.getSmbUsername());
+        set(mPassword, NetworkStorageSettings.getSmbPassword());
         if (mSigning != null) {
-            mSigning.setChecked(Settings.getSmbSigningDisabled());
+            mSigning.setChecked(NetworkStorageSettings.getSmbSigningDisabled());
         }
         mAcceptReadOnly = false;
     }
@@ -299,32 +299,32 @@ public class SmbConnectionPreference extends DialogPreference {
         androidx.preference.PreferenceManager
                 .getDefaultSharedPreferences(context)
                 .edit()
-                .putString(Settings.KEY_SMB_HOST, draft.host)
-                .putString(Settings.KEY_SMB_PORT, draft.port)
-                .putString(Settings.KEY_SMB_SHARE_NAME, draft.shareName)
-                .putString(Settings.KEY_SMB_SHARE_PATH, draft.sharePath)
-                .putString(Settings.KEY_SMB_USERNAME, draft.username)
-                .putString(Settings.KEY_SMB_PASSWORD, draft.password)
-                .putBoolean(Settings.KEY_SMB_SIGNING_DISABLED, draft.signingDisabled)
-                .putString(Settings.KEY_STORAGE_LAST_CHECK,
-                        writable ? Settings.LAST_CHECK_READ_WRITE : Settings.LAST_CHECK_READ_ONLY)
+                .putString(NetworkStorageSettings.KEY_SMB_HOST, draft.host)
+                .putString(NetworkStorageSettings.KEY_SMB_PORT, draft.port)
+                .putString(NetworkStorageSettings.KEY_SMB_SHARE_NAME, draft.shareName)
+                .putString(NetworkStorageSettings.KEY_SMB_SHARE_PATH, draft.sharePath)
+                .putString(NetworkStorageSettings.KEY_SMB_USERNAME, draft.username)
+                .putString(NetworkStorageSettings.KEY_SMB_PASSWORD, draft.password)
+                .putBoolean(NetworkStorageSettings.KEY_SMB_SIGNING_DISABLED, draft.signingDisabled)
+                .putString(NetworkStorageSettings.KEY_LAST_CHECK,
+                        writable ? NetworkStorageSettings.LAST_CHECK_READ_WRITE : NetworkStorageSettings.LAST_CHECK_READ_ONLY)
                 .apply();
     }
 
     public void updateSummary() {
         Context c = getContext();
-        if (TextUtils.isEmpty(Settings.getSmbHost())
-                || TextUtils.isEmpty(Settings.getSmbShareName())) {
+        if (TextUtils.isEmpty(NetworkStorageSettings.getSmbHost())
+                || TextUtils.isEmpty(NetworkStorageSettings.getSmbShareName())) {
             setSummary(c.getString(R.string.settings_storage_connection_unconfigured));
             return;
         }
         String address = NetworkStorage.active().address();
         String access;
-        switch (Settings.getStorageLastCheck()) {
-            case Settings.LAST_CHECK_READ_WRITE:
+        switch (NetworkStorageSettings.getLastCheck()) {
+            case NetworkStorageSettings.LAST_CHECK_READ_WRITE:
                 access = c.getString(R.string.settings_storage_access_read_write);
                 break;
-            case Settings.LAST_CHECK_READ_ONLY:
+            case NetworkStorageSettings.LAST_CHECK_READ_ONLY:
                 access = c.getString(R.string.settings_storage_access_read_only);
                 break;
             default:

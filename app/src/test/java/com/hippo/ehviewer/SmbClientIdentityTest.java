@@ -4,6 +4,8 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 
+import com.hippo.ehviewer.storage.NetworkStorageSettings;
+
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -28,50 +30,50 @@ public class SmbClientIdentityTest {
     public void setUp() {
         Settings.initialize(RuntimeEnvironment.getApplication());
         plantAndroidId(PLATFORM_ID);
-        Settings.putString(Settings.KEY_SMB_CLIENT_ID, null);
-        Settings.putString(Settings.KEY_SMB_DEVICE_NAME, "");
+        Settings.putString(NetworkStorageSettings.KEY_SMB_CLIENT_ID, null);
+        Settings.putString(NetworkStorageSettings.KEY_SMB_DEVICE_NAME, "");
     }
 
     @Test
     public void clientId_isStableAcrossCallsAndRestarts() {
-        String first = Settings.getSmbClientId();
+        String first = NetworkStorageSettings.getSmbClientId();
         assertNotNull(first);
-        assertEquals(first, Settings.getSmbClientId());
+        assertEquals(first, NetworkStorageSettings.getSmbClientId());
 
         Settings.initialize(RuntimeEnvironment.getApplication());
-        assertEquals(first, Settings.getSmbClientId());
+        assertEquals(first, NetworkStorageSettings.getSmbClientId());
     }
 
     @Test
     public void clientId_survivesLosingTheStoredFallback() {
-        String first = Settings.getSmbClientId();
-        Settings.putString(Settings.KEY_SMB_CLIENT_ID, "");
+        String first = NetworkStorageSettings.getSmbClientId();
+        Settings.putString(NetworkStorageSettings.KEY_SMB_CLIENT_ID, "");
 
-        assertEquals(first, Settings.getSmbClientId());
+        assertEquals(first, NetworkStorageSettings.getSmbClientId());
     }
 
     @Test
     public void clientId_fallsBackToAStoredValueWhenThereIsNoPlatformId() {
         plantAndroidId(null);
-        Settings.putString(Settings.KEY_SMB_CLIENT_ID, "");
+        Settings.putString(NetworkStorageSettings.KEY_SMB_CLIENT_ID, "");
 
-        String first = Settings.getSmbClientId();
+        String first = NetworkStorageSettings.getSmbClientId();
         assertNotNull(first);
         assertFalse(first.isEmpty());
-        assertEquals("the made-up id must be kept, not remade", first, Settings.getSmbClientId());
+        assertEquals("the made-up id must be kept, not remade", first, NetworkStorageSettings.getSmbClientId());
     }
 
     @Test
     public void clientId_refusesTheKnownDuplicatePlatformId() {
         plantAndroidId("9774d56d682e549c");
-        Settings.putString(Settings.KEY_SMB_CLIENT_ID, "");
+        Settings.putString(NetworkStorageSettings.KEY_SMB_CLIENT_ID, "");
 
-        assertFalse("9774d56d682e549c".equals(Settings.getSmbClientId()));
+        assertFalse("9774d56d682e549c".equals(NetworkStorageSettings.getSmbClientId()));
     }
 
     @Test
     public void clientId_isSafeAsAFileName() {
-        String id = Settings.getSmbClientId();
+        String id = NetworkStorageSettings.getSmbClientId();
         assertFalse(id.isEmpty());
         assertFalse(id.contains("/"));
         assertFalse(id.contains("\\"));
@@ -80,20 +82,20 @@ public class SmbClientIdentityTest {
 
     @Test
     public void deviceName_isIndependentOfTheClientId() {
-        String id = Settings.getSmbClientId();
-        Settings.putString(Settings.KEY_SMB_DEVICE_NAME, "Renamed");
+        String id = NetworkStorageSettings.getSmbClientId();
+        Settings.putString(NetworkStorageSettings.KEY_SMB_DEVICE_NAME, "Renamed");
 
-        assertEquals("Renamed", Settings.getSmbDeviceName());
-        assertEquals(id, Settings.getSmbClientId());
+        assertEquals("Renamed", NetworkStorageSettings.getSmbDeviceName());
+        assertEquals(id, NetworkStorageSettings.getSmbClientId());
     }
 
     @Test
     public void deviceName_fallsBackWhenBlank() {
-        Settings.putString(Settings.KEY_SMB_DEVICE_NAME, "");
-        String whenUnset = Settings.getSmbDeviceName();
+        Settings.putString(NetworkStorageSettings.KEY_SMB_DEVICE_NAME, "");
+        String whenUnset = NetworkStorageSettings.getSmbDeviceName();
         assertFalse(whenUnset.isEmpty());
 
-        Settings.putString(Settings.KEY_SMB_DEVICE_NAME, "   ");
-        assertEquals(whenUnset, Settings.getSmbDeviceName());
+        Settings.putString(NetworkStorageSettings.KEY_SMB_DEVICE_NAME, "   ");
+        assertEquals(whenUnset, NetworkStorageSettings.getSmbDeviceName());
     }
 }

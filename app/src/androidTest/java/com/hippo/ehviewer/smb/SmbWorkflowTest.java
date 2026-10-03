@@ -31,6 +31,7 @@ import androidx.test.uiautomator.UiObject2;
 import androidx.test.uiautomator.Until;
 
 import com.hippo.ehviewer.R;
+import com.hippo.ehviewer.storage.NetworkStorageSettings;
 import com.hippo.ehviewer.ui.MainActivity;
 
 import org.junit.After;
@@ -169,7 +170,7 @@ public class SmbWorkflowTest {
     private static void assumeShareConfigured() {
         org.junit.Assume.assumeTrue("no SMB share configured on this device; share tests skipped",
                 com.hippo.ehviewer.storage.NetworkStorage.active().isConfigured()
-                        && com.hippo.ehviewer.Settings.getNetworkStorageEnabled());
+                        && NetworkStorageSettings.isEnabled());
     }
 
     private void openInventory() {

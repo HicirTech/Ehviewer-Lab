@@ -42,6 +42,7 @@ import com.hippo.ehviewer.smb.SmbCoverDataContainer;
 import com.hippo.ehviewer.smb.SmbDeviceColor;
 import com.hippo.ehviewer.storage.GalleryTargets;
 import com.hippo.ehviewer.storage.NetworkStorage;
+import com.hippo.ehviewer.storage.NetworkStorageSettings;
 import com.hippo.ehviewer.storage.SortMode;
 import com.hippo.ehviewer.ui.GalleryActivity;
 import com.hippo.ehviewer.ui.scene.ToolbarScene;
@@ -70,6 +71,8 @@ import java.util.concurrent.ExecutorService;
 public class LocalInventoryScene extends ToolbarScene
         implements EasyRecyclerView.OnItemClickListener, EasyRecyclerView.OnItemLongClickListener,
         FabLayout.OnClickFabListener, EasyRecyclerView.CustomChoiceListener {
+
+    private static final String KEY_SORT = "local_inventory_sort";
 
     // Secondary FAB indexes, in scene_local_inventory.xml order.
     private static final int FAB_SORT = 0;
@@ -270,7 +273,7 @@ public class LocalInventoryScene extends ToolbarScene
 
     @NonNull
     private String getEmptyString() {
-        if (!NetworkStorage.active().isConfigured() || !Settings.getNetworkStorageEnabled()) {
+        if (!NetworkStorage.active().isConfigured() || !NetworkStorageSettings.isEnabled()) {
             return getString(R.string.local_inventory_disabled);
         }
         return getString(R.string.local_inventory_empty, NetworkStorage.active().displayName());
@@ -372,17 +375,21 @@ public class LocalInventoryScene extends ToolbarScene
         mFabLayout = null;
     }
 
+    private static int savedSortOrdinal() {
+        return Settings.getInt(KEY_SORT, SortMode.DOWNLOAD_DATE_DESC.ordinal());
+    }
+
     private void showSortDialog() {
         Context context = getEHContext();
         if (context == null) {
             return;
         }
-        int current = Settings.getLocalInventorySort();
+        int current = savedSortOrdinal();
         new AlertDialog.Builder(context)
                 .setTitle(R.string.local_inventory_sort_title)
                 .setSingleChoiceItems(R.array.local_inventory_sort, current, (dialog, which) -> {
-                    if (which != Settings.getLocalInventorySort()) {
-                        Settings.putLocalInventorySort(which);
+                    if (which != current) {
+                        Settings.putInt(KEY_SORT, which);
                         if (mHelper != null) {
                             mHelper.refresh();
                         }
@@ -767,7 +774,7 @@ public class LocalInventoryScene extends ToolbarScene
         @Override
         protected void getPageData(int taskId, int type, int page) {
             final boolean rebuild = type == TYPE_REFRESH;
-            final SortMode mode = SortMode.fromOrdinal(Settings.getLocalInventorySort());
+            final SortMode mode = SortMode.fromOrdinal(savedSortOrdinal());
             mWorker.execute(() -> {
                 final InventoryPager.Page result;
                 try {

@@ -15,12 +15,12 @@ import androidx.annotation.Nullable;
 import androidx.appcompat.app.AlertDialog;
 
 import com.hippo.ehviewer.R;
-import com.hippo.ehviewer.Settings;
 import com.hippo.ehviewer.dao.DownloadInfo;
 import com.hippo.ehviewer.smb.SmbDirectDownloader;
 import com.hippo.ehviewer.smb.SmbDownloadBoard;
 import com.hippo.ehviewer.smb.SmbTaskInfo;
 import com.hippo.ehviewer.storage.NetworkStorage;
+import com.hippo.ehviewer.storage.NetworkStorageSettings;
 import com.hippo.lib.yorozuya.SimpleHandler;
 import com.hippo.util.IoThreadPoolExecutor;
 
@@ -85,7 +85,7 @@ public final class SmbDownloadsDelegate {
     }
 
     private void refreshNow() {
-        final boolean enabled = Settings.getNetworkStorageEnabled() && NetworkStorage.active().isConfigured();
+        final boolean enabled = NetworkStorageSettings.isEnabled() && NetworkStorage.active().isConfigured();
         if (!enabled) {
             // Off means the downloads stop too, not just the list.
             SmbDirectDownloader.getInstance().onSmbAvailabilityChanged();
@@ -202,7 +202,7 @@ public final class SmbDownloadsDelegate {
 
     @Nullable
     public String moveTargetLabel(@NonNull Context context) {
-        if (!Settings.getNetworkStorageEnabled() || !NetworkStorage.active().isConfigured()) {
+        if (!NetworkStorageSettings.isEnabled() || !NetworkStorage.active().isConfigured()) {
             return null;
         }
         return context.getString(R.string.download_move_to_smb, NetworkStorage.active().displayName());

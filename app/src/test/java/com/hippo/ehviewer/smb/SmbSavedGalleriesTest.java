@@ -12,6 +12,7 @@ import static org.junit.Assert.assertTrue;
 import com.hippo.ehviewer.Settings;
 import com.hippo.ehviewer.storage.DownloadState;
 import com.hippo.ehviewer.storage.GalleryRef;
+import com.hippo.ehviewer.storage.NetworkStorageSettings;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -62,9 +63,9 @@ public class SmbSavedGalleriesTest {
     @Before
     public void setUp() throws Exception {
         Settings.initialize(RuntimeEnvironment.getApplication());
-        Settings.putString(Settings.KEY_SMB_HOST, "192.0.2.7");
-        Settings.putString(Settings.KEY_SMB_SHARE_NAME, "share");
-        Settings.putBoolean(Settings.KEY_NETWORK_STORAGE_ENABLED, true);
+        Settings.putString(NetworkStorageSettings.KEY_SMB_HOST, "192.0.2.7");
+        Settings.putString(NetworkStorageSettings.KEY_SMB_SHARE_NAME, "share");
+        Settings.putBoolean(NetworkStorageSettings.KEY_ENABLED, true);
         folders.clear();
         claims.clear();
         readFails = false;
@@ -107,7 +108,7 @@ public class SmbSavedGalleriesTest {
         reset(Collections.singleton(42L));
         assertTrue(SmbSavedGalleries.getInstance().contains(42L));
 
-        Settings.putBoolean(Settings.KEY_NETWORK_STORAGE_ENABLED, false);
+        Settings.putBoolean(NetworkStorageSettings.KEY_ENABLED, false);
 
         assertFalse(SmbSavedGalleries.getInstance().contains(42L));
     }

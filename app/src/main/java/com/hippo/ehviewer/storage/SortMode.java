@@ -5,7 +5,6 @@ import androidx.annotation.Nullable;
 
 import com.hippo.ehviewer.client.data.GalleryInfo;
 
-import com.hippo.ehviewer.storage.SortMode;
 import java.util.Comparator;
 
 /** Persisted as ordinal(): keep the declaration order. */

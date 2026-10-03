@@ -6,10 +6,10 @@ import android.util.Log;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
-import com.hippo.ehviewer.Settings;
 import com.hippo.ehviewer.client.data.GalleryInfo;
 import com.hippo.ehviewer.storage.DownloadState;
 import com.hippo.ehviewer.storage.NetworkStorage;
+import com.hippo.ehviewer.storage.NetworkStorageSettings;
 import com.hippo.lib.yorozuya.SimpleHandler;
 
 import java.util.ArrayList;
@@ -74,7 +74,7 @@ public final class SmbDownloadBoard {
     }
 
     public static boolean smbAvailable() {
-        return Settings.getNetworkStorageEnabled() && NetworkStorage.active().isConfigured();
+        return NetworkStorageSettings.isEnabled() && NetworkStorage.active().isConfigured();
     }
 
     private final SmbHeartbeat pulse = new SmbHeartbeat(new SmbHeartbeat.Shell() {
@@ -134,7 +134,7 @@ public final class SmbDownloadBoard {
         final DownloadState.ReconcilePlan plan;
         try {
             plan = DownloadState.planReconcile(
-                    Settings.getSmbClientId(),
+                    NetworkStorageSettings.getSmbClientId(),
                     device.snapshot(),
                     NetworkStorage.active().stateStore().readAll(),
                     device::isRetired);
@@ -161,7 +161,7 @@ public final class SmbDownloadBoard {
             return new ArrayList<>();
         }
         try {
-            String selfId = Settings.getSmbClientId();
+            String selfId = NetworkStorageSettings.getSmbClientId();
             List<DownloadState.Published> all = new ArrayList<>();
             for (DownloadState.Published p : NetworkStorage.active().stateStore().readAll()) {
                 if (!p.state.clientId.equals(selfId)) {
@@ -235,7 +235,7 @@ public final class SmbDownloadBoard {
         try {
             return DownloadState.isClaimedByAnotherLiveClient(
                     DownloadState.merge(NetworkStorage.active().stateStore().readAll()),
-                    gid, Settings.getSmbClientId());
+                    gid, NetworkStorageSettings.getSmbClientId());
         } catch (Throwable e) {
             // On doubt, proceed: a duplicate download wastes bandwidth, a refusal loses the gallery.
             Log.w(TAG, "Could not check whether gid=" + gid + " is claimed elsewhere", e);
@@ -269,7 +269,7 @@ public final class SmbDownloadBoard {
         try {
             fresh = DownloadState.assessTakeOver(
                     DownloadState.merge(NetworkStorage.active().stateStore().readAll()),
-                    task.gid, Settings.getSmbClientId());
+                    task.gid, NetworkStorageSettings.getSmbClientId());
         } catch (Throwable e) {
             // No fresh read = no adoption; two devices running one download is the worse outcome.
             Log.w(TAG, "Could not confirm gid=" + task.gid + " is still orphaned", e);

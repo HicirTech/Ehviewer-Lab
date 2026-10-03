@@ -15,6 +15,9 @@ import java.util.concurrent.ThreadPoolExecutor;
 
 public final class SmbConcurrency {
 
+    public static final String KEY_METADATA = "smb_metadata_concurrency";
+    public static final String KEY_IMAGE = "smb_image_concurrency";
+
     /** Conservative on purpose: auto-tune measures the real share. */
     public static final int DEFAULT_METADATA = 6;
 
@@ -27,11 +30,11 @@ public final class SmbConcurrency {
     private SmbConcurrency() {}
 
     public static int metadata() {
-        return clamp(Settings.getSmbMetadataConcurrency(), DEFAULT_METADATA);
+        return clamp(Settings.getIntFromStr(KEY_METADATA, DEFAULT_METADATA), DEFAULT_METADATA);
     }
 
     public static int image() {
-        return clamp(Settings.getSmbImageConcurrency(), DEFAULT_IMAGE);
+        return clamp(Settings.getIntFromStr(KEY_IMAGE, DEFAULT_IMAGE), DEFAULT_IMAGE);
     }
 
     /** Out-of-range values give {@code fallback}, not the nearest bound. */

@@ -6,7 +6,7 @@ import android.util.Log;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
-import com.hippo.ehviewer.Settings;
+import com.hippo.ehviewer.storage.NetworkStorageSettings;
 
 import java.util.Properties;
 
@@ -24,19 +24,19 @@ public final class SmbConnection {
     private SmbConnection() {}
 
     public static boolean isConfigured() {
-        return !TextUtils.isEmpty(Settings.getSmbHost()) &&
-                !TextUtils.isEmpty(Settings.getSmbShareName());
+        return !TextUtils.isEmpty(NetworkStorageSettings.getSmbHost()) &&
+                !TextUtils.isEmpty(NetworkStorageSettings.getSmbShareName());
     }
 
     @NonNull
     static CIFSContext buildContext() {
         CIFSContext base = baseContext();
-        String username = Settings.getSmbUsername();
+        String username = NetworkStorageSettings.getSmbUsername();
         if (TextUtils.isEmpty(username)) {
             return base;
         }
         NtlmPasswordAuthenticator authenticator =
-                new NtlmPasswordAuthenticator(null, username, Settings.getSmbPassword());
+                new NtlmPasswordAuthenticator(null, username, NetworkStorageSettings.getSmbPassword());
         return base.withCredentials(authenticator);
     }
 
@@ -55,7 +55,7 @@ public final class SmbConnection {
 
     @NonNull
     private static CIFSContext baseContext() {
-        boolean signingDisabled = Settings.getSmbSigningDisabled();
+        boolean signingDisabled = NetworkStorageSettings.getSmbSigningDisabled();
         Base base = sBase;
         if (base != null && base.signingDisabled == signingDisabled) {
             return base.ctx;
@@ -112,10 +112,10 @@ public final class SmbConnection {
     @NonNull
     static String buildSmbUrl() {
         return SmbPaths.buildShareUrl(
-                Settings.getSmbHost(),
-                Settings.getSmbPort(),
-                Settings.getSmbShareName(),
-                Settings.getSmbSharePath());
+                NetworkStorageSettings.getSmbHost(),
+                NetworkStorageSettings.getSmbPort(),
+                NetworkStorageSettings.getSmbShareName(),
+                NetworkStorageSettings.getSmbSharePath());
     }
 
 }

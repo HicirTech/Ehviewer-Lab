@@ -15,6 +15,7 @@ import androidx.annotation.NonNull;
 import com.hippo.ehviewer.Settings;
 import com.hippo.ehviewer.smb.SmbDownloadBoard;
 import com.hippo.ehviewer.smb.SmbTaskInfo;
+import com.hippo.ehviewer.storage.NetworkStorageSettings;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -55,9 +56,9 @@ public class InventoryBadgesTest {
     @Before
     public void setUp() {
         Settings.initialize(RuntimeEnvironment.getApplication());
-        Settings.putString(Settings.KEY_SMB_HOST, "192.0.2.7");
-        Settings.putString(Settings.KEY_SMB_SHARE_NAME, "share");
-        Settings.putBoolean(Settings.KEY_NETWORK_STORAGE_ENABLED, true);
+        Settings.putString(NetworkStorageSettings.KEY_SMB_HOST, "192.0.2.7");
+        Settings.putString(NetworkStorageSettings.KEY_SMB_SHARE_NAME, "share");
+        Settings.putBoolean(NetworkStorageSettings.KEY_ENABLED, true);
         tasksOnShare.clear();
         heard.clear();
         badges = new InventoryBadges(Runnable::run, heard::add);
@@ -109,7 +110,7 @@ public class InventoryBadgesTest {
     public void disabledSmbClearsTheMarks() throws Exception {
         tasksOnShare.add(task(42L, 5, 10));
         refreshNow();
-        Settings.putBoolean(Settings.KEY_NETWORK_STORAGE_ENABLED, false);
+        Settings.putBoolean(NetworkStorageSettings.KEY_ENABLED, false);
         refreshNow();
         assertEquals(2, heard.size());
         assertTrue(heard.get(1).isEmpty());

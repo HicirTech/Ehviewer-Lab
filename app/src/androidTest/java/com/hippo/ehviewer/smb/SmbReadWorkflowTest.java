@@ -23,6 +23,7 @@ import androidx.test.platform.app.InstrumentationRegistry;
 
 import com.hippo.ehviewer.Settings;
 import com.hippo.ehviewer.client.data.GalleryInfo;
+import com.hippo.ehviewer.storage.NetworkStorageSettings;
 
 import org.junit.After;
 import org.junit.Assume;
@@ -98,13 +99,13 @@ public class SmbReadWorkflowTest {
                 String.valueOf(DEFAULT_COVER_SAMPLE)));
         mPageSample = Integer.parseInt(args.getString("eh.pageSample",
                 String.valueOf(DEFAULT_PAGE_SAMPLE)));
-        mUser = args.getString("eh.user", Settings.getSmbUsername());
-        mPass = args.getString("eh.pass", Settings.getSmbPassword());
+        mUser = args.getString("eh.user", NetworkStorageSettings.getSmbUsername());
+        mPass = args.getString("eh.pass", NetworkStorageSettings.getSmbPassword());
 
-        mOrigShare = Settings.getSmbShareName();
-        mOrigPath = Settings.getSmbSharePath();
-        mOrigUser = Settings.getSmbUsername();
-        mOrigPass = Settings.getSmbPassword();
+        mOrigShare = NetworkStorageSettings.getSmbShareName();
+        mOrigPath = NetworkStorageSettings.getSmbSharePath();
+        mOrigUser = NetworkStorageSettings.getSmbUsername();
+        mOrigPass = NetworkStorageSettings.getSmbPassword();
     }
 
     @After
@@ -117,10 +118,10 @@ public class SmbReadWorkflowTest {
                 .getDefaultSharedPreferences(InstrumentationRegistry.getInstrumentation()
                         .getTargetContext())
                 .edit()
-                .putString(Settings.KEY_SMB_SHARE_NAME, mOrigShare)
-                .putString(Settings.KEY_SMB_SHARE_PATH, mOrigPath)
-                .putString(Settings.KEY_SMB_USERNAME, mOrigUser)
-                .putString(Settings.KEY_SMB_PASSWORD, mOrigPass)
+                .putString(NetworkStorageSettings.KEY_SMB_SHARE_NAME, mOrigShare)
+                .putString(NetworkStorageSettings.KEY_SMB_SHARE_PATH, mOrigPath)
+                .putString(NetworkStorageSettings.KEY_SMB_USERNAME, mOrigUser)
+                .putString(NetworkStorageSettings.KEY_SMB_PASSWORD, mOrigPass)
                 .commit();
         assertTrue("restoring the device's SMB configuration failed", written);
         clearListingCache();
@@ -210,10 +211,10 @@ public class SmbReadWorkflowTest {
 
     private void forEachTarget(Stage stage) throws Exception {
         for (Target target : mTargets) {
-            Settings.putString(Settings.KEY_SMB_SHARE_NAME, target.share);
-            Settings.putString(Settings.KEY_SMB_SHARE_PATH, target.path);
-            Settings.putString(Settings.KEY_SMB_USERNAME, mUser);
-            Settings.putString(Settings.KEY_SMB_PASSWORD, mPass);
+            Settings.putString(NetworkStorageSettings.KEY_SMB_SHARE_NAME, target.share);
+            Settings.putString(NetworkStorageSettings.KEY_SMB_SHARE_PATH, target.path);
+            Settings.putString(NetworkStorageSettings.KEY_SMB_USERNAME, mUser);
+            Settings.putString(NetworkStorageSettings.KEY_SMB_PASSWORD, mPass);
             clearListingCache();
             stage.run(target);
         }

@@ -7,9 +7,12 @@
 
 package com.hippo.ehviewer.download;
 
+import android.content.SharedPreferences;
+
 import androidx.annotation.NonNull;
 
 import com.hippo.ehviewer.Settings;
+import com.hippo.ehviewer.storage.NetworkStorageSettings;
 
 public final class PowerDownloadSettings {
 
@@ -24,6 +27,8 @@ public final class PowerDownloadSettings {
     public static final String KEY_VOLUME_ENABLED = "power_download_volume_enabled";
     public static final String KEY_VOLUME_UP_TARGET = "power_download_volume_up_target";
     public static final String KEY_VOLUME_DOWN_TARGET = "power_download_volume_down_target";
+    /** The retired "auto download to network storage" switch (#159). */
+    static final String KEY_LEGACY_AUTO_DOWNLOAD = "smb_auto_download_enabled";
 
     /** At one, just opening a gallery would count, as the first-page rule does. */
     public static final int DEFAULT_PAGES_COUNT = 2;
@@ -88,10 +93,17 @@ public final class PowerDownloadSettings {
         return target(KEY_VOLUME_DOWN_TARGET, DEFAULT_VOLUME_DOWN_TARGET);
     }
 
-    /** The old "auto download to network storage" switch: first page, to the share. */
-    public static void adoptLegacyAutoDownload() {
-        Settings.putBoolean(KEY_FIRST_PAGE_ENABLED, true);
-        Settings.putString(KEY_EDGE_PAGE_TARGET, PowerDownloadTarget.NETWORK_STORAGE.value);
+    /** Carries the retired switch over once, as the first-page rule to the share. */
+    public static void migrateLegacyAutoDownload(@NonNull SharedPreferences prefs) {
+        if (!prefs.contains(KEY_LEGACY_AUTO_DOWNLOAD)) {
+            return;
+        }
+        // A rule aimed at the share is never on while network storage is off.
+        if (Settings.getBoolean(KEY_LEGACY_AUTO_DOWNLOAD, false) && NetworkStorageSettings.isEnabled()) {
+            Settings.putBoolean(KEY_FIRST_PAGE_ENABLED, true);
+            Settings.putString(KEY_EDGE_PAGE_TARGET, PowerDownloadTarget.NETWORK_STORAGE.value);
+        }
+        prefs.edit().remove(KEY_LEGACY_AUTO_DOWNLOAD).apply();
     }
 
     /** Rules aimed at the share go off rather than silently doing nothing. */

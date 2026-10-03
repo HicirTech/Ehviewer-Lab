@@ -21,6 +21,7 @@ import com.hippo.ehviewer.storage.NetworkStorageFiles;
 import com.hippo.ehviewer.storage.NetworkStorageInventory;
 import com.hippo.ehviewer.storage.NetworkStorageLifecycle;
 import com.hippo.ehviewer.storage.NetworkStorageMetadata;
+import com.hippo.ehviewer.storage.NetworkStorageSettings;
 import com.hippo.ehviewer.storage.NetworkStorageStateStore;
 import com.hippo.ehviewer.storage.SortMode;
 import com.hippo.streampipe.InputStreamPipe;
@@ -56,10 +57,10 @@ public final class SmbNetworkStorage implements NetworkStorage {
     @Override
     public String address() {
         return SmbPaths.buildShareUrl(
-                com.hippo.ehviewer.Settings.getSmbHost(),
-                com.hippo.ehviewer.Settings.getSmbPort(),
-                com.hippo.ehviewer.Settings.getSmbShareName(),
-                com.hippo.ehviewer.Settings.getSmbSharePath());
+                NetworkStorageSettings.getSmbHost(),
+                NetworkStorageSettings.getSmbPort(),
+                NetworkStorageSettings.getSmbShareName(),
+                NetworkStorageSettings.getSmbSharePath());
     }
 
     @NonNull

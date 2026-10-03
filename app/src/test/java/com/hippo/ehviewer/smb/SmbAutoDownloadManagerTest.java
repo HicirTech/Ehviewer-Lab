@@ -18,6 +18,7 @@ import com.hippo.ehviewer.client.data.GalleryInfo;
 import com.hippo.ehviewer.dao.DownloadInfo;
 import com.hippo.ehviewer.spider.SpiderQueen;
 import com.hippo.ehviewer.storage.NetworkStorage;
+import com.hippo.ehviewer.storage.NetworkStorageSettings;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -187,7 +188,7 @@ public class SmbAutoDownloadManagerTest {
     public void setUp() {
         context = RuntimeEnvironment.getApplication();
         Settings.initialize(context);
-        Settings.putBoolean(Settings.KEY_NETWORK_STORAGE_ENABLED, true);
+        Settings.putBoolean(NetworkStorageSettings.KEY_ENABLED, true);
         configured = true;
         alreadyComplete = false;
         accepted.clear();
@@ -207,12 +208,12 @@ public class SmbAutoDownloadManagerTest {
 
     @Test
     public void quietPath_needsTheSaveSwitch() {
-        Settings.putBoolean(Settings.KEY_NETWORK_STORAGE_ENABLED, false);
+        Settings.putBoolean(NetworkStorageSettings.KEY_ENABLED, false);
         SmbAutoDownloadManager.getInstance().enqueueQuietly(context, gallery());
         pump();
         assertTrue("the master save switch is off", accepted.isEmpty());
 
-        Settings.putBoolean(Settings.KEY_NETWORK_STORAGE_ENABLED, true);
+        Settings.putBoolean(NetworkStorageSettings.KEY_ENABLED, true);
         SmbAutoDownloadManager.getInstance().enqueueQuietly(context, gallery());
         pump();
         assertEquals(1, accepted.size());
@@ -220,7 +221,7 @@ public class SmbAutoDownloadManagerTest {
 
     @Test
     public void manualPath_saysWhyWhenTheSaveSwitchIsOff() {
-        Settings.putBoolean(Settings.KEY_NETWORK_STORAGE_ENABLED, false);
+        Settings.putBoolean(NetworkStorageSettings.KEY_ENABLED, false);
 
         SmbAutoDownloadManager.getInstance().enqueueManual(context, gallery());
         pump();

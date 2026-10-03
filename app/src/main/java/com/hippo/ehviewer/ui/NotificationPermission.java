@@ -24,6 +24,7 @@ import com.hippo.ehviewer.Settings;
 public final class NotificationPermission {
 
     private static final int REQUEST_CODE = 1013;
+    private static final String KEY_REQUESTED = "notification_permission_requested";
 
     private static boolean sHintShown;
 
@@ -44,7 +45,7 @@ public final class NotificationPermission {
                 == PackageManager.PERMISSION_GRANTED) {
             return;
         }
-        if (!Settings.getNotificationPermissionRequested()) {
+        if (!Settings.getBoolean(KEY_REQUESTED, false)) {
             Activity activity = unwrap(context);
             if (activity != null && (activity.isFinishing() || activity.isDestroyed())) {
                 // A dead host must not spend the one-time ask.
@@ -53,7 +54,7 @@ public final class NotificationPermission {
             if (activity != null) {
                 ActivityCompat.requestPermissions(activity,
                         new String[]{android.Manifest.permission.POST_NOTIFICATIONS}, REQUEST_CODE);
-                Settings.putNotificationPermissionRequested(true);
+                Settings.putBoolean(KEY_REQUESTED, true);
             }
             return;
         }

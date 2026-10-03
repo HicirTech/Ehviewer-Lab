@@ -71,6 +71,7 @@ public class Settings {
         }
 
         fixDefaultValue();
+        com.hippo.ehviewer.storage.NetworkStorageSettings.initialize(sContext);
     }
 
     private static void fixDefaultValue() {
@@ -86,13 +87,7 @@ public class Settings {
                 putDF(true);
             }
         }
-        // Carried over once (#159); a rule aimed at storage is never on while storage is off.
-        if (sSettingsPre.contains(KEY_SMB_AUTO_DOWNLOAD_ENABLED)) {
-            if (getBoolean(KEY_SMB_AUTO_DOWNLOAD_ENABLED, false) && getNetworkStorageEnabled()) {
-                com.hippo.ehviewer.download.PowerDownloadSettings.adoptLegacyAutoDownload();
-            }
-            sSettingsPre.edit().remove(KEY_SMB_AUTO_DOWNLOAD_ENABLED).apply();
-        }
+        com.hippo.ehviewer.download.PowerDownloadSettings.migrateLegacyAutoDownload(sSettingsPre);
 
     }
 
@@ -921,187 +916,6 @@ public class Settings {
 
     public static void putDownloadOriginImage(boolean value) {
         putBoolean(KEY_DOWNLOAD_ORIGIN_IMAGE, value);
-    }
-
-    // Key string predates the umbrella semantics; changing it would cost every user a migration.
-    public static final String KEY_NETWORK_STORAGE_ENABLED = "smb_save_enabled";
-    private static final boolean DEFAULT_NETWORK_STORAGE_ENABLED = false;
-
-    public static boolean getNetworkStorageEnabled() {
-        return getBoolean(KEY_NETWORK_STORAGE_ENABLED, DEFAULT_NETWORK_STORAGE_ENABLED);
-    }
-
-    /** Selected protocol; absent for users from before the selector — resolved, never read raw. */
-    public static final String KEY_STORAGE_PROTOCOL = "storage_protocol";
-
-    public static final String KEY_NOTIFICATION_PERMISSION_REQUESTED
-            = "notification_permission_requested";
-
-    public static boolean getNotificationPermissionRequested() {
-        return getBoolean(KEY_NOTIFICATION_PERMISSION_REQUESTED, false);
-    }
-
-    public static void putNotificationPermissionRequested(boolean value) {
-        putBoolean(KEY_NOTIFICATION_PERMISSION_REQUESTED, value);
-    }
-
-    /** What the last passed save-probe established about the share (#133). */
-    public static final String KEY_STORAGE_LAST_CHECK = "storage_last_check";
-    public static final String LAST_CHECK_READ_WRITE = "rw";
-    public static final String LAST_CHECK_READ_ONLY = "ro";
-
-    @NonNull
-    public static String getStorageLastCheck() {
-        String value = getString(KEY_STORAGE_LAST_CHECK, "");
-        return value == null ? "" : value;
-    }
-
-    @NonNull
-    public static String getStorageProtocol() {
-        return com.hippo.ehviewer.storage.NetworkStorage.resolveProtocol(
-                getString(KEY_STORAGE_PROTOCOL, null), getSmbHost());
-    }
-
-    /** The retired "auto download to network storage" switch, read only by fixDefaultValue (#159). */
-    public static final String KEY_SMB_AUTO_DOWNLOAD_ENABLED = "smb_auto_download_enabled";
-
-    public static final String KEY_SMB_HOST = "smb_host";
-    private static final String DEFAULT_SMB_HOST = "";
-
-    @NonNull
-    public static String getSmbHost() {
-        String value = getString(KEY_SMB_HOST, DEFAULT_SMB_HOST);
-        return value != null ? value.trim() : "";
-    }
-
-    public static final String KEY_SMB_PORT = "smb_port";
-    private static final String DEFAULT_SMB_PORT = "445";
-
-    @NonNull
-    public static String getSmbPort() {
-        String value = getString(KEY_SMB_PORT, DEFAULT_SMB_PORT);
-        return value != null ? value.trim() : "445";
-    }
-
-    public static final String KEY_SMB_SHARE_NAME = "smb_share_name";
-    private static final String DEFAULT_SMB_SHARE_NAME = "";
-
-    @NonNull
-    public static String getSmbShareName() {
-        String value = getString(KEY_SMB_SHARE_NAME, DEFAULT_SMB_SHARE_NAME);
-        return value != null ? value.trim() : "";
-    }
-
-    public static final String KEY_SMB_SHARE_PATH = "smb_share_path";
-    private static final String DEFAULT_SMB_SHARE_PATH = "/";
-
-    @NonNull
-    public static String getSmbSharePath() {
-        String value = getString(KEY_SMB_SHARE_PATH, DEFAULT_SMB_SHARE_PATH);
-        if (value == null) value = "/";
-        value = value.trim();
-        if (!value.startsWith("/")) value = "/" + value;
-        if (!value.endsWith("/")) value = value + "/";
-        return value;
-    }
-
-    public static final String KEY_SMB_USERNAME = "smb_username";
-    private static final String DEFAULT_SMB_USERNAME = "";
-
-    @NonNull
-    public static String getSmbUsername() {
-        String value = getString(KEY_SMB_USERNAME, DEFAULT_SMB_USERNAME);
-        return value != null ? value : "";
-    }
-
-    public static final String KEY_SMB_PASSWORD = "smb_password";
-    private static final String DEFAULT_SMB_PASSWORD = "";
-
-    @NonNull
-    public static String getSmbPassword() {
-        String value = getString(KEY_SMB_PASSWORD, DEFAULT_SMB_PASSWORD);
-        return value != null ? value : "";
-    }
-
-    /** Opt-out of SMB signing, whose per-packet HMAC can slow transfers on weak CPUs. */
-    public static final String KEY_SMB_SIGNING_DISABLED = "smb_signing_disabled";
-    private static final boolean DEFAULT_SMB_SIGNING_DISABLED = false;
-
-    public static boolean getSmbSigningDisabled() {
-        return getBoolean(KEY_SMB_SIGNING_DISABLED, DEFAULT_SMB_SIGNING_DISABLED);
-    }
-
-    /** Unclamped: read it through {@code SmbConcurrency}. */
-    public static final String KEY_SMB_METADATA_CONCURRENCY = "smb_metadata_concurrency";
-
-    public static int getSmbMetadataConcurrency() {
-        return getIntFromStr(KEY_SMB_METADATA_CONCURRENCY,
-                com.hippo.ehviewer.smb.SmbConcurrency.DEFAULT_METADATA);
-    }
-
-    /** Unclamped: read it through {@code SmbConcurrency}. */
-    public static final String KEY_SMB_IMAGE_CONCURRENCY = "smb_image_concurrency";
-
-    public static int getSmbImageConcurrency() {
-        return getIntFromStr(KEY_SMB_IMAGE_CONCURRENCY,
-                com.hippo.ehviewer.smb.SmbConcurrency.DEFAULT_IMAGE);
-    }
-
-    /** Names this device's {@code state/} file: must be unique and survive clearing app data. */
-    public static final String KEY_SMB_CLIENT_ID = "smb_client_id";
-
-    /** Android 2.2 shipped a bug that gave a great many devices this same id. */
-    private static final String BROKEN_ANDROID_ID = "9774d56d682e549c";
-
-    @NonNull
-    public static synchronized String getSmbClientId() {
-        String androidId = null;
-        try {
-            androidId = android.provider.Settings.Secure.getString(
-                    sContext.getContentResolver(), android.provider.Settings.Secure.ANDROID_ID);
-        } catch (Throwable ignored) {
-            // No content resolver worth the name; fall through to the stored id.
-        }
-        if (androidId != null) {
-            androidId = androidId.trim();
-            if (!androidId.isEmpty() && !BROKEN_ANDROID_ID.equals(androidId)) {
-                return androidId;
-            }
-        }
-        String stored = getString(KEY_SMB_CLIENT_ID, null);
-        if (stored == null || stored.isEmpty()) {
-            stored = java.util.UUID.randomUUID().toString();
-            putString(KEY_SMB_CLIENT_ID, stored);
-        }
-        return stored;
-    }
-
-    /** Shown to other devices on the share; empty falls back to the device model. */
-    public static final String KEY_SMB_DEVICE_NAME = "smb_device_name";
-
-    @NonNull
-    public static String getSmbDeviceName() {
-        String value = getString(KEY_SMB_DEVICE_NAME, "");
-        if (value != null) {
-            value = value.trim();
-            if (!value.isEmpty()) {
-                return value;
-            }
-        }
-        String model = android.os.Build.MODEL;
-        return model == null || model.trim().isEmpty() ? "Android" : model.trim();
-    }
-
-    /** A {@code SortMode} ordinal. */
-    public static final String KEY_LOCAL_INVENTORY_SORT = "local_inventory_sort";
-    private static final int DEFAULT_LOCAL_INVENTORY_SORT = 0;
-
-    public static int getLocalInventorySort() {
-        return getInt(KEY_LOCAL_INVENTORY_SORT, DEFAULT_LOCAL_INVENTORY_SORT);
-    }
-
-    public static void putLocalInventorySort(int value) {
-        putInt(KEY_LOCAL_INVENTORY_SORT, value);
     }
 
     /********************

@@ -5,10 +5,10 @@ import android.util.Log;
 
 import androidx.annotation.NonNull;
 
-import com.hippo.ehviewer.Settings;
 import com.hippo.ehviewer.storage.DownloadState;
 import com.hippo.ehviewer.storage.GalleryRef;
 import com.hippo.ehviewer.storage.NetworkStorage;
+import com.hippo.ehviewer.storage.NetworkStorageSettings;
 import com.hippo.lib.yorozuya.SimpleHandler;
 
 import java.util.Collections;
@@ -115,7 +115,7 @@ public final class SmbSavedGalleries {
     }
 
     private static boolean enabled() {
-        return NetworkStorage.active().isConfigured() && Settings.getNetworkStorageEnabled();
+        return NetworkStorage.active().isConfigured() && NetworkStorageSettings.isEnabled();
     }
 
     /** Null on failure, so the caller keeps the previous answer. */

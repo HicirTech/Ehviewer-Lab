@@ -13,6 +13,7 @@ import static org.junit.Assert.assertTrue;
 
 import com.hippo.ehviewer.Settings;
 import com.hippo.ehviewer.client.data.GalleryInfo;
+import com.hippo.ehviewer.storage.NetworkStorageSettings;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -99,10 +100,10 @@ public class SmbGalleryLifecycleTest {
     @Before
     public void setUp() throws Exception {
         Settings.initialize(RuntimeEnvironment.getApplication());
-        Settings.putString(Settings.KEY_SMB_HOST, "192.0.2.7");
-        Settings.putString(Settings.KEY_SMB_SHARE_NAME, "share");
-        Settings.putString(Settings.KEY_SMB_SHARE_PATH, "");
-        Settings.putString(Settings.KEY_SMB_USERNAME, "");
+        Settings.putString(NetworkStorageSettings.KEY_SMB_HOST, "192.0.2.7");
+        Settings.putString(NetworkStorageSettings.KEY_SMB_SHARE_NAME, "share");
+        Settings.putString(NetworkStorageSettings.KEY_SMB_SHARE_PATH, "");
+        Settings.putString(NetworkStorageSettings.KEY_SMB_USERNAME, "");
         existing.clear();
         listings.clear();
         contents.clear();

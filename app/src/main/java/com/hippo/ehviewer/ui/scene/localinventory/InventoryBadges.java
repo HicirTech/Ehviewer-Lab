@@ -9,11 +9,11 @@ package com.hippo.ehviewer.ui.scene.localinventory;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
-import com.hippo.ehviewer.Settings;
 import com.hippo.ehviewer.smb.SmbDirectDownloader;
 import com.hippo.ehviewer.smb.SmbDownloadBoard;
 import com.hippo.ehviewer.smb.SmbTaskInfo;
 import com.hippo.ehviewer.storage.NetworkStorage;
+import com.hippo.ehviewer.storage.NetworkStorageSettings;
 import com.hippo.lib.yorozuya.SimpleHandler;
 
 import java.util.Collections;
@@ -97,7 +97,7 @@ final class InventoryBadges {
         }
         lastRefreshAt = now;
 
-        if (!NetworkStorage.active().isConfigured() || !Settings.getNetworkStorageEnabled()) {
+        if (!NetworkStorage.active().isConfigured() || !NetworkStorageSettings.isEnabled()) {
             deliver(Collections.emptyMap());
             return;
         }

@@ -15,6 +15,7 @@ import android.os.Looper;
 
 import com.hippo.ehviewer.client.data.GalleryInfo;
 import com.hippo.ehviewer.spider.SpiderQueen;
+import com.hippo.ehviewer.storage.NetworkStorageSettings;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -158,9 +159,9 @@ public class SmbDirectDownloaderTest {
     public void setUp() {
         context = RuntimeEnvironment.getApplication();
         com.hippo.ehviewer.Settings.initialize(context);
-        com.hippo.ehviewer.Settings.putString(com.hippo.ehviewer.Settings.KEY_SMB_HOST, "192.0.2.7");
-        com.hippo.ehviewer.Settings.putString(com.hippo.ehviewer.Settings.KEY_SMB_SHARE_NAME, "share");
-        com.hippo.ehviewer.Settings.putBoolean(com.hippo.ehviewer.Settings.KEY_NETWORK_STORAGE_ENABLED, true);
+        com.hippo.ehviewer.Settings.putString(NetworkStorageSettings.KEY_SMB_HOST, "192.0.2.7");
+        com.hippo.ehviewer.Settings.putString(NetworkStorageSettings.KEY_SMB_SHARE_NAME, "share");
+        com.hippo.ehviewer.Settings.putBoolean(NetworkStorageSettings.KEY_ENABLED, true);
         calls.clear();
         listeners.clear();
         obtainThrows = false;
