@@ -591,7 +591,10 @@ public class LocalInventoryScene extends ToolbarScene
             if (!before.equals(after)) {
                 mPager.renameRef(before, after);
             }
-            mHelper.replaceAt(i, fresh);
+            mHelper.getData().set(i, fresh);
+            if (mAdapter != null) {
+                mAdapter.notifyItemChanged(i);
+            }
             break;
         }
     }
@@ -835,13 +838,6 @@ public class LocalInventoryScene extends ToolbarScene
         protected void notifyDataSetChanged() {
             if (mAdapter != null) {
                 mAdapter.notifyDataSetChanged();
-            }
-        }
-
-        @Override
-        protected void notifyItemRangeChanged(int positionStart, int itemCount) {
-            if (mAdapter != null) {
-                mAdapter.notifyItemRangeChanged(positionStart, itemCount);
             }
         }
 

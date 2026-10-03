@@ -468,20 +468,6 @@ public class ContentLayout extends FrameLayout {
             notifyItemRangeInserted(index, 1);
         }
 
-        /** Replaces one item without touching paging; an out-of-range index is ignored. */
-        public void replaceAt(int index, E data) {
-            if (index < 0 || index >= mData.size()) {
-                return;
-            }
-            mData.set(index, data);
-            notifyItemRangeChanged(index, 1);
-        }
-
-        /** Not abstract so upstream subclasses need no change; defaults to a full redraw. */
-        protected void notifyItemRangeChanged(int positionStart, int itemCount) {
-            notifyDataSetChanged();
-        }
-
         public void removeAt(int index) {
             E data = mData.remove(index);
             onRemoveData(data);
