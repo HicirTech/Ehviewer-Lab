@@ -24,25 +24,17 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.Executor;
 
-/**
- * The inventory's batch operations (#99): re-sync, repair, delete. Serial worker-thread flows;
- * results reach the screen through {@link Listener} on the main thread, and every SMB-side trace
- * of a deleted gallery is evicted here, not in the UI.
- */
 final class InventoryOps {
 
-    /** What the screen hears; all calls on the main thread. */
+    /** All calls on the main thread. */
     interface Listener {
-        /** A re-sync produced a fresh record for this row. */
         void onRowResynced(@NonNull GalleryInfo fresh);
 
-        /** Re-sync finished: {@code done} of {@code total} updated. */
+        /** {@code done} of {@code total} were updated. */
         void onResyncFinished(int done, int total);
 
-        /** This gallery is gone from the share; drop its row. */
         void onGalleryDeleted(@NonNull GalleryInfo gi);
 
-        /** Delete finished: {@code gone} of {@code total} deleted. */
         void onDeleteFinished(int gone, int total);
     }
 
@@ -54,7 +46,7 @@ final class InventoryOps {
         this.listener = listener;
     }
 
-    /** Serial (a fan-out at e-hentai meets a rate limit); rows land one by one. */
+    /** Serial: a fan-out at e-hentai meets its rate limit. */
     void resyncMetadata(@NonNull Context appContext, @NonNull List<GalleryInfo> galleries) {
         final List<GalleryInfo> batch = new ArrayList<>(galleries);
         executor.execute(() -> {
@@ -63,7 +55,7 @@ final class InventoryOps {
                 final GalleryInfo fresh = NetworkStorage.active().metadata().resyncMetadata(appContext, gi);
                 if (fresh != null) {
                     updated++;
-                    // A re-sync can bring a different cover; the buffered copy would keep the old one.
+                    // A re-sync can bring a different cover.
                     SmbCoverPrefetch.evict(gi.gid);
                     SimpleHandler.getInstance().post(() -> listener.onRowResynced(fresh));
                 }
@@ -73,7 +65,7 @@ final class InventoryOps {
         });
     }
 
-    /** Re-enqueues; contain() skips what is already on the share, so only the holes download. */
+    /** Pages already on the share are skipped, so only the holes download. */
     void repairMissingPages(@NonNull Context context, @NonNull List<GalleryInfo> galleries) {
         com.hippo.ehviewer.ui.NotificationPermission.onDownloadStart(context);
         for (GalleryInfo gi : galleries) {
@@ -81,10 +73,7 @@ final class InventoryOps {
         }
     }
 
-    /**
-     * Deletes serially; a folder that would not delete keeps its row. A gallery being downloaded
-     * is cancelled instead — the download owns the folder, and cancel wipes it anyway.
-     */
+    /** A gallery being downloaded is cancelled instead: its download owns the folder. */
     void deleteGalleries(@NonNull Context appContext, @NonNull List<GalleryInfo> galleries) {
         final List<GalleryInfo> toErase = new ArrayList<>();
         for (GalleryInfo gi : new ArrayList<>(galleries)) {
@@ -125,7 +114,6 @@ final class InventoryOps {
         return false;
     }
 
-    /** Every local trace of a gallery that is no longer on the share. */
     private static void evictTraces(@NonNull Context appContext, @NonNull GalleryInfo gi) {
         GalleryTargets.unmark(gi.gid);
         SmbPreviewCache.evictGallery(gi.gid);

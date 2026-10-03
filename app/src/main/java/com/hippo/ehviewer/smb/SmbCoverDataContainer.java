@@ -10,10 +10,7 @@ import com.hippo.streampipe.InputStreamPipe;
 import java.io.IOException;
 import java.io.InputStream;
 
-/**
- * Conaco container reading the cover off the share instead of the network. Holds gid+title only
- * (parcel cycle).
- */
+/** Holds gid and title only: a GalleryInfo back-reference cycles when parcelled. */
 public class SmbCoverDataContainer implements DataContainer {
 
     private final long mGid;
@@ -36,18 +33,13 @@ public class SmbCoverDataContainer implements DataContainer {
     @Override
     public boolean save(InputStream is, long length, @Nullable String mediaType,
                         @Nullable ProgressNotifier notify) {
-        // SMB is the authoritative copy; if Conaco still falls back to network here we
-        // intentionally don't re-write it back.
+        // The share is the authoritative copy: never write network bytes back.
         return false;
     }
 
     @Nullable
     @Override
     public InputStreamPipe get() {
-        // The prefetch buffer first: bytes SmbCoverPrefetch pulled off the share in parallel,
-        // held in memory only. Falling through is the ordinary path, not a failure — a cover the
-        // prefetch has not reached, lost to LRU, or never had is read from the share exactly as
-        // it always was.
         InputStreamPipe buffered = SmbCoverPrefetch.pipeFor(mGid);
         if (buffered != null) {
             return buffered;
@@ -59,7 +51,7 @@ public class SmbCoverDataContainer implements DataContainer {
     public void remove() {
     }
 
-    /** The share stays the only durable copy of a cover (#114). */
+    /** The share stays the only durable copy of a cover. */
     @Override
     public boolean allowDiskCopy() {
         return false;

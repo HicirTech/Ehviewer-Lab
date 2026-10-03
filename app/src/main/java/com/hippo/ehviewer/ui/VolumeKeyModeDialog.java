@@ -15,19 +15,12 @@ import androidx.appcompat.app.AlertDialog;
 
 import com.hippo.ehviewer.R;
 
-/**
- * The volume keys either turn pages or download (#159), never both: turning one on while the
- * other is on asks first. The caller switches the other one off when the user confirms.
- */
+/** Volume keys turn pages or download, never both; the caller switches the other off on confirm. */
 public final class VolumeKeyModeDialog {
 
     private VolumeKeyModeDialog() {}
 
-    /**
-     * @param toDownload true when volume-key download is being turned on, false when volume-key
-     *                   page turning is
-     * @param onCancel   runs when the dialog goes away without a confirmation
-     */
+    /** @param toDownload true when turning volume-key download on, false for page turning */
     public static void confirm(@NonNull Context context, boolean toDownload,
                                @NonNull Runnable onConfirm, @Nullable Runnable onCancel) {
         boolean[] confirmed = {false};

@@ -11,23 +11,17 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 
-/**
- * When to publish (#59): the single publisher thread, the fixed-delay beat, and the
- * returned-from-silence check. What a publish writes is the {@link Shell}'s business.
- */
 final class SmbHeartbeat {
 
     private static final String TAG = "SmbDirectDownloader";
 
-    // 20s: progress is not worth a ~64ms share write per page, and 4.5 beats fit inside
-    // STALE_AFTER_MS (90s) so a few missed beats don't get this device declared dead.
+    // Several beats per STALE_AFTER_MS, so a few missed ones do not mean dead.
     private static final long INTERVAL_MS = 20_000L;
 
     interface Shell {
-        /** Write the current state to the share. True when the write landed. */
+        /** True when the write landed. */
         boolean publishSelf();
 
-        /** Whether there is anything to beat about. */
         boolean shouldBeat();
 
         /** The silence was long enough that others may have acted; go and look. */
@@ -36,8 +30,7 @@ final class SmbHeartbeat {
 
     private final Shell shell;
 
-    // One thread, deliberately: publishes serialize, and each snapshots when it runs, so the
-    // last write on the share is always the newest state.
+    // One thread: publishes serialize, so the share always ends on the newest state.
     private final ScheduledExecutorService thread =
             Executors.newSingleThreadScheduledExecutor(r -> {
                 Thread t = new Thread(r, "smb-state-publisher");
@@ -47,7 +40,6 @@ final class SmbHeartbeat {
     @Nullable
     private ScheduledFuture<?> beating;
 
-    /** When this device last reached the share — the number everyone else judges it by. */
     private volatile long lastPublishedAtMillis;
 
     SmbHeartbeat(@NonNull Shell shell) {
@@ -63,13 +55,11 @@ final class SmbHeartbeat {
         }
     }
 
-    /** Publishes soon, and re-syncs whether the beat should be running. */
     void publish() {
         sync();
         execute(this::publishOnce);
     }
 
-    /** Starts or stops the schedule to match {@link Shell#shouldBeat}. */
     void sync() {
         boolean wanted = shell.shouldBeat();
         synchronized (thread) {
@@ -89,9 +79,7 @@ final class SmbHeartbeat {
         }
     }
 
-    // A device silent past STALE_AFTER_MS has been declared dead by everyone else; before
-    // trusting its own queue again it must go and look (the process never died, so nothing
-    // else will).
+    // Counted dead by others yet never restarted, so no startup re-read will come.
     private void beat() {
         long before = lastPublishedAtMillis;
         publishOnce();

@@ -10,10 +10,7 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
 
-/**
- * The per-gid routing mark: which galleries download to network storage. Local process state,
- * protocol-neutral (a global flag once leaked phone downloads onto the share).
- */
+/** Gids whose downloads go to network storage; local process state only. */
 public final class GalleryTargets {
 
     private static final Set<Long> TARGET_GIDS =

@@ -15,7 +15,7 @@ import androidx.annotation.Nullable;
 import com.hippo.ehviewer.R;
 import com.hippo.ehviewer.storage.NetworkStorage;
 
-/** Where a Power Download sends a gallery (#159); {@link #value} is what the settings store. */
+/** {@link #value} is what the settings store. */
 public enum PowerDownloadTarget {
     NONE("none"),
     PHONE("phone"),
@@ -28,7 +28,6 @@ public enum PowerDownloadTarget {
         this.value = value;
     }
 
-    /** The words for this target, in the settings and in the reader's menu alike. */
     @NonNull
     public CharSequence label(@NonNull Context context) {
         switch (this) {
@@ -42,7 +41,6 @@ public enum PowerDownloadTarget {
         }
     }
 
-    /** Unknown or missing values read as {@code fallback}, the setting's default. */
     @NonNull
     public static PowerDownloadTarget fromValue(@Nullable String value,
                                                 @NonNull PowerDownloadTarget fallback) {

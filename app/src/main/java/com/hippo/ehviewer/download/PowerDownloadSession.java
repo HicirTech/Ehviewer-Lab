@@ -15,11 +15,7 @@ import java.util.EnumSet;
 import java.util.HashSet;
 import java.util.Set;
 
-/**
- * One reading of one gallery as Power Download's automatic rules see it (#159): the pages that
- * have been on screen, and the targets the gallery has already been sent to. Lives as long as
- * the reader, including across a rotation.
- */
+/** Lives as long as the reader, rotations included. */
 public final class PowerDownloadSession {
 
     private static final String KEY_VIEWED = "power_download_viewed";
@@ -28,12 +24,7 @@ public final class PowerDownloadSession {
     private final Set<Integer> mViewed = new HashSet<>();
     private final Set<PowerDownloadTarget> mSent = EnumSet.noneOf(PowerDownloadTarget.class);
 
-    /**
-     * Records the page now on screen and returns the targets a rule now asks for. Each target is
-     * returned at most once per reading, however many rules point at it.
-     *
-     * @param size the page count, or 0 or less while it is not known yet
-     */
+    /** Each target is due at most once per reading; {@code size} <= 0 means not known yet. */
     @NonNull
     public Set<PowerDownloadTarget> onPageShown(int index, int size) {
         Set<PowerDownloadTarget> due = EnumSet.noneOf(PowerDownloadTarget.class);
@@ -42,7 +33,6 @@ public final class PowerDownloadSession {
         }
         mViewed.add(index);
         if (PowerDownloadSettings.isPagesEnabled()) {
-            // A gallery shorter than N counts once every page has been seen.
             int needed = PowerDownloadSettings.getPagesCount();
             if (size > 0) {
                 needed = Math.min(needed, size);

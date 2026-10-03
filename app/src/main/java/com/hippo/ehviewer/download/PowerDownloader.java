@@ -23,16 +23,12 @@ import com.hippo.ehviewer.smb.SmbDirectDownloader;
 import com.hippo.ehviewer.ui.CommonOperations;
 import com.hippo.ehviewer.ui.NotificationPermission;
 
-/**
- * Sends a gallery to a Power Download target (#159). A quiet request comes from an automatic
- * rule firing mid-read and speaks only when a download starts or fails; any other request is a
- * deliberate tap and also says why nothing started.
- */
+/** A quiet request speaks only when a download starts or fails. */
 public final class PowerDownloader {
 
     private PowerDownloader() {}
 
-    /** Whether there is anything to download: a local import already is its own only copy. */
+    /** A local import is its own only copy. */
     public static boolean canDownload(@Nullable GalleryInfo info) {
         return info != null && !SmbDirectDownloader.isLocalImport(info);
     }
@@ -58,10 +54,7 @@ public final class PowerDownloader {
         }
     }
 
-    /**
-     * A waiting, running or finished download is left alone: the download list restarts even a
-     * finished one, re-running its spider, and says "added" again.
-     */
+    /** The download list would restart even a finished download and say "added" again. */
     private static void downloadToPhone(@NonNull Context context, @NonNull GalleryInfo info,
                                         boolean quiet) {
         int state = EhApplication.getDownloadManager(context).getDownloadState(info.gid);

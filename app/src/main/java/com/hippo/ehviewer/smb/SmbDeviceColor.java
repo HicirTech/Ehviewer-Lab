@@ -2,17 +2,9 @@ package com.hippo.ehviewer.smb;
 
 import androidx.annotation.NonNull;
 
-/**
- * A colour per device, derived from the client id so every device computes the same one (#77).
- * Hand-picked palette, not a hue circle — eyes can't tell 20° apart at 12dp; collisions are fine.
- */
 public final class SmbDeviceColor {
 
-    /**
-     * Sixteen colours that stay legible at the size of the badge, against cover art of any colour,
-     * and in both themes. Deliberately no near-neighbours: every pair is meant to be separable at a
-     * glance rather than on inspection.
-     */
+    /** Hand-picked: every pair is distinct at badge size, on any cover, in both themes. */
     private static final int[] PALETTE = {
             0xFFE53935, // red
             0xFFD81B60, // pink
@@ -35,12 +27,12 @@ public final class SmbDeviceColor {
     private SmbDeviceColor() {
     }
 
-    /** The colour for a device, as an opaque ARGB int. Same id in, same colour out, always. */
+    /** Opaque ARGB; every device derives the same colour from the same id. */
     public static int of(@NonNull String clientId) {
         return PALETTE[indexOf(clientId)];
     }
 
-    /** Palette slot via lowbias32 mixing — insurance so the spread survives any id shape. */
+    /** lowbias32 mixing, so the spread survives any id shape. */
     static int indexOf(@NonNull String clientId) {
         int h = clientId.hashCode();
         h ^= h >>> 16;

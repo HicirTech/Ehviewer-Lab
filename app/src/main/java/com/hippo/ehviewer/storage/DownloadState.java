@@ -17,32 +17,23 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
-/**
- * The vocabulary of state/ (#59): one JSON file per client, only its owner writes it (lock-free;
- * a locked cycle measured 129ms vs 64ms plain write), the file's mtime is the heartbeat.
- * Everything here is a pure function — no SMB, no Android, no clock.
- */
+/** The state/ vocabulary; everything here is pure: no IO, no Android, no clock. */
 public final class DownloadState {
 
-    /**
-     * Bumped when the on-share shape changes incompatibly. A client that meets a version it does
-     * not understand ignores the file rather than guessing, and must not overwrite it.
-     */
+    /** Bump on an incompatible change; a newer file must be ignored, never overwritten. */
     public static final int SCHEMA_VERSION = 1;
 
-    /** Silent this long = orphaned: 4.5 of the heartbeat's 20s beats, so a WiFi blip costing a few beats does not orphan a live download. */
+    /** Silent this long = orphaned; 4.5 heartbeats, so a WiFi blip does not orphan a download. */
     public static final long STALE_AFTER_MS = 90_000L;
 
-    /** One gallery on one device's list. */
     public static final class Task {
         public final long gid;
         @Nullable public final String token;
         @Nullable public final String title;
         public final int finished;
         public final int total;
-        /** Claim time by the owner's clock; only ever compared against other claims, never ours. */
+        /** By the owner's clock: compare it only with other claims. */
         public final long claimedAt;
-        /** The client this was taken over from, or null if it was never anyone else's. */
         @Nullable public final String takenOverFrom;
 
         public Task(long gid, @Nullable String token, @Nullable String title,
@@ -58,11 +49,9 @@ public final class DownloadState {
         }
     }
 
-    /** One client's whole published state: the contents of a single {@code state/<uuid>.json}. */
     public static final class ClientState {
         public final int schemaVersion;
         @NonNull public final String clientId;
-        /** What to show a human. Defaults to the device model; the user may rename it. */
         @NonNull public final String deviceName;
         @NonNull public final List<Task> tasks;
 
@@ -79,20 +68,16 @@ public final class DownloadState {
             this(SCHEMA_VERSION, clientId, deviceName, tasks);
         }
 
-        /** Whether this file is one we know how to read. */
         public boolean isReadable() {
             return schemaVersion <= SCHEMA_VERSION;
         }
     }
 
-    /** A task paired with who published it — what the merged list is made of. */
     public static final class OwnedTask {
         @NonNull public final Task task;
         @NonNull public final String clientId;
         @NonNull public final String deviceName;
-        /** False once the owner's file has gone stale; only then may another device take over. */
         public final boolean ownerAlive;
-        /** When the owner last wrote its file, by the share's clock. Zero if unknown. */
         public final long lastSeenMillis;
 
         OwnedTask(@NonNull Task task, @NonNull String clientId, @NonNull String deviceName,
@@ -104,22 +89,19 @@ public final class DownloadState {
             this.lastSeenMillis = lastSeenMillis;
         }
 
-        /** Only own tasks may be paused/resumed/deleted; an orphan must be adopted first. */
         public boolean isActionableBy(@NonNull String viewerClientId) {
             return clientId.equals(viewerClientId);
         }
 
-        /** Adoptable: the one action on another's task, and only once its owner went silent. */
         public boolean isTakeOverableBy(@NonNull String viewerClientId) {
             return !clientId.equals(viewerClientId) && !ownerAlive;
         }
     }
 
-    /** A client's file plus the liveness the directory listing established for it. */
     public static final class Published {
         @NonNull public final ClientState state;
         public final boolean alive;
-        /** The file's mtime — the heartbeat, carried through for "last seen N ago". */
+        /** The file's mtime: the owner's last heartbeat. */
         public final long lastSeenMillis;
 
         public Published(@NonNull ClientState state, boolean alive, long lastSeenMillis) {
@@ -131,12 +113,7 @@ public final class DownloadState {
 
     private DownloadState() {}
 
-    // ------------------------------------------------------------------ merge
-
-    /**
-     * All clients merged, one entry per gallery. A live owner beats a dead one BEFORE claim time —
-     * a dead clock must not hold a gallery hostage. Newer-schema files are skipped.
-     */
+    /** Liveness beats claim time: a dead device's clock must not hold a gallery hostage. */
     @NonNull
     public static List<OwnedTask> merge(@NonNull Collection<Published> published) {
         Map<Long, OwnedTask> best = new LinkedHashMap<>();
@@ -156,10 +133,7 @@ public final class DownloadState {
         return inDisplayOrder(new ArrayList<>(best.values()));
     }
 
-    /**
-     * Working heads first (derived: earliest held claim per device — a stored flag would freeze
-     * mid-truth), sorted by device name so heartbeats don't reshuffle rows; the rest by claim time.
-     */
+    /** Heads sort by device name so heartbeats do not reshuffle rows. */
     @NonNull
     private static List<OwnedTask> inDisplayOrder(@NonNull List<OwnedTask> tasks) {
         final Map<String, Long> headClaimByClient = new LinkedHashMap<>();
@@ -197,7 +171,7 @@ public final class DownloadState {
         return heads;
     }
 
-    /** Two tasks of one device can share a claim time; only the first of them is its head. */
+    /** Claim times can tie; only a device's first task is its head. */
     private static boolean containsClient(@NonNull List<OwnedTask> tasks, @NonNull String clientId) {
         for (OwnedTask o : tasks) {
             if (o.clientId.equals(clientId)) {
@@ -214,7 +188,6 @@ public final class DownloadState {
         return candidate.task.claimedAt > current.task.claimedAt;
     }
 
-    /** Skip an enqueue? Own entries and orphans never block. */
     public static boolean isClaimedByAnotherLiveClient(@NonNull List<OwnedTask> merged,
                                                        long gid,
                                                        @NonNull String selfClientId) {
@@ -226,7 +199,7 @@ public final class DownloadState {
         return false;
     }
 
-    /** Drops what a live client claimed more recently — how takeover duplicates stay transient. */
+    /** Drops what a live client claimed later, so takeover duplicates stay transient. */
     @NonNull
     public static List<Task> withoutTakenOver(@NonNull ClientState self,
                                               @NonNull List<OwnedTask> merged) {
@@ -249,21 +222,12 @@ public final class DownloadState {
         return kept;
     }
 
-    /**
-     * What a reconcile should do, decided from snapshots alone (#98).
-     *
-     * <p>The inputs are everything the decision depends on — what this device holds, what the
-     * share holds, what this process has already finished with — and the output is the whole
-     * decision. No IO, no threads: the board reads, this decides, the board applies. That is
-     * what makes the arithmetic testable without a share in the room, and what keeps the board
-     * an imperative shell.
-     */
     public static final class ReconcilePlan {
-        /** Held here but claimed more recently by a live device: stand down, touch nothing shared. */
+        /** Claimed later by a live device: stand down without touching the share. */
         @NonNull public final List<Long> yields;
         /** Published by this device but no longer held: bring back as paused. */
         @NonNull public final List<Task> restores;
-        /** Nothing to restore, but our file may still advertise stale claims: say where we are. */
+        /** Our file may still advertise stale claims: republish it. */
         public final boolean shouldPublish;
 
         ReconcilePlan(@NonNull List<Long> yields, @NonNull List<Task> restores,
@@ -274,7 +238,7 @@ public final class DownloadState {
         }
     }
 
-    /** Answers "may this gid be restored", so the plan can skip what the process finished with. */
+    /** Retired = finished with by this process, so never restored. */
     public interface RetiredCheck {
         boolean isRetired(long gid);
     }
@@ -305,7 +269,6 @@ public final class DownloadState {
             }
         }
         if (published == null) {
-            // Nothing of ours has ever been published: nothing to restore, nothing to correct.
             return new ReconcilePlan(yields, new ArrayList<>(), false);
         }
         List<Long> heldGids = new ArrayList<>();
@@ -321,13 +284,11 @@ public final class DownloadState {
         return new ReconcilePlan(yields, restores, restores.isEmpty());
     }
 
-    /** What a takeover attempt finds when it looks again, freshly, before acting. */
+    /** What a takeover finds on a fresh look just before acting. */
     public enum TakeOverAssessment {
-        /** Already this device's, by whatever route: report taken, change nothing. */
+        /** Report it as taken; change nothing. */
         ALREADY_OURS,
-        /** The owner woke up between the tap and now: leave it alone. */
         OWNER_ALIVE,
-        /** Nobody live holds it: adopt. */
         ORPHAN
     }
 
@@ -349,9 +310,7 @@ public final class DownloadState {
         return TakeOverAssessment.ORPHAN;
     }
 
-    // ------------------------------------------------------------------ json
-
-    /** Parses one state file; null (never throws) so one corrupt file cannot blind the list. */
+    /** Null, never an exception, so one corrupt file cannot blind the list. */
     @Nullable
     public static ClientState parse(@Nullable String json) {
         if (json == null || json.isEmpty()) {
@@ -400,7 +359,7 @@ public final class DownloadState {
         }
     }
 
-    /** Serialises, indented — being readable on the NAS is why the format is JSON. */
+    /** Indented: the file is meant to be readable on the NAS. */
     @NonNull
     public static String serialize(@NonNull ClientState state) {
         JSONObject root = new JSONObject(true);

@@ -13,27 +13,14 @@ import com.hippo.ehviewer.Settings;
 
 import java.util.concurrent.ThreadPoolExecutor;
 
-/**
- * Concurrency settings for share reads — round-trip-bound work, so parallelism is the whole
- * game and the right number is a property of the NAS/link, not the source. Two settings because
- * tiny-metadata and megabyte-image workloads have different shapes.
- */
 public final class SmbConcurrency {
 
-    /**
-     * Conservative default, not an optimum — 140 galleries kept scaling past 16 (6.1s serial →
-     * 0.48s at 16); auto-tune measures the real share and this only matters until it runs.
-     */
+    /** Conservative on purpose: auto-tune measures the real share. */
     public static final int DEFAULT_METADATA = 6;
 
-    /** Historical prefetch value, never measured like the metadata one — auto-tune checks it. */
     public static final int DEFAULT_IMAGE = 6;
 
-    /**
-     * 1 = serial (meaningful). The ceiling was raised twice (16→64→128) because auto-tune winners
-     * kept landing on the lid — a winner on the lid is censored, not optimal. Workers are not
-     * sockets: jcifs-ng multiplexes over SMB2 credits.
-     */
+    // Workers are not sockets: jcifs-ng multiplexes them over SMB2 credits.
     public static final int MIN = 1;
     public static final int MAX = 128;
 
@@ -47,10 +34,7 @@ public final class SmbConcurrency {
         return clamp(Settings.getSmbImageConcurrency(), DEFAULT_IMAGE);
     }
 
-    /**
-     * Keeps a stored value usable. Settings holds these as strings a user can edit, and a share
-     * that reads zero files at a time would simply hang; falling back beats refusing to work.
-     */
+    /** Out-of-range values give {@code fallback}, not the nearest bound. */
     public static int clamp(int value, int fallback) {
         if (value < MIN || value > MAX) {
             return fallback;
@@ -58,10 +42,7 @@ public final class SmbConcurrency {
         return value;
     }
 
-    /**
-     * Resizes without restart. Order is asymmetric on purpose: grow max-then-core, shrink
-     * core-then-max, or ThreadPoolExecutor rejects the intermediate state.
-     */
+    /** Grow max first, shrink core first: ThreadPoolExecutor rejects core > max. */
     public static void resize(@NonNull ThreadPoolExecutor pool, int size) {
         if (pool.getCorePoolSize() == size && pool.getMaximumPoolSize() == size) {
             return;

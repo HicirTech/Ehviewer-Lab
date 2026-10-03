@@ -20,16 +20,11 @@ import java.util.List;
 import jcifs.CIFSContext;
 import jcifs.smb.SmbFile;
 
-/**
- * The share as a list: cheap lazy refs ({@link #listGalleryRefs}) for first paint, and the
- * eager pooled whole-library read ({@link #loadInventory}) sorts need. Nothing cached locally
- * by design — every call asks the share.
- */
+/** Nothing is cached locally by design; every call asks the share. */
 public final class SmbInventory {
 
     private static final String TAG = "SmbStorage";
 
-    // Shared daemon pool for metadata reads; size follows the SmbConcurrency setting.
     private static final java.util.concurrent.ThreadPoolExecutor INVENTORY_EXECUTOR =
             new java.util.concurrent.ThreadPoolExecutor(
                     SmbConcurrency.DEFAULT_METADATA, SmbConcurrency.DEFAULT_METADATA,
@@ -45,7 +40,7 @@ public final class SmbInventory {
         INVENTORY_EXECUTOR.allowCoreThreadTimeOut(true);
     }
 
-    /** The pool, resized to the current setting. Package-private so the benchmark measures it. */
+    /** The pool, resized to the current setting. */
     @NonNull
     static java.util.concurrent.ThreadPoolExecutor inventoryExecutor() {
         SmbConcurrency.resize(INVENTORY_EXECUTOR, SmbConcurrency.metadata());
@@ -67,7 +62,6 @@ public final class SmbInventory {
 
         long tLoad = SystemClock.elapsedRealtime();
         int reads = 0;
-        // The mtime rides along for DOWNLOAD_DATE_DESC; other modes ignore it.
         List<SortMode.Entry> entries = new ArrayList<>();
         try {
             CIFSContext cifs = SmbConnection.buildContext();
@@ -84,7 +78,6 @@ public final class SmbInventory {
                 if (!child.isDirectory()) {
                     continue;
                 }
-                // Same gate as listGalleryRefs, so both agree on what counts as a gallery.
                 if (!SmbPaths.isGalleryFolderName(trimTrailingSlash(child.getName()))) {
                     continue;
                 }
@@ -117,7 +110,6 @@ public final class SmbInventory {
             Log.w("SmbPerf", "inventory.load mode=" + mode + " reads=" + reads
                     + " FAILED after " + (SystemClock.elapsedRealtime() - tLoad) + "ms thr="
                     + Thread.currentThread().getName());
-            // Return whatever was collected before the failure, in insertion order.
             return toGalleryList(entries);
         }
 
@@ -188,12 +180,10 @@ public final class SmbInventory {
                     continue;
                 }
                 String name = trimTrailingSlash(child.getName());
-                // Foreign folders are not galleries; counting them inflated the page count.
                 if (!SmbPaths.isGalleryFolderName(name)) {
                     continue;
                 }
-                // createTime, not mtime: persisting reading progress bumps mtime and re-sorted
-                // whatever you read to the top.
+                // createTime, not mtime: saving reading progress bumps the folder's mtime.
                 long mtime;
                 try {
                     mtime = child.createTime();
@@ -230,7 +220,6 @@ public final class SmbInventory {
             SmbFile galleryRoot = new SmbFile(SmbConnection.galleryRootUrl(), cifs);
             SmbFile folder = new SmbFile(galleryRoot, ref.folderName + "/");
             SmbFile metadata = new SmbFile(folder, SmbMetadata.METADATA_FILE);
-            // Dropping this exists() was measured: 34→33ms per row, not worth it.
             if (!metadata.exists()) {
                 Log.i("SmbPerf", "inventory.info " + ref.folderName + " missing "
                         + (SystemClock.elapsedRealtime() - t0) + "ms thr="
@@ -258,10 +247,7 @@ public final class SmbInventory {
         }
     }
 
-    /**
-     * Metadata by gid+title alone — the download list's row fields (#59) come from the gallery's
-     * own record, not a copy in state/. Worker thread; cache the result.
-     */
+    /** By gid and title alone; worker thread, and the caller should cache the result. */
     @Nullable
     public static GalleryInfo readGalleryMetadata(@NonNull GalleryInfo hint) {
         if (!SmbConnection.isConfigured()) {

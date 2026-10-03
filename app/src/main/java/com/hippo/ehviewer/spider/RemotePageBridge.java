@@ -26,10 +26,6 @@ import com.hippo.unifile.UniFile;
 
 import java.io.InputStream;
 
-/**
- * Puts pages the device already holds (image cache, phone storage) onto the remote backend, so
- * they are never fetched from e-hentai twice (#16, #88).
- */
 public final class RemotePageBridge {
 
     private static final String TAG = "RemotePageBridge";
@@ -47,10 +43,7 @@ public final class RemotePageBridge {
         mGid = gid;
     }
 
-    /**
-     * The reader's "refresh this page": copies the just-fetched cached page over the share's
-     * corrupt one, atomically, only after the fetch succeeded. Worker thread.
-     */
+    /** Worker thread; call only after the page was refetched into the cache. */
     public static boolean copyFromCacheToRemote(@NonNull GalleryInfo info, int index) {
         if (SpiderDen.sCache == null) {
             return false;
@@ -100,9 +93,7 @@ public final class RemotePageBridge {
                 osPipe.close();
                 osPipe.release();
                 if (opened && !copied) {
-                    // The pipe publishes on close whether the copy finished or not (#150): a
-                    // truncated page would read as saved forever. Take the name back off. A
-                    // failure before open published nothing and deletes nothing.
+                    // The pipe publishes even a truncated page on close.
                     remote.removeImage(index);
                 }
             }
@@ -118,7 +109,7 @@ public final class RemotePageBridge {
         return GalleryProvider2.SUPPORT_IMAGE_EXTENSIONS[0];
     }
 
-    /** The phone-storage folder, memoized (a SAF listing per page would crawl). Never creates. */
+    /** Memoized: a SAF listing per page would crawl. */
     @Nullable
     private UniFile phoneCopyDir() {
         synchronized (mPhoneCopyLock) {
@@ -130,7 +121,6 @@ public final class RemotePageBridge {
         }
     }
 
-    /** Copies a page the phone holds onto the share — the other half of move-to-share (#88). */
     public boolean copyFromPhone(int index, @NonNull GallerySpiderStorage remote) {
         UniFile dir = phoneCopyDir();
         if (dir == null) {
@@ -167,7 +157,6 @@ public final class RemotePageBridge {
                     osPipe.close();
                     osPipe.release();
                     if (opened && !copied) {
-                        // Same publish-on-close cleanup as the cache copy (#150).
                         remote.removeImage(index);
                     }
                 }

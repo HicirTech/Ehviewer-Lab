@@ -32,18 +32,12 @@ import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
-/**
- * Fans preview reads out ahead of Conaco's serial executor — into a bounded in-memory buffer
- * only (#129), the same shape as {@link SmbCoverPrefetch}; the share stays the sole durable
- * copy. Disk appears only as an anonymous decode shim that dies with its pipe. A missing
- * buffer entry just falls back to the share. Pool sized by {@link SmbConcurrency#image()}.
- */
+/** Fans preview reads out ahead of Conaco's serial executor, into a bounded memory buffer only. */
 public final class SmbPreviewCache {
 
     private static final String TAG = "SmbPreviewCache";
 
-    // One preview grid of full-size pages (a bounded slice of up to 20, each 0.1-1MB); LRU past
-    // this, evictees fall back to the share. Covers make do with 8MB of much smaller files.
+    // One preview grid: up to 20 full-size pages of 0.1-1MB each.
     static final int MAX_BUFFERED_BYTES = 16 * 1024 * 1024;
 
     private static final ThreadPoolExecutor PREFETCH_EXECUTOR = new ThreadPoolExecutor(
@@ -60,19 +54,18 @@ public final class SmbPreviewCache {
         PREFETCH_EXECUTOR.allowCoreThreadTimeOut(true);
     }
 
-    /** The pool, resized to the current setting; package-private so the benchmark measures it. */
+    /** The pool, resized to the current setting. */
     static ThreadPoolExecutor prefetchExecutor() {
         SmbConcurrency.resize(PREFETCH_EXECUTOR, SmbConcurrency.image());
         return PREFETCH_EXECUTOR;
     }
 
-    /** Access-ordered, so overflow drops the least recently shown page. Keyed gid:index. */
+    /** Access-ordered, so overflow drops the least recently shown page. */
     private static final LinkedHashMap<String, byte[]> BUFFER =
             new LinkedHashMap<>(64, 0.75f, true);
     private static int sBufferedBytes;
 
-    /** Galleries we have already kicked off a prefetch for in this process. LRU-bounded: an
-     * evicted gid merely allows a redundant (and idempotent) prefetch much later. */
+    /** LRU-bounded: an evicted gid merely allows a redundant, idempotent prefetch. */
     private static final Set<Long> PREFETCHED_GIDS = Collections.synchronizedSet(
             Collections.newSetFromMap(new LinkedHashMap<Long, Boolean>(16, 0.75f, true) {
                 @Override
@@ -81,25 +74,16 @@ public final class SmbPreviewCache {
                 }
             }));
 
-    /**
-     * Outstanding prefetch tasks per gid (the dispatch task + one per page), so a gallery's
-     * prefetch can be cancelled when its detail scene goes away. Guarded by its own monitor.
-     */
+    /** Guarded by its own monitor. */
     private static final Map<Long, List<Future<?>>> IN_FLIGHT = new HashMap<>();
 
-    /**
-     * Where earlier builds staged previews as named files. Swept once per process so an upgrade
-     * does not leave the old cache sitting there looking trustworthy; plantable by tests.
-     */
+    /** Where earlier builds staged previews as named files; tests plant their own. */
     private static volatile File sLegacyDir;
     private static boolean sLegacySwept;
 
     private SmbPreviewCache() {}
 
-    /**
-     * Parallel prefetch of a gallery's previews, once per process. The fan-out loop itself runs
-     * pooled — inline it stuttered a UI frame on big galleries.
-     */
+    /** Once per process; the fan-out loop itself runs pooled, off the UI thread. */
     public static void prefetchGallery(long gid, @Nullable String title, int count) {
         if (count <= 0 || !NetworkStorage.active().isConfigured()) {
             return;
@@ -109,21 +93,17 @@ public final class SmbPreviewCache {
             return;
         }
         final GalleryInfo lookup = NetworkStorage.lookupKey(gid, title);
-        // One short-lived dispatch task; count-many per-page tasks are queued from inside it.
         track(gid, prefetchExecutor().submit(() -> dispatchPages(lookup, gid, count)));
     }
 
     private static void dispatchPages(@NonNull GalleryInfo lookup, long gid, int count) {
         final AtomicInteger remaining = new AtomicInteger(count);
         for (int i = 0; i < count; i++) {
-            // Stop queuing more work if this gallery was cancelled while we were dispatching
-            // (cancelGallery interrupts the dispatch task and drops the gid from PREFETCHED_GIDS).
             if (Thread.currentThread().isInterrupted() || !PREFETCHED_GIDS.contains(gid)) {
                 break;
             }
             final int index = i;
             track(gid, prefetchExecutor().submit(() -> {
-                // A queued task may run after the gallery was cancelled; bail cheaply.
                 if (!PREFETCHED_GIDS.contains(gid)) {
                     return;
                 }
@@ -230,7 +210,6 @@ public final class SmbPreviewCache {
         };
     }
 
-    /** Cancels outstanding tasks and the dedup mark when the detail scene goes away. */
     public static void cancelGallery(long gid) {
         // Drop the mark first so any task that slips past cancellation bails at its guard.
         PREFETCHED_GIDS.remove(gid);
@@ -245,10 +224,7 @@ public final class SmbPreviewCache {
         }
     }
 
-    /**
-     * Forgets a gallery's buffered previews (on share-side delete or re-sync — either can make
-     * the buffered bytes disagree with the share, and the share wins).
-     */
+    /** On share-side delete or re-sync the buffered bytes may disagree; the share wins. */
     public static void evictGallery(long gid) {
         cancelGallery(gid);
         String prefix = gid + ":";
@@ -293,10 +269,6 @@ public final class SmbPreviewCache {
         return SmbShims.dir();
     }
 
-    /**
-     * Deletes the named-file preview cache earlier builds left behind (#129). Once per process;
-     * the directory itself goes too, so an upgraded device does not carry a dead cache around.
-     */
     private static synchronized void sweepLegacyOnce() {
         if (sLegacySwept) {
             return;

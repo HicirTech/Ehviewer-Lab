@@ -9,10 +9,7 @@ import com.hippo.streampipe.InputStreamPipe;
 
 import java.io.InputStream;
 
-/**
- * Conaco container for one on-share page: prefers the in-memory preview buffer, falls back to
- * the share. Holds gid+title only (parcel cycle).
- */
+/** Holds gid and title only: a GalleryInfo back-reference cycles when parcelled. */
 public class SmbImageDataContainer implements DataContainer {
 
     private final long mGid;
@@ -37,7 +34,7 @@ public class SmbImageDataContainer implements DataContainer {
     @Override
     public boolean save(InputStream is, long length, @Nullable String mediaType,
                         @Nullable ProgressNotifier notify) {
-        // SMB is the authoritative copy; no need to cache the bytes back.
+        // The share is the authoritative copy: never write network bytes back.
         return false;
     }
 
@@ -48,7 +45,6 @@ public class SmbImageDataContainer implements DataContainer {
         if (buffered != null) {
             return buffered;
         }
-        // Fallback: prefetch hasn't reached this page yet, fetch from SMB on this thread.
         return NetworkStorage.active().files().openImageInputStreamPipe(NetworkStorage.lookupKey(mGid, mTitle), mIndex);
     }
 
@@ -56,7 +52,7 @@ public class SmbImageDataContainer implements DataContainer {
     public void remove() {
     }
 
-    /** The share stays the only durable copy of a page (#129). */
+    /** The share stays the only durable copy of a page. */
     @Override
     public boolean allowDiskCopy() {
         return false;

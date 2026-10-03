@@ -29,16 +29,11 @@ import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
-/**
- * The inventory's paging data source (#99): one Ordering per refresh, sliced per page, kept in
- * step through deletes and renames. No Android UI in here.
- */
 final class InventoryPager {
 
-    /** Galleries read per page; bounds the SMB metadata reads before a page can render. */
+    /** Bounds the SMB metadata reads a page waits on. */
     static final int PAGE_SIZE = 50;
 
-    /** Hard cap per page load — an unreachable share must surface an error, not hang (#2644). */
     private static final long LOAD_TIMEOUT_S = 7;
 
     /** One page's galleries plus the total page count. */
@@ -52,10 +47,7 @@ final class InventoryPager {
         }
     }
 
-    /**
-     * The full display ordering, computed once per refresh. infos is null for the date sort
-     * (metadata read lazily per page) and holds every record for sorts that had to read them all.
-     */
+    /** infos is null when metadata is read lazily per page (the date sort). */
     private static final class Ordering {
         @NonNull final List<GalleryRef> refs;
         @Nullable final Map<String, GalleryInfo> infos;
@@ -71,10 +63,7 @@ final class InventoryPager {
     @Nullable
     private volatile Ordering mOrdering;
 
-    /**
-     * Loads one page under the timeout. jcifs socket timeouts cannot be bounded without
-     * rebuilding the global context, so the read runs on a throwaway thread and is abandoned.
-     */
+    /** jcifs timeouts need a global context rebuild, so the read runs on a throwaway thread. */
     @NonNull
     Page loadPageBounded(@NonNull SortMode mode, int page, boolean rebuild) throws Exception {
         ExecutorService pool = Executors.newSingleThreadExecutor(r -> {
@@ -116,7 +105,6 @@ final class InventoryPager {
                 data.add(gi);
             }
         }
-        // Fan the page's covers out now; one that does not arrive in time is read the old way.
         SmbCoverPrefetch.prefetch(data);
         return new Page(data, pages);
     }
@@ -124,12 +112,10 @@ final class InventoryPager {
     @NonNull
     private Ordering buildOrdering(@NonNull SortMode mode) {
         if (mode == SortMode.DOWNLOAD_DATE_DESC) {
-            // Ordered by the mtime the listing already carries; no metadata read until a page needs it.
             List<GalleryRef> refs = NetworkStorage.active().inventory().listGalleryRefs();
             Collections.sort(refs, (a, b) -> Long.compare(b.folderMtime, a.folderMtime));
             return new Ordering(refs, null);
         }
-        // Other sorts need metadata fields, so the whole share is read and cached for the pages.
         List<GalleryInfo> loaded = NetworkStorage.active().inventory().loadInventory(mode);
         List<GalleryRef> refs = new ArrayList<>(loaded.size());
         Map<String, GalleryInfo> infos = new HashMap<>();
@@ -141,7 +127,7 @@ final class InventoryPager {
         return new Ordering(refs, infos);
     }
 
-    /** Re-points the ordering after a rename (#86); replaced, not mutated (concurrent readers). */
+    /** Replaced, not mutated: a page load may be reading the current ordering. */
     void renameRef(@NonNull String from, @NonNull String to) {
         Ordering current = mOrdering;
         if (current == null) {
@@ -171,7 +157,6 @@ final class InventoryPager {
         mOrdering = new Ordering(refs, infos);
     }
 
-    /** Drops a deleted folder, or its ref would come back as an unreadable row next page fetch. */
     void forgetRef(@NonNull String folderName) {
         Ordering current = mOrdering;
         if (current == null) {

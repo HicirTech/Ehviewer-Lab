@@ -24,13 +24,7 @@ import com.hippo.util.IoThreadPoolExecutor;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 
-/**
- * Background downloader for "Save to SMB" galleries: SpiderQueen in MODE_DOWNLOAD writing
- * straight to the share, bypassing DownloadManager. This class is the conductor over
- * {@link SmbTaskLedger} (queue state), {@link SmbDownloadForeground} (service/notification) and
- * {@link SmbDownloadBoard} (the share side, #59) — it keeps only the API, the pump, the job
- * lifecycle and the move cleanup.
- */
+/** SpiderQueen writing straight to the share, bypassing DownloadManager. */
 public final class SmbDirectDownloader {
 
     private static final String TAG = "SmbDirectDownloader";
@@ -52,14 +46,11 @@ public final class SmbDirectDownloader {
     @Nullable
     private volatile Context appContext;
 
-    // ---------- Public API --------------------------------------------------------------------
-
-    /** Move = an ordinary download that also drops the phone copy; a separate loop was #88. */
     public void startMove(@NonNull Context context, @NonNull GalleryInfo info) {
         enqueue(context, info, true);
     }
 
-    /** Enqueue a gallery for SMB save. No-ops if it is already active or queued. */
+    /** No-op if it is already active or queued. */
     public void start(@NonNull Context context, @NonNull GalleryInfo info) {
         enqueue(context, info, false);
     }
@@ -69,7 +60,6 @@ public final class SmbDirectDownloader {
         return info instanceof DownloadInfo && ((DownloadInfo) info).archiveUri != null;
     }
 
-    /** Whether this device is already saving the gallery: running, or waiting its turn. */
     public boolean isQueuedOrRunning(long gid) {
         return ledger.localRowState(gid) != DownloadInfo.STATE_NONE;
     }
@@ -98,14 +88,9 @@ public final class SmbDirectDownloader {
                 final GalleryInfo info = outcome.infoForDelete;
                 final long epochAtCancel = ledger.epochOf(gid);
                 IoThreadPoolExecutor.Companion.getInstance().execute(() -> {
-                    // The queen's interrupt is asynchronous: an in-flight page write can hold a
-                    // handle that fails the first delete and leaves a ghost folder the
-                    // inventory then counts as saved. Retried over ~9s.
+                    // The interrupt is async: an in-flight page write can fail the first delete.
                     for (int attempt = 0; attempt < 3; attempt++) {
-                        // The user can re-download this gallery inside the retry window; a
-                        // late attempt would then wipe the new job's folder — or, if that job
-                        // already finished, the completed gallery (#150). Any enqueue since the
-                        // cancel stands the delete down for good.
+                        // A re-enqueue inside the retry window owns the folder now.
                         if (ledger.epochOf(gid) != epochAtCancel) {
                             Log.i(TAG, "Delete on cancel stood down, gid=" + gid
                                     + " was re-enqueued");
@@ -142,7 +127,6 @@ public final class SmbDirectDownloader {
         });
     }
 
-    /** {@link #pause} for every task at once, queued ones included (#166). */
     public void pauseAll() {
         SimpleHandler.getInstance().post(() -> {
             for (SmbTaskLedger.ActiveJob job : ledger.suspendAll()) {
@@ -152,14 +136,14 @@ public final class SmbDirectDownloader {
         });
     }
 
-    /** Resume a paused task by re-enqueueing it. No-op if the task isn't paused. */
+    /** No-op if the task isn't paused. */
     public void resume(long gid) {
         SimpleHandler.getInstance().post(() -> {
             GalleryInfo info = ledger.takeOutPaused(gid);
             if (info == null) {
                 return;
             }
-            // Restored tasks never latched a context; fall back rather than break the button (#59).
+            // Restored tasks never latched a context.
             Context ctx = appContext != null ? appContext : EhApplication.getInstance();
             if (ctx == null) {
                 Log.w(TAG, "resume: no context available, cannot re-enqueue gid=" + gid);
@@ -169,18 +153,13 @@ public final class SmbDirectDownloader {
         });
     }
 
-    /**
-     * Snapshot of every known SMB download task, ordered: active first, then queued, then paused.
-     * Safe to call from any thread.
-     */
+    /** Every known task: active first, then queued, then paused. Safe from any thread. */
     @NonNull
     public List<TaskSnapshot> snapshotTasks() {
-        // Whoever is asking wants the whole queue, including whatever outlived the last process.
         ensureRestored();
         return ledger.taskSnapshots();
     }
 
-    /** See {@link SmbDownloadBoard#ensureRestored}; kept here because every entry point has this in hand. */
     public void ensureRestored() {
         SmbDownloadBoard.getInstance().ensureRestored();
     }
@@ -201,13 +180,10 @@ public final class SmbDirectDownloader {
         SmbDownloadBoard.getInstance().scheduleReconcile();
     }
 
-    /** Null until the first check; then whatever the switch last said. */
+    /** Null until the first check. */
     @Nullable
     private volatile Boolean lastKnownAvailable;
 
-    // ---------- Task monitor API --------------------------------------------------------------
-
-    /** Snapshot of one SMB download task as seen by the task monitor UI. */
     public static final class TaskSnapshot {
         public enum State { ACTIVE, QUEUED, PAUSED }
         public final long gid;
@@ -226,7 +202,7 @@ public final class SmbDirectDownloader {
     }
 
     public interface TaskObserver {
-        /** Posted on the main thread when the task list changes (add/remove/state). */
+        /** Posted on the main thread. */
         void onTasksChanged();
     }
 
@@ -242,8 +218,6 @@ public final class SmbDirectDownloader {
         });
     }
 
-    // ---------- The pump and the jobs ---------------------------------------------------------
-
     private void pumpOnMainThread() {
         if (appContext == null) {
             return;
@@ -256,15 +230,13 @@ public final class SmbDirectDownloader {
         if (ledger.isIdle()) {
             foreground.stopIfIdle(true, appContext);
         } else {
-            // Re-asserted on every pump: an idle-observed stop can cross a concurrent enqueue,
-            // and active work must not keep running without its foreground service.
+            // Re-asserted each pump: an idle stop can cross a concurrent enqueue.
             foreground.ensureStarted(appContext);
         }
     }
 
     private void startJob(@NonNull GalleryInfo info) {
-        // Restored/adopted downloads skipped the enqueue-time metadata skeleton; write it if
-        // absent, or the inventory will not list the folder.
+        // Restored and adopted tasks skipped the enqueue-time skeleton the inventory needs.
         IoThreadPoolExecutor.Companion.getInstance().execute(() -> {
             try {
                 if (NetworkStorage.active().inventory().readGalleryMetadata(info) == null) {
@@ -274,8 +246,7 @@ public final class SmbDirectDownloader {
                 Log.w(TAG, "Could not ensure metadata for gid=" + info.gid, e);
             }
         });
-        // Mark BEFORE obtaining the queen so the SpiderDen it constructs immediately routes
-        // to SMB. Unmarked in onJobFinish.
+        // Mark first: the SpiderDen the queen constructs routes by this mark.
         GalleryTargets.mark(info.gid);
         try {
             SpiderQueen queen = SpiderQueen.obtainSpiderQueen(appContext, info, SpiderQueen.MODE_DOWNLOAD);
@@ -299,7 +270,6 @@ public final class SmbDirectDownloader {
         }
     }
 
-    /** The gid left the queue but never became a job: clear its bookkeeping and say so (#151). */
     private void forgetFailedStart(long gid) {
         ledger.forgetFailedStart(gid);
         notifyObservers();
@@ -326,15 +296,13 @@ public final class SmbDirectDownloader {
                 dropPhoneCopy(ctx, info);
             }
         });
-        // releaseSpiderQueen must run on the main thread; the gid stays marked so reads still
-        // resolve to SMB.
+        // releaseSpiderQueen is main-thread only; the gid stays marked so reads resolve to SMB.
         SimpleHandler.getInstance().post(() -> {
             releaseQueen(outcome.job, "finish", info.gid);
             pumpOnMainThread();
         });
     }
 
-    /** Stands down from a taken-over task; not cancel — the folder is the adopter's now. */
     private void yieldOnMainThread(long gid) {
         releaseQueen(ledger.yield(gid), "yield", gid);
         GalleryTargets.unmark(gid);
@@ -358,7 +326,7 @@ public final class SmbDirectDownloader {
         foreground.stopIfIdle(ledger.isIdle(), appContext);
     }
 
-    /** Every path that lets go of a running queen goes through here; failing is survivable. */
+    /** Failing to release is survivable. */
     private void releaseQueen(@Nullable SmbTaskLedger.ActiveJob job, @NonNull String why, long gid) {
         if (job == null) {
             return;
@@ -371,7 +339,6 @@ public final class SmbDirectDownloader {
         }
     }
 
-    /** The trio every queue mutation owes the world: redraw, notify screens, tell the share. */
     private void afterQueueChange() {
         notifyObservers();
         publishState();
@@ -379,7 +346,7 @@ public final class SmbDirectDownloader {
         SimpleHandler.getInstance().post(this::pumpOnMainThread);
     }
 
-    /** Drops the phone copy after a move — last, so a failed move fails toward "copied". */
+    /** Called last, so a failed move fails toward "copied". */
     private void dropPhoneCopy(@NonNull Context appContext, @NonNull GalleryInfo info) {
         final UniFile dir = SpiderDen.getExistingGalleryDownloadDir(info);
         SimpleHandler.getInstance().post(() -> {
@@ -404,24 +371,19 @@ public final class SmbDirectDownloader {
         });
     }
 
-    // ---------- Service, notification, board --------------------------------------------------
-
-    /** Service lifecycle hooks. Called by {@link SmbDownloadService}. */
     void attachService(@NonNull SmbDownloadService svc) {
         foreground.attach(svc);
         if (appContext == null) {
             appContext = svc.getApplicationContext();
         }
-        // The service coming up is the one screen-independent restore signal (Android restarts
-        // it after killing a process with work in flight).
+        // Android restarts the service after killing a process with work in flight.
         ensureRestored();
         SimpleHandler.getInstance().post(this::pumpOnMainThread);
     }
 
     void detachService() {
         foreground.detach();
-        // A stop that crossed a concurrent enqueue lands here with work still queued or
-        // running; bring the service straight back for it.
+        // A stop that crossed a concurrent enqueue lands here with work left.
         SimpleHandler.getInstance().post(() -> {
             if (appContext != null && !ledger.isIdle()) {
                 foreground.ensureStarted(appContext);
@@ -434,7 +396,6 @@ public final class SmbDirectDownloader {
         foreground.update(ctx, ledger.notificationContent());
     }
 
-    /** The board handles the share side; every structural change here tells it to say so. */
     private void publishState() {
         SmbDownloadBoard.getInstance().publish();
     }
@@ -445,9 +406,6 @@ public final class SmbDirectDownloader {
         return ledger.clientState();
     }
 
-    // ---------- The board's window onto this device (#98) --------------------------------------
-
-    /** One bridge per process; the board never sees the ledger, only these answers. */
     private final SmbDownloadBoard.Device deviceBridge = new SmbDownloadBoard.Device() {
         @Override
         @NonNull
@@ -499,8 +457,6 @@ public final class SmbDirectDownloader {
     SmbDownloadBoard.Device deviceBridge() {
         return deviceBridge;
     }
-
-    // ---------- SpiderQueen callbacks ---------------------------------------------------------
 
     private final class ListenerImpl implements SpiderQueen.OnSpiderListener {
         private final GalleryInfo info;

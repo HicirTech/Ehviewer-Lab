@@ -8,10 +8,6 @@ package com.hippo.ehviewer.storage;
 
 import androidx.annotation.NonNull;
 
-/**
- * A gallery folder located but not yet read; metadata is read lazily per visible row.
- * folderMtime rides the enumeration for free and orders the default view without a metadata read.
- */
 public final class GalleryRef {
     @NonNull public final String folderName;
     public final long folderMtime;

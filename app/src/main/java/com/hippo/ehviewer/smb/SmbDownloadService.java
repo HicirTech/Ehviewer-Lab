@@ -17,23 +17,15 @@ import androidx.core.app.NotificationCompat;
 import com.hippo.ehviewer.R;
 import com.hippo.ehviewer.storage.NetworkStorage;
 
-/**
- * Foreground service that keeps the process alive while {@link SmbDirectDownloader} has work to
- * do (active downloads or queued galleries). Owns nothing itself — all state lives in the
- * singleton downloader. The downloader starts this service when the queue becomes non-empty and
- * stops it once everything is idle.
- */
+/** Started and stopped by {@link SmbDirectDownloader}, which owns all the state. */
 public final class SmbDownloadService extends Service {
 
     private static final String TAG = "SmbDownloadService";
-    // Bumped from "smb_download" to force a channel re-create on devices that had the
-    // previous IMPORTANCE_LOW channel cached (the old channel hid the progress bar in
-    // OEM "silent" notification groups).
-    // Upstream DownloadService's channel: one "download" channel for both pipelines (#103).
+    // The upstream DownloadService's channel, shared by both pipelines.
     private String channelId() {
         return getPackageName() + ".download";
     }
-    private static final int NOTIFICATION_ID = 0x536D6244; // 'SmbD'
+    private static final int NOTIFICATION_ID = 0x536D6244;
 
     public static final String ACTION_STOP = "com.hippo.ehviewer.smb.STOP";
 
@@ -149,8 +141,7 @@ public final class SmbDownloadService extends Service {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             b.setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE);
         }
-        // Always render a progress bar — phone DownloadService does the same, and many
-        // OEM shades hide notifications without one in the "silent / minimised" group.
+        // Always a bar: OEM shades hide notifications without one in their silent group.
         if (max > 0) {
             b.setProgress(max, progress, indeterminate);
             b.setContentInfo(progress + "/" + max);

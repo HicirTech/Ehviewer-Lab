@@ -9,15 +9,12 @@ import com.hippo.lib.yorozuya.FileUtils;
 import java.io.UnsupportedEncodingException;
 import java.net.URLEncoder;
 
-/** Pure path/URL construction; no Android dependency so tests need no emulated SDK. */
+/** No Android dependency, so tests need no emulated SDK. */
 public final class SmbPaths {
 
     private SmbPaths() {}
 
-    /**
-     * smb://host[:port]/share/path/ — default port omitted, share segment percent-encoded
-     * (URLEncoder's "+" converted back to "%20"), path appended verbatim.
-     */
+    /** smb://host[:port]/share followed by sharePath verbatim. */
     @NonNull
     public static String buildShareUrl(@Nullable String host, @Nullable String port,
                                        @Nullable String shareName, @Nullable String sharePath) {
@@ -35,7 +32,7 @@ public final class SmbPaths {
             try {
                 encodedShare = URLEncoder.encode(shareName, "UTF-8").replace("+", "%20");
             } catch (UnsupportedEncodingException ignored) {
-                // UTF-8 is guaranteed; fall back to the raw value.
+                // UTF-8 is always supported.
             }
         }
         url.append("/").append(encodedShare);
@@ -45,10 +42,9 @@ public final class SmbPaths {
         return url.toString();
     }
 
-    /** Galleries live here, one level down, so state/ and the index are siblings not entries. */
+    /** One level down, so state/ is a sibling, not an entry. */
     public static final String GALLERY_DIR = "download";
 
-    /** The share URL galleries are enumerated from: the configured path plus {@link #GALLERY_DIR}. */
     @NonNull
     public static String buildGalleryRootUrl(@NonNull String shareUrl) {
         return shareUrl.endsWith("/")
@@ -56,10 +52,8 @@ public final class SmbPaths {
                 : shareUrl + "/" + GALLERY_DIR + "/";
     }
 
-    /** One JSON file per client (#59); a sibling the gallery enumeration never sees. */
     public static final String STATE_DIR = "state";
 
-    /** The share URL client state files live under: the configured path plus {@link #STATE_DIR}. */
     @NonNull
     public static String buildStateRootUrl(@NonNull String shareUrl) {
         return shareUrl.endsWith("/")
@@ -67,26 +61,18 @@ public final class SmbPaths {
                 : shareUrl + "/" + STATE_DIR + "/";
     }
 
-    /**
-     * The per-gallery folder name on the share: {@code <gid>-<title>}, sanitised to a filesystem-safe
-     * string. Falls back to {@code "gallery"} when the gallery has no title.
-     */
     @NonNull
     public static String buildGalleryFolderName(@NonNull GalleryInfo info) {
         return buildGalleryFolderName(info.gid, info.title);
     }
 
-    /** Same name from explicit gid+title — for rename (#86), so sanitising cannot diverge. */
     @NonNull
     public static String buildGalleryFolderName(long gid, @Nullable String title) {
         String safe = (title == null || title.isEmpty()) ? "gallery" : title;
         return FileUtils.sanitizeFilename(gid + "-" + safe);
     }
 
-    /**
-     * Is this folder one of ours? Tests the <gid>- prefix (survives all sanitising); NAS system
-     * dirs (@eaDir, #recycle...) are not hidden-dot-prefixed. Not a regex: runs per folder per listing.
-     */
+    /** A positive gid- match: NAS system dirs such as @eaDir or #recycle have no leading dot. */
     public static boolean isGalleryFolderName(@Nullable String name) {
         if (name == null || name.isEmpty()) {
             return false;
@@ -105,13 +91,9 @@ public final class SmbPaths {
         return true;
     }
 
-    /** Returned instead of a gid by {@link #parseGid} when the name is not a gallery folder's. */
     public static final long NOT_A_GALLERY = -1L;
 
-    /**
-     * The gid from a folder name, or NOT_A_GALLERY. Accepts exactly what isGalleryFolderName
-     * accepts; overflow is rejected, never wrapped (a wrong gid marks the wrong gallery).
-     */
+    /** Overflow is rejected, never wrapped: a wrong gid would mark the wrong gallery. */
     public static long parseGid(@Nullable String folderName) {
         if (!isGalleryFolderName(folderName)) {
             return NOT_A_GALLERY;

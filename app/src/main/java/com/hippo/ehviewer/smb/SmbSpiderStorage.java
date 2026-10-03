@@ -19,10 +19,6 @@ import com.hippo.streampipe.OutputStreamPipe;
 import java.io.InputStream;
 import java.io.OutputStream;
 
-/**
- * {@link GallerySpiderStorage} backed by the SMB share; created only for gids marked in
- * {@link GalleryTargets}. A thin adapter over the static SMB helpers.
- */
 public final class SmbSpiderStorage implements GallerySpiderStorage {
 
     @NonNull
@@ -32,7 +28,6 @@ public final class SmbSpiderStorage implements GallerySpiderStorage {
         this.info = info;
     }
 
-    /** An SMB backend iff the gid is marked, re-checked per call so unmarking acts immediately. */
     @Nullable
     static SmbSpiderStorage createIfTarget(@NonNull GalleryInfo info, long gid) {
         return GalleryTargets.isMarked(gid) ? new SmbSpiderStorage(info) : null;
@@ -60,11 +55,6 @@ public final class SmbSpiderStorage implements GallerySpiderStorage {
         return SmbGalleryFiles.containImage(info, index);
     }
 
-    /**
-     * The failed-download cleanup (#140). The atomic pipe publishes on close whether the source
-     * finished or not, so a failed page IS on the share, truncated — it must be deleted or it
-     * reads as saved forever. Deleting a good page merely costs a re-download.
-     */
     @Override
     public boolean removeImage(int index) {
         return SmbGalleryFiles.deleteImage(info, index);

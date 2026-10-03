@@ -16,11 +16,7 @@ import jcifs.smb.NtStatus;
 import jcifs.smb.SmbAuthException;
 import jcifs.smb.SmbException;
 
-/**
- * jcifs failures in the app's own error dialect (#133): short localized reasons, the way
- * {@link ExceptionUtils#getReadableString} speaks — never a raw exception string. Walks the
- * cause chain because jcifs wraps the interesting exception two levels deep.
- */
+/** Walks the cause chain: jcifs wraps the interesting exception two levels deep. */
 final class SmbErrors {
 
     private SmbErrors() {}
@@ -45,8 +41,7 @@ final class SmbErrors {
                 }
             }
             if (t instanceof java.net.UnknownHostException
-                    // jcifs reports a failed NetBIOS lookup as "0.0.0.0<00>/host" inside a
-                    // transport exception; the type is not exported, the shape is stable.
+                    // A failed NetBIOS lookup; jcifs does not export its exception type.
                     || (t.getMessage() != null && t.getMessage().contains("<00>"))) {
                 return GetText.getString(R.string.error_unknown_host);
             }

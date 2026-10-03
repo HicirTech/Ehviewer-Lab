@@ -25,7 +25,6 @@ import com.hippo.ehviewer.ui.VolumeKeyModeDialog;
 import com.hippo.preference.EditTextDialogPreference;
 import com.hippo.preference.ListPreference;
 
-/** Settings -> Power Download (#159), xml/power_download_settings.xml. */
 public class PowerDownloadFragment extends BasePreferenceFragmentCompat
         implements Preference.OnPreferenceChangeListener {
 
@@ -73,10 +72,7 @@ public class PowerDownloadFragment extends BasePreferenceFragmentCompat
         }
     }
 
-    /**
-     * {@code current} is set explicitly: this ListPreference ignores its XML default, so a target
-     * never chosen would otherwise show no summary and no checked entry.
-     */
+    /** {@code current} is set explicitly: this ListPreference ignores its XML default. */
     private void bindTargets(@NonNull String key, @NonNull PowerDownloadTarget current,
                              @NonNull PowerDownloadTarget[] targets) {
         ListPreference preference = findPreference(key);
@@ -98,8 +94,7 @@ public class PowerDownloadFragment extends BasePreferenceFragmentCompat
     @Override
     public boolean onPreferenceChange(@NonNull Preference preference, Object newValue) {
         if (preference == mPagesCount) {
-            // Stored as accepted, like the concurrency boxes: a summary never shows a number the
-            // rule would not use. Unparseable input changes nothing.
+            // Stores the clamped value itself, so the summary shows what the rule uses.
             int parsed;
             try {
                 parsed = Integer.parseInt(String.valueOf(newValue).trim());
@@ -111,7 +106,6 @@ public class PowerDownloadFragment extends BasePreferenceFragmentCompat
             return false;
         }
         if (preference instanceof ListPreference) {
-            // A rule can be aimed at network storage only while network storage can take it.
             return !PowerDownloadTarget.NETWORK_STORAGE.value.equals(newValue) || networkStorageUsable();
         }
         if (!Boolean.TRUE.equals(newValue)) {
@@ -143,7 +137,7 @@ public class PowerDownloadFragment extends BasePreferenceFragmentCompat
         }
     }
 
-    /** Says why not when it is not, since the switch or choice the user tapped will not move. */
+    /** Toasts why when false: the tapped switch or choice will not move. */
     private boolean networkStorageUsable() {
         if (SmbDownloadBoard.smbAvailable()) {
             return true;
@@ -153,7 +147,6 @@ public class PowerDownloadFragment extends BasePreferenceFragmentCompat
         return false;
     }
 
-    /** The bare number: the title already says what it counts, and "1 pages" needs no plural. */
     private void updatePagesCountSummary() {
         if (mPagesCount != null) {
             mPagesCount.setSummary(String.valueOf(PowerDownloadSettings.getPagesCount()));

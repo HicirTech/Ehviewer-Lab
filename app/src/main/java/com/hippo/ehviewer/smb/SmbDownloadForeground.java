@@ -9,10 +9,7 @@ import androidx.annotation.Nullable;
 import com.hippo.ehviewer.R;
 import com.hippo.ehviewer.storage.NetworkStorage;
 
-/**
- * The foreground service handle and the words in its notification. Reads the queue only through
- * the snapshot handed to {@link #update} — no lock shared with the ledger.
- */
+/** Reads the queue only through {@link #update}'s snapshot: no lock shared with the ledger. */
 final class SmbDownloadForeground {
 
     private static final String TAG = "SmbDirectDownloader";
@@ -20,7 +17,6 @@ final class SmbDownloadForeground {
     @Nullable
     private SmbDownloadService service;
 
-    /** Starts the service (keeps the process alive past UI tear-down) if none is attached. */
     void ensureStarted(@NonNull Context context) {
         synchronized (this) {
             if (service != null) {
@@ -46,7 +42,7 @@ final class SmbDownloadForeground {
         }
     }
 
-    /** Renders one queue snapshot into the notification; null means leave it alone. */
+    /** Null content leaves the notification as it is. */
     void update(@NonNull Context ctx, @Nullable SmbTaskLedger.NotificationContent content) {
         SmbDownloadService svc;
         synchronized (this) {
@@ -87,7 +83,6 @@ final class SmbDownloadForeground {
         svc.updateNotification(title, text, max, prog, indeterminate);
     }
 
-    /** Stops the service when the queue has gone idle. */
     void stopIfIdle(boolean idle, @Nullable Context ctx) {
         boolean haveService;
         synchronized (this) {

@@ -30,17 +30,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-/**
- * Fans inventory cover reads out ahead of Conaco's serial executor — into a bounded in-memory
- * buffer only; the share stays the sole durable copy (named disk caching was removed twice as an
- * architecture violation). Disk appears only as an anonymous decode shim (the decoder needs a
- * real fd). A missing buffer entry just falls back to the share.
- */
+/** Prefetches past Conaco's serial loader into memory only; the share stays the sole copy. */
 public final class SmbCoverPrefetch {
 
     private static final String TAG = "SmbCoverPrefetch";
 
-    // Several pages of 2-140KB covers; LRU past this, evictees fall back to the share.
+    // Several pages of 2-140KB covers.
     private static final int MAX_BUFFERED_BYTES = 8 * 1024 * 1024;
 
     /** Access-ordered, so what {@link #evictOverflow} drops is the least recently shown. */
@@ -48,8 +43,7 @@ public final class SmbCoverPrefetch {
             new LinkedHashMap<>(32, 0.75f, true);
     private static int sBufferedBytes;
 
-    // Dedup for this process; deliberately separate from BUFFER so LRU-dropped entries stay deduped.
-    // LRU-bounded: an evicted gid merely allows one redundant cover fetch much later.
+    // Separate from BUFFER so an evicted cover is not prefetched again.
     private static final Set<Long> REQUESTED = Collections.synchronizedSet(
             Collections.newSetFromMap(new java.util.LinkedHashMap<Long, Boolean>(16, 0.75f, true) {
                 @Override
@@ -58,16 +52,13 @@ public final class SmbCoverPrefetch {
                 }
             }));
 
-    /**
-     * Where the hl.8 build staged covers as named files. Swept once per process so an upgrade does
-     * not leave the old cache sitting there looking trustworthy; plantable by tests.
-     */
+    /** The hl.8 build's named-file cover cache; tests plant their own. */
     private static volatile File sLegacyDir;
     private static boolean sLegacySwept;
 
     private SmbCoverPrefetch() {}
 
-    /** Prefetches one page of rows (not the whole share — that would slow the visible twelve). */
+    /** One page of rows, not the whole share: that would slow the visible ones. */
     public static void prefetch(@NonNull List<GalleryInfo> infos) {
         if (!NetworkStorage.active().isConfigured()) {
             return;
@@ -81,7 +72,6 @@ public final class SmbCoverPrefetch {
             SmbPreviewCache.prefetchExecutor().submit(() -> {
                 byte[] bytes = NetworkStorage.active().files().readCoverBytes(lookup);
                 if (bytes == null) {
-                    // Nothing there, or the read failed; let a later scroll try again.
                     REQUESTED.remove(lookup.gid);
                     return;
                 }
@@ -90,7 +80,7 @@ public final class SmbCoverPrefetch {
         }
     }
 
-    /** Pipe over the buffered cover, or null (caller reads the share). Anonymous shim on open(). */
+    /** open() stages an anonymous temp file: the decoder needs a real fd. */
     @Nullable
     public static InputStreamPipe pipeFor(long gid) {
         final byte[] bytes;
@@ -134,10 +124,6 @@ public final class SmbCoverPrefetch {
         };
     }
 
-    /**
-     * Forgets a gallery's buffered cover. Called on delete and on re-sync — either can make the
-     * buffered bytes disagree with the share, and the share wins.
-     */
     public static void evict(long gid) {
         REQUESTED.remove(gid);
         synchronized (BUFFER) {
@@ -172,10 +158,6 @@ public final class SmbCoverPrefetch {
         return SmbShims.dir();
     }
 
-    /**
-     * Deletes the named-file cover cache the hl.8 build left behind. Once per process; the
-     * directory itself goes too, so a device that upgraded does not carry a dead cache around.
-     */
     private static synchronized void sweepLegacyOnce() {
         if (sLegacySwept) {
             return;

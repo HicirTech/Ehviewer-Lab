@@ -22,12 +22,10 @@ import com.hippo.ehviewer.smb.SmbDirectDownloader;
 import com.hippo.ehviewer.smb.SmbTaskInfo;
 import com.hippo.ehviewer.ui.scene.download.DownloadsScene;
 
-/** The SMB exceptions to download-row binding; stateless (#59, #95). */
 final class SmbTaskRowBinder {
 
     private SmbTaskRowBinder() {}
 
-    /** Owner device + last-heartbeat age (the whole liveness signal); silent for own tasks. */
     static void bindOwner(@NonNull DownloadAdapter.DownloadHolder holder,
                           @NonNull DownloadInfo info, @Nullable Context context) {
         if (!SmbTaskInfo.isSmb(info) || ((SmbTaskInfo) info).mine) {
@@ -46,7 +44,7 @@ final class SmbTaskRowBinder {
         holder.getSmbOwner().setVisibility(View.VISIBLE);
     }
 
-    /** Hides fields a just-enqueued skeleton has no values for (UNKNOWN chips read as facts). */
+    /** An UNKNOWN chip on a just-enqueued skeleton would read as a fact. */
     static void hideAbsentFields(@NonNull DownloadAdapter.DownloadHolder holder,
                                  @NonNull DownloadInfo info) {
         if (!SmbTaskInfo.isSmb(info)) {
@@ -63,7 +61,6 @@ final class SmbTaskRowBinder {
         }
     }
 
-    /** No start/stop on another device's live task; an abandoned one keeps start = take over. */
     static void hideControlsWeCannotHonour(@NonNull DownloadAdapter.DownloadHolder holder,
                                            @NonNull DownloadInfo info) {
         if (SmbTaskInfo.isSmb(info)
@@ -74,7 +71,6 @@ final class SmbTaskRowBinder {
         }
     }
 
-    /** An orphan is not a failure: intact, waiting, adoptable. Null when the row is not one. */
     @Nullable
     static String orphanStateText(@NonNull DownloadInfo info, @NonNull Resources resources) {
         return SmbTaskInfo.canTakeOver(info)
@@ -82,7 +78,7 @@ final class SmbTaskRowBinder {
                 : null;
     }
 
-    /** SMB progress binding (no speed figure — nobody measures another device's rate). */
+    /** No speed figure: nobody measures another device's rate. */
     static boolean bindProgress(@NonNull DownloadAdapter.DownloadHolder holder,
                                 @NonNull DownloadInfo info) {
         if (!SmbTaskInfo.isSmb(info)) {
@@ -93,7 +89,6 @@ final class SmbTaskRowBinder {
         return true;
     }
 
-    /** Start on an SMB row: resume own, confirm-adopt an orphan; never DownloadService. */
     static boolean handleStartClick(@NonNull DownloadInfo info, @NonNull DownloadsScene scene) {
         if (!SmbTaskInfo.isSmb(info)) {
             return false;
@@ -106,7 +101,6 @@ final class SmbTaskRowBinder {
         return true;
     }
 
-    /** The stop button on an SMB row, or false when this is not one. */
     static boolean handleStopClick(@NonNull DownloadInfo info) {
         if (!SmbTaskInfo.isSmb(info)) {
             return false;

@@ -27,33 +27,25 @@ import com.hippo.util.IoThreadPoolExecutor;
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * Everything the Downloads screen does about SMB saves (#59, #95): the shared task list and its
- * rate-limited refresh, takeover, the long-press menu, move-to-share. The scene never touches
- * the SMB layer directly.
- */
 public final class SmbDownloadsDelegate {
 
-    /** What the delegate needs from its screen, and nothing more. */
     public interface Host {
-        /** The scene's context, or null when detached mid-callback. */
         @Nullable
         Context context();
 
-        /** The merged list is stale — rebuild and redraw (the scene's {@code updateForLabel}). */
+        /** The merged list is stale: rebuild and redraw. */
         void onTasksChanged();
     }
 
-    // 2s: the watched value is published every 20s, so nothing finer is even visible.
+    // The watched value is published every 20s, so nothing finer is even visible.
     private static final long REFRESH_INTERVAL_MS = 2_000L;
 
     private final Host mHost;
 
-    /** Every device's published saves as of the last read; empty until the first read lands. */
+    /** Every device's published saves, as of the last read. */
     @NonNull
     private volatile List<SmbTaskInfo> mTasks = new ArrayList<>();
 
-    /** Our own downloader says when its queue changes; other devices' changes arrive on the next read. */
     private final SmbDirectDownloader.TaskObserver mObserver = this::refresh;
 
     private long mLastRefreshAt;
@@ -63,7 +55,7 @@ public final class SmbDownloadsDelegate {
         mHost = host;
     }
 
-    /** Call from the scene's {@code onCreate}: starts observing and takes the first read. */
+    /** Call from the scene's {@code onCreate}. */
     public void attach() {
         SmbDirectDownloader.getInstance().addTaskObserver(mObserver);
         refresh();
@@ -74,10 +66,7 @@ public final class SmbDownloadsDelegate {
         SmbDirectDownloader.getInstance().removeTaskObserver(mObserver);
     }
 
-    /**
-     * Re-reads the shared list, rate-limited (a full pass per finished page lost long-presses
-     * under the redraw); the last call in a burst is always honoured.
-     */
+    /** Rate-limited, or redraws swallow long-presses; the last call of a burst still runs. */
     public void refresh() {
         long now = System.currentTimeMillis();
         long since = now - mLastRefreshAt;
@@ -120,7 +109,7 @@ public final class SmbDownloadsDelegate {
         });
     }
 
-    /** Folds shared tasks in first; only in the default view (labels are database columns). */
+    /** Default view only: labels are database columns, which shared tasks lack. */
     @Nullable
     public List<DownloadInfo> mergeInto(@Nullable String label, @Nullable List<DownloadInfo> list) {
         List<SmbTaskInfo> smb = mTasks;
@@ -133,7 +122,6 @@ public final class SmbDownloadsDelegate {
         return combined;
     }
 
-    /** "Stop all" includes this device's share tasks; other devices' are theirs. */
     public void pauseAllOwn() {
         for (SmbTaskInfo t : mTasks) {
             if (SmbTaskInfo.isActionable(t)) {
@@ -142,7 +130,6 @@ public final class SmbDownloadsDelegate {
         }
     }
 
-    /** Confirms a takeover, naming the device it is taken from (#59). */
     public void confirmTakeOver(@NonNull SmbTaskInfo task) {
         Context context = mHost.context();
         if (context == null) {
@@ -168,7 +155,6 @@ public final class SmbDownloadsDelegate {
         }
         switch (result) {
             case TAKEN:
-                // The list still shows the old owner until the next read lands.
                 refresh();
                 break;
             case OWNER_RETURNED:
@@ -183,7 +169,6 @@ public final class SmbDownloadsDelegate {
         }
     }
 
-    /** Long-press menu for an SMB row (its cancel lives here); none for another device's live task. */
     public void showTaskMenu(@NonNull DownloadInfo info) {
         Context context = mHost.context();
         if (context == null || !(info instanceof SmbTaskInfo)) {
@@ -215,7 +200,6 @@ public final class SmbDownloadsDelegate {
                 .show();
     }
 
-    /** The move dialog's "move to the share" entry, or null while the share is off or unset. */
     @Nullable
     public String moveTargetLabel(@NonNull Context context) {
         if (!Settings.getNetworkStorageEnabled() || !NetworkStorage.active().isConfigured()) {
@@ -224,7 +208,6 @@ public final class SmbDownloadsDelegate {
         return context.getString(R.string.download_move_to_smb, NetworkStorage.active().displayName());
     }
 
-    /** Moves = enqueues (#88): claims, progress rows, resume — the pages come from the phone. */
     public void moveToShare(@NonNull Context context, @NonNull List<DownloadInfo> downloads) {
         final Context appContext = context.getApplicationContext();
         List<DownloadInfo> movable = new ArrayList<>(downloads.size());

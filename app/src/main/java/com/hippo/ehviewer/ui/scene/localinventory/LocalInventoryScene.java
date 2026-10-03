@@ -66,27 +66,17 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
 
-/**
- * Browses the share's galleries, paginated like the online list (ContentHelper); each page reads
- * only its own slice of metadata, so a big share never blocks on a full sweep.
- */
+/** Browses the galleries on the network share. */
 public class LocalInventoryScene extends ToolbarScene
         implements EasyRecyclerView.OnItemClickListener, EasyRecyclerView.OnItemLongClickListener,
         FabLayout.OnClickFabListener, EasyRecyclerView.CustomChoiceListener {
 
-    // Galleries read per page. Bounds the SMB metadata reads done before a page can render.
     private static final int PAGE_SIZE = 50;
 
-    // Secondary FAB positions, in the order they're declared in scene_local_inventory.xml.
-    //
-    // There used to be a "download tasks" entry here, opening a screen of its own. SMB saves now
-    // appear in the ordinary download list alongside the phone's (#59), so this screen is for
-    // browsing what is already on the share and nothing else.
+    // Secondary FAB indexes, in scene_local_inventory.xml order.
     private static final int FAB_SORT = 0;
     private static final int FAB_GO_TO = 1;
     private static final int FAB_REFRESH = 2;
-    // Selection mode only. The FabLayout carries both sets and shows one at a time, the way the
-    // favourites screen does; the alternative is two FabLayouts fighting over the same corner.
     private static final int FAB_RESYNC_SELECTED = 3;
     private static final int FAB_DELETE_SELECTED = 4;
     private static final int FAB_SELECT_ALL = 5;
@@ -103,9 +93,6 @@ public class LocalInventoryScene extends ToolbarScene
     @Nullable
     private ExecutorService mExecutor;
 
-    // ---------- collaborators (#99) ----------
-
-    /** Runs on the app pool when there is one; the fallback thread keeps early calls working. */
     private final java.util.concurrent.Executor mWorker = task -> {
         if (mExecutor != null) {
             mExecutor.execute(task);
@@ -132,7 +119,6 @@ public class LocalInventoryScene extends ToolbarScene
             }
             Context appContext = context.getApplicationContext();
             if (total == 1) {
-                // Distinguished from success on purpose: a failed fetch must not look like a no-op sync.
                 Toast.makeText(appContext,
                         done == 1 ? R.string.local_inventory_resync_done
                                   : R.string.local_inventory_resync_failed,
@@ -172,11 +158,10 @@ public class LocalInventoryScene extends ToolbarScene
         }
     });
 
-    /** Marks by gid, as last applied; kept for the per-row diff. */
+    /** By gid, as last applied. */
     @NonNull
     private Map<Long, InventoryBadges.Mark> mDownloadMarks = Collections.emptyMap();
 
-    /** Tells the adapter to redraw a card's badge and leave the rest of it alone. */
     private static final Object PAYLOAD_BADGE = new Object();
 
     @Override
@@ -203,11 +188,11 @@ public class LocalInventoryScene extends ToolbarScene
     @Override
     public void onResume() {
         super.onResume();
-        // Coming back from the reader or a detail page, where a download may have been started.
+        // A download may have started in the reader or a detail page.
         mBadges.refresh();
     }
 
-    /** Main thread. Payload-rebinds only changed cards — a full rebuild swallows long-presses. */
+    /** Rebinds only changed cards: a full rebuild swallows long-presses. */
     private void applyDownloadMarks(@NonNull Map<Long, InventoryBadges.Mark> marks) {
         Map<Long, InventoryBadges.Mark> previous = mDownloadMarks;
         mDownloadMarks = marks;
@@ -271,17 +256,13 @@ public class LocalInventoryScene extends ToolbarScene
         mHelper.setEmptyString(getEmptyString());
         contentLayout.setHelper(mHelper);
 
-        // Group the list actions (refresh / go to page / download tasks / sort) into one expandable
-        // FAB, the same way the online gallery list does (com.hippo.widget.FabLayout: last child is
-        // the primary, the rest are secondary actions shown when expanded).
         mFabLayout = (FabLayout) ViewUtils.$$(view, R.id.fab_layout);
         mFabLayout.setAutoCancel(true);
         mFabLayout.setExpanded(false, false);
         mFabLayout.setHidePrimaryFab(false);
         mFabLayout.setOnClickFabListener(this);
 
-        // Only the first time. On return from a detail the ContentLayout restores its data and scroll
-        // position from saved view state, exactly like the online gallery list.
+        // On return from a detail the ContentLayout restores its own data.
         if (!mHasFirstRefresh) {
             mHasFirstRefresh = true;
             mHelper.firstRefresh();
@@ -379,8 +360,6 @@ public class LocalInventoryScene extends ToolbarScene
     public void onDestroyView() {
         super.onDestroyView();
         if (mHelper != null) {
-            // Drop the favourite-status listener registered by GalleryInfoContentHelper. If the share
-            // is currently empty, allow a fresh first refresh next time the view is created.
             if (1 == mHelper.getShownViewIndex()) {
                 mHasFirstRefresh = false;
             }
@@ -433,7 +412,6 @@ public class LocalInventoryScene extends ToolbarScene
         return true;
     }
 
-    /** Long press selects, same as every other list. */
     @Override
     public boolean onItemLongClick(EasyRecyclerView parent, View view, int position, long id) {
         if (mRecyclerView == null || mHelper == null) {
@@ -446,30 +424,21 @@ public class LocalInventoryScene extends ToolbarScene
         return true;
     }
 
-    // ---------- selection ----------
-
     @Override
     public void onIntoCustomChoice(EasyRecyclerView view) {
         showSelectionFabs();
         if (mFabLayout != null) {
-            // Tapping elsewhere must not take the actions away while a selection is still
-            // standing. Auto-cancel is right for browsing, where the menu is transient.
             mFabLayout.setAutoCancel(false);
-            // Posted, as on the favourites screen: the visibility swap above needs a layout pass
-            // before the expansion has the right buttons to animate.
+            // Posted: the visibility swap needs a layout pass before the expansion.
             SimpleHandler.getInstance().post(() -> {
                 if (mFabLayout != null) {
                     mFabLayout.setExpanded(true);
                 }
             });
         }
-        // A list that reloads under a selection loses it, and the pull-to-refresh gesture is easy
-        // to trigger while reaching for a card.
         if (mHelper != null) {
             mHelper.setRefreshLayoutEnable(false);
         }
-        // An edge swipe towards a card at the margin would otherwise pull the navigation drawer
-        // out from under the selection.
         setDrawerLockMode(DrawerLayout.LOCK_MODE_LOCKED_CLOSED, Gravity.LEFT);
         setDrawerLockMode(DrawerLayout.LOCK_MODE_LOCKED_CLOSED, Gravity.RIGHT);
     }
@@ -509,10 +478,7 @@ public class LocalInventoryScene extends ToolbarScene
 
     private final Runnable mShowNormalFabsRunnable = () -> setFabs(false);
 
-    /**
-     * Delayed, copying the favourites screen: leaving selection mode animates the buttons out, and
-     * swapping the set underneath that animation makes them flicker.
-     */
+    /** Delayed: swapping the set under the collapse animation makes the buttons flicker. */
     private void showNormalFabs() {
         SimpleHandler.getInstance().removeCallbacks(mShowNormalFabsRunnable);
         SimpleHandler.getInstance().postDelayed(mShowNormalFabsRunnable, 300);
@@ -523,7 +489,6 @@ public class LocalInventoryScene extends ToolbarScene
         setFabs(true);
     }
 
-    /** The galleries ticked right now, in list order. */
     @NonNull
     private List<GalleryInfo> selectedGalleries() {
         List<GalleryInfo> out = new ArrayList<>();
@@ -549,16 +514,11 @@ public class LocalInventoryScene extends ToolbarScene
         }
     }
 
-    // ---------- re-sync with e-hentai (#16) ----------
-
     private static final int RESYNC_METADATA = 0;
     private static final int RESYNC_PAGES = 1;
     private static final int RESYNC_BOTH = 2;
 
-    /**
-     * Record, pages, or both — offered apart (a metadata fetch and a minutes-long download are
-     * different asks). AlertDialog shows message OR list, so the caveat rides on the items.
-     */
+    /** AlertDialog shows a message or a list, not both, so the caveat rides on the items. */
     private void showResyncDialog(@NonNull List<GalleryInfo> galleries) {
         Context context = getEHContext();
         if (context == null || galleries.isEmpty()) {
@@ -599,7 +559,6 @@ public class LocalInventoryScene extends ToolbarScene
                 Toast.LENGTH_SHORT).show();
     }
 
-    /** Main thread. Swaps the fresh record in by gid; the paging cache follows the rename (#86). */
     private void replaceRow(@NonNull GalleryInfo fresh) {
         if (mHelper == null) {
             return;
@@ -619,14 +578,11 @@ public class LocalInventoryScene extends ToolbarScene
         }
     }
 
-    /** Deleting the on-share folder cannot be undone, so it always goes through a confirmation. */
     private void confirmDelete(@NonNull List<GalleryInfo> galleries) {
         Context context = getEHContext();
         if (context == null || galleries.isEmpty()) {
             return;
         }
-        // One gallery is named; a set is counted. Listing twenty titles in a dialog is not a
-        // clearer warning than the number, and the number is the part that should give pause.
         boolean one = galleries.size() == 1;
         String title = one
                 ? getString(R.string.local_inventory_delete_confirm_title)
@@ -654,12 +610,11 @@ public class LocalInventoryScene extends ToolbarScene
         mOps.deleteGalleries(context.getApplicationContext(), galleries);
     }
 
-    /** Main thread. Drops the row and the paging ref of a gallery no longer on the share. */
     private void dropRow(@NonNull GalleryInfo gi) {
         if (mHelper == null) {
             return;
         }
-        // By gid, not a captured position: a refresh may have landed since the dialogs.
+        // By gid: a refresh may have landed since the dialogs.
         for (int i = 0, n = mHelper.size(); i < n; i++) {
             GalleryInfo at = mHelper.getDataAt(i);
             if (at != null && at.gid == gi.gid) {
@@ -677,16 +632,12 @@ public class LocalInventoryScene extends ToolbarScene
         Bundle args = new Bundle();
         args.putString(GalleryDetailScene.KEY_ACTION, GalleryDetailScene.ACTION_GALLERY_INFO);
         args.putParcelable(GalleryDetailScene.KEY_GALLERY_INFO, gi);
-        // Render fully from local SMB metadata. Reconstructs tags from tgList so the
-        // detail page does not need a network call.
         args.putParcelable(GalleryDetailScene.KEY_GALLERY_DETAIL, NetworkStorage.active().metadata().buildOfflineDetail(gi));
-        // SMB metadata never carries comments — hide that section entirely.
+        // SMB metadata carries no comments.
         args.putBoolean(GalleryDetailScene.KEY_HIDE_COMMENTS, true);
         startScene(new Announcer(GalleryDetailScene.class).setArgs(args));
 
-        // Older entries may have been written before tag enrichment was added.
-        // Opportunistically fetch detail in the background and rewrite metadata so the
-        // next open is also fully offline.
+        // Entries saved before tag enrichment have no tags.
         Context context = getEHContext();
         if (context != null && (gi.tgList == null || gi.tgList.isEmpty())) {
             NetworkStorage.active().metadata().enrichLocalMetadataIfMissing(context, gi);
@@ -701,8 +652,6 @@ public class LocalInventoryScene extends ToolbarScene
         if (context == null) {
             return;
         }
-        // Mark the gid so SpiderDen routes reads (cover/spider info/pages) to SMB instead
-        // of looking on phone storage.
         GalleryTargets.mark(gi.gid);
         Intent intent = new Intent(context, GalleryActivity.class);
         intent.setAction(GalleryActivity.ACTION_EH);
@@ -757,10 +706,6 @@ public class LocalInventoryScene extends ToolbarScene
             }
         }
 
-        /**
-         * A progress update touches the badge and nothing else. Without this the card would be
-         * rebuilt from scratch every couple of seconds, cover load and all.
-         */
         @Override
         public void onBindViewHolder(@NonNull InventoryHolder holder, int position,
                 @NonNull List<Object> payloads) {
@@ -781,20 +726,12 @@ public class LocalInventoryScene extends ToolbarScene
     }
 
     private void bind(@NonNull InventoryHolder holder, @NonNull GalleryInfo gi) {
-        // Route the cover load through SmbCoverDataContainer so Conaco reads cover.<ext>
-        // straight from the SMB share (saved alongside the gallery at download time)
-        // instead of hitting e-hentai for the thumbnail URL. useNetwork=false makes the
-        // load offline-only — if the on-share cover is missing the cell just stays empty
-        // rather than silently leaking out to the network.
+        // Offline only: a cover missing on the share stays empty rather than going online.
         holder.thumb.load(EhCacheKeyFactory.getThumbKey(gi.gid),
                 gi.thumb != null ? gi.thumb : ("smb-cover://" + gi.gid),
                 new SmbCoverDataContainer(gi.gid, gi.title), false, false);
-        // Tap the thumbnail to jump straight into the reader (offline-friendly path).
-        // Tapping anywhere else on the card opens the gallery detail page (handled by the
-        // RecyclerView's OnItemClickListener).
         holder.thumb.setOnClickListener(v -> {
-            // The thumb has its own tap target, so it would sail past the list's choice handling
-            // and drop the user into the reader mid-selection.
+            // The thumb's own click bypasses the list's choice handling.
             if (mRecyclerView != null && mRecyclerView.isInCustomChoice()) {
                 mRecyclerView.toggleItemChecked(holder.getBindingAdapterPosition());
                 return;
@@ -817,7 +754,6 @@ public class LocalInventoryScene extends ToolbarScene
         bindDownloadingBadge(holder, gi.gid);
     }
 
-    /** Progress ring in the writing device's colour (#77); own downloads too, one rule. */
     private void bindDownloadingBadge(@NonNull InventoryHolder holder, long gid) {
         InventoryBadges.Mark mark = mDownloadMarks.get(gid);
         if (mark == null) {
@@ -832,7 +768,6 @@ public class LocalInventoryScene extends ToolbarScene
 
         @Override
         protected void getPageData(int taskId, int type, int page) {
-            // Date sort can order from the cheap listing alone; rebuild on refresh or first use.
             final boolean rebuild = type == TYPE_REFRESH;
             final SortMode mode = SortMode.fromOrdinal(Settings.getLocalInventorySort());
             mWorker.execute(() -> {
@@ -852,7 +787,7 @@ public class LocalInventoryScene extends ToolbarScene
                     if (!isCurrentTask(taskId)) {
                         return;
                     }
-                    // Mark every gid on the page so cover/detail/reader reads route through SMB.
+                    // SpiderDen reads marked gids from the share.
                     for (GalleryInfo gi : result.data) {
                         GalleryTargets.mark(gi.gid);
                     }
@@ -870,7 +805,6 @@ public class LocalInventoryScene extends ToolbarScene
 
         @Override
         protected void getExPageData(int pageAction, int taskId, int page) {
-            // Plain page-index paging; same fetch as the normal path.
             getPageData(taskId, pageAction, page);
         }
 

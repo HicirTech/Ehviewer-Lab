@@ -8,10 +8,6 @@ package com.hippo.ehviewer.storage;
 
 import androidx.annotation.NonNull;
 
-/**
- * A connection configuration that is not (yet) the live one: what the settings page holds while
- * the user edits, and what {@link NetworkStorage#selfCheck} probes before anything is persisted.
- */
 public final class ConnectionDraft {
     @NonNull public final String host;
     @NonNull public final String port;

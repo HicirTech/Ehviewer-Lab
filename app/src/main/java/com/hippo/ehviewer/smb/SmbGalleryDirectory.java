@@ -16,10 +16,6 @@ import java.util.Set;
 import jcifs.CIFSContext;
 import jcifs.smb.SmbFile;
 
-/**
- * Where a gallery lives on the share, and the per-gid listing cache. Writers may create the
- * folder ({@link #getGalleryDir}); readers must never touch the share ({@link #resolveGalleryDir}).
- */
 public final class SmbGalleryDirectory {
 
     private static final String TAG = "SmbStorage";
@@ -39,10 +35,7 @@ public final class SmbGalleryDirectory {
         return galleryDir;
     }
 
-    /**
-     * exists/mkdirs is racy by design at job start (the metadata skeleton and prepareDir run
-     * concurrently); the loser of a mkdirs race must not fail the job over a folder that exists.
-     */
+    /** Callers race on mkdirs at job start; the loser must not fail over an existing folder. */
     private static void ensureDir(@NonNull SmbFile dir, @NonNull CIFSContext cifs)
             throws IOException {
         if (dir.exists()) {
@@ -57,16 +50,12 @@ public final class SmbGalleryDirectory {
                     return;
                 }
             } catch (Throwable ignored) {
-                // Fall through to the original failure.
             }
             throw e instanceof IOException ? (IOException) e : new IOException(e);
         }
     }
 
-    /**
-     * The gallery's folder without creating it — zero round trips. Read paths must use this, or
-     * every query leaves an empty folder the inventory then lists (#59).
-     */
+    /** Never creates the folder: a read path that did would leave empty galleries behind. */
     @NonNull
     static SmbFile resolveGalleryDir(@NonNull GalleryInfo info) throws IOException {
         CIFSContext cifs = SmbConnection.buildContext();
@@ -74,8 +63,6 @@ public final class SmbGalleryDirectory {
         return new SmbFile(galleryRoot, SmbPaths.buildGalleryFolderName(info) + "/");
     }
 
-    // Short-lived per-gid folder listing: one list() answers every "is page N saved?" until the
-    // TTL lapses or a structural change invalidates it (~7 round trips per page otherwise).
     private static final GalleryListingCache LISTING_CACHE =
             new GalleryListingCache(GalleryListingCache.DEFAULT_TTL_MS);
 
@@ -96,18 +83,15 @@ public final class SmbGalleryDirectory {
             Log.i("SmbPerf", "list gid=" + info.gid + " n=" + names.size() + " " + (SystemClock.elapsedRealtime() - tList) + "ms thr=" + Thread.currentThread().getName());
         } catch (Throwable e) {
             if (!isFolderMissing(e)) {
-                // A transient failure is not a fact about the folder: answer empty this once,
-                // but cache nothing — a cached miss makes the whole gallery unreadable for a TTL.
+                // Transient: caching this empty answer would hide the gallery for a TTL.
                 Log.w(TAG, "list failed gid=" + info.gid, e);
                 return names;
             }
-            // Genuinely missing folder: empty is the folder's true state; cache it.
         }
         LISTING_CACHE.put(info.gid, names, now);
         return names;
     }
 
-    /** Only a does-not-exist answer may be cached as empty; everything else is weather. */
     private static boolean isFolderMissing(@NonNull Throwable e) {
         for (Throwable c = e; c != null; c = c.getCause() == c ? null : c.getCause()) {
             if (c instanceof jcifs.smb.SmbException) {
@@ -125,7 +109,7 @@ public final class SmbGalleryDirectory {
         LISTING_CACHE.invalidate(gid);
     }
 
-    /** A file the share just confirmed (rename returned): remember it instead of re-listing. */
+    /** Only for a name the share just confirmed. */
     static void noteWritten(long gid, @NonNull String name) {
         LISTING_CACHE.noteWritten(gid, name);
     }

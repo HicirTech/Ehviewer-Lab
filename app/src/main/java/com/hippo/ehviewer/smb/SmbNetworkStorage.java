@@ -30,10 +30,6 @@ import java.util.List;
 
 import jcifs.smb.SmbFile;
 
-/**
- * The SMB implementation of {@link NetworkStorage}: delegation onto the static SMB classes,
- * which stay the only code that talks jcifs.
- */
 public final class SmbNetworkStorage implements NetworkStorage {
 
     private static final SmbNetworkStorage INSTANCE = new SmbNetworkStorage();

@@ -16,10 +16,6 @@ import androidx.annotation.Nullable;
 
 import com.hippo.ehviewer.R;
 
-/**
- * A single-string {@link DialogPreference}, the family's answer to androidx EditTextPreference:
- * one text box in an app-styled dialog, persisted on OK through callChangeListener.
- */
 public class EditTextDialogPreference extends DialogPreference {
 
     private int mInputType = InputType.TYPE_CLASS_TEXT;
@@ -62,10 +58,6 @@ public class EditTextDialogPreference extends DialogPreference {
         return mTextSet ? mText : getPersistedString(null);
     }
 
-    /**
-     * Sets the value: persisted when the preference is persistent, held on the object when it
-     * is not (the settings page's draft mode, #133). The auto-tuner also applies through this.
-     */
     public void setText(@Nullable String text) {
         mText = text;
         mTextSet = true;
@@ -106,7 +98,7 @@ public class EditTextDialogPreference extends DialogPreference {
             return;
         }
         String value = editText.getText().toString();
-        // The listener may veto and apply an adjusted value itself (concurrency clamping).
+        // A listener may veto and apply an adjusted value itself.
         if (callChangeListener(value)) {
             setText(value);
         }

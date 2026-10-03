@@ -20,12 +20,7 @@ import androidx.core.content.ContextCompat;
 import com.hippo.ehviewer.R;
 import com.hippo.ehviewer.Settings;
 
-/**
- * POST_NOTIFICATIONS is a runtime permission since Android 13; undeclared-at-runtime means every
- * download notification is silently dropped (#103). Asked once, on the first download start that
- * has an Activity to ask from. Denial never blocks the download — the foreground service runs
- * without its notification — but it is said out loud once.
- */
+/** Android 13+ silently drops download notifications until POST_NOTIFICATIONS is granted. */
 public final class NotificationPermission {
 
     private static final int REQUEST_CODE = 1013;
@@ -34,13 +29,12 @@ public final class NotificationPermission {
 
     private NotificationPermission() {}
 
-    /** Call where a download is about to start. No-op once granted, or without an Activity. */
+    /** Call where a download is about to start, from any thread. */
     public static void onDownloadStart(@Nullable Context context) {
         if (Build.VERSION.SDK_INT < 33 || context == null) {
             return;
         }
-        // Callers include background paths (the share repair): both the permission ask and the
-        // denial toast belong to the main thread — off it, the toast kills the process (#144).
+        // Off the main thread the toast kills the process.
         if (android.os.Looper.myLooper() != android.os.Looper.getMainLooper()) {
             final Context c = context;
             com.hippo.lib.yorozuya.SimpleHandler.getInstance().post(() -> onDownloadStart(c));
@@ -53,8 +47,7 @@ public final class NotificationPermission {
         if (!Settings.getNotificationPermissionRequested()) {
             Activity activity = unwrap(context);
             if (activity != null && (activity.isFinishing() || activity.isDestroyed())) {
-                // The main-thread hop can outlive its Activity; a dead host must not spend
-                // the one-time ask (#151) — same as having no Activity at all.
+                // A dead host must not spend the one-time ask.
                 activity = null;
             }
             if (activity != null) {
@@ -64,7 +57,6 @@ public final class NotificationPermission {
             }
             return;
         }
-        // Asked before and still denied: downloads run invisibly — say so once per process.
         if (!sHintShown) {
             sHintShown = true;
             Toast.makeText(context.getApplicationContext(),

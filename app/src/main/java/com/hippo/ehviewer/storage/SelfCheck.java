@@ -9,10 +9,7 @@ package com.hippo.ehviewer.storage;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
-/**
- * What a pre-save probe of a {@link ConnectionDraft} found: three cumulative stages. A later
- * stage can only pass if the ones before it did.
- */
+/** Cumulative stages: a later one passes only if every earlier one did. */
 public final class SelfCheck {
     public final boolean connectOk;
     public final boolean readOk;
@@ -32,7 +29,6 @@ public final class SelfCheck {
         return connectOk && readOk && writeOk;
     }
 
-    /** Readable but not writable — the browse-only case the save flow asks about. */
     public boolean readOnly() {
         return connectOk && readOk && !writeOk;
     }

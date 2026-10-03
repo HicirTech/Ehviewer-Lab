@@ -28,30 +28,22 @@ import java.util.concurrent.TimeUnit;
 
 import jcifs.smb.SmbFile;
 
-/**
- * Sweeps 1-128 and keeps what actually won — the optimum is a property of the library and link,
- * not a constant. Every measurement is a real share read (a tuner satisfiable from a cache would
- * tune the cache); page bytes are streamed and dropped, memory stays flat; candidates above the
- * sample size are skipped (indistinguishable = censored).
- */
+/** Every timing reads the share itself; tuning against a cache would tune the cache. */
 public final class SmbAutoTune {
 
     private static final String TAG = "SmbAutoTune";
 
-    /** The sampled ladder over 1–128. */
     static final int[] CANDIDATES = {1, 2, 4, 6, 8, 12, 16, 24, 32, 48, 64, 96, 128};
 
     // Must sit above the top candidate or the top levels measure the same thing.
     private static final int METADATA_SAMPLE = 192;
 
-    // Same censoring rule ("16 is fastest" once meant "only had 16 pages"); a full sweep moves
-    // a few hundred MB, through 64KB scratch buffers, accumulating nothing.
+    // Just the top candidate: a full sweep already moves a few hundred MB.
     private static final int IMAGE_SAMPLE = 128;
 
     // Within this of the winner, the lower level wins — noise exceeds a few percent anyway.
     private static final double TIE_MARGIN = 0.08;
 
-    /** One stage of the sweep, for the settings screen to narrate. */
     public interface Progress {
         void on(@NonNull String stage, int concurrency);
     }
@@ -63,7 +55,7 @@ public final class SmbAutoTune {
         public final int imagesSampled;
         public final int bestMetadata;
         public final int bestImage;
-        /** Level → milliseconds, in sweep order, for the result dialog. */
+        /** Level → milliseconds, in sweep order. */
         public final Map<Integer, Long> metadataMillis;
         public final Map<Integer, Long> imageMillis;
 
@@ -109,8 +101,7 @@ public final class SmbAutoTune {
             List<GalleryRef> metaSample =
                     refs.subList(0, Math.min(METADATA_SAMPLE, refs.size()));
 
-            // Warm-up, outside every timing: the first operations on a fresh process also pay for
-            // the SMB session, and that cost belongs to nobody's concurrency level.
+            // Outside every timing: the first reads also pay for the SMB session.
             List<GalleryInfo> warm = new ArrayList<>();
             for (int i = 0; i < Math.min(4, metaSample.size()); i++) {
                 GalleryInfo gi = SmbInventory.readGalleryInfo(metaSample.get(i));
@@ -137,17 +128,12 @@ public final class SmbAutoTune {
                     try {
                         f.get();
                     } catch (Throwable ignored) {
-                        // A single unreadable gallery is the share's ordinary condition; the
-                        // level is judged on the batch, not failed by one member.
+                        // An unreadable gallery is ordinary; the level is judged on the batch.
                     }
                 }
                 metaTimes.put(conc, SystemClock.elapsedRealtime() - t0);
             }
 
-            // Pages for the image pass: first page of each of the first galleries that have one.
-            // Collected via the metadata read above where possible. Collection is itself a pile
-            // of share round-trips, so it reports progress — on a large library it takes longer
-            // than some measurement levels do.
             if (progress != null) {
                 progress.on("collect", 0);
             }
@@ -158,7 +144,6 @@ public final class SmbAutoTune {
                 }
                 GalleryInfo info = null;
                 for (GalleryInfo w : warm) {
-                    // Cheap reuse where the warm-up already parsed this folder.
                     if (ref.folderName.startsWith(w.gid + "-")) {
                         info = w;
                         break;
@@ -214,7 +199,6 @@ public final class SmbAutoTune {
         }
     }
 
-    /** Lowest time wins; a lower level within TIE_MARGIN wins instead. Pure, pinned by tests. */
     static int pickBest(@NonNull Map<Integer, Long> times) {
         long best = Long.MAX_VALUE;
         for (long t : times.values()) {
@@ -223,8 +207,7 @@ public final class SmbAutoTune {
         long acceptable = (long) Math.ceil(best * (1 + TIE_MARGIN));
         int winner = SmbConcurrency.DEFAULT_METADATA;
         long winnerTime = Long.MAX_VALUE;
-        // Iteration order is sweep order — ascending concurrency — so the first level inside the
-        // margin is the smallest one.
+        // Sweep order is ascending, so the first level inside the margin is the lowest.
         for (Map.Entry<Integer, Long> e : times.entrySet()) {
             if (e.getValue() <= acceptable) {
                 winner = e.getKey();
@@ -238,7 +221,6 @@ public final class SmbAutoTune {
         return SmbConcurrency.clamp(winner, SmbConcurrency.DEFAULT_METADATA);
     }
 
-    /** Streams a page off the share and throws the bytes away, counting them. */
     private static long drain(@NonNull SmbFile page) {
         byte[] scratch = new byte[64 * 1024];
         long total = 0;
