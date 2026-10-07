@@ -406,6 +406,31 @@ public class SpiderDenRoutingTest {
     }
 
     @Test
+    public void readerDuringDownload_opensTheCacheAndDoesNotAskTheShare() {
+        seedCache();
+        ShadowSmbSpiderStorage.hasImage = true;
+
+        SpiderDen den = den(SpiderQueen.MODE_DOWNLOAD);
+
+        assertTrue(den.hasCachedImage(INDEX));
+        assertNotNull(den.openCachedImage(INDEX));
+        assertFalse("showing the cache asked the share", askedShare());
+        assertFalse(ShadowSmbSpiderStorage.calls.contains("openImageOutputStreamPipe"));
+        assertFalse(ShadowSmbSpiderStorage.calls.contains("containImage"));
+    }
+
+    @Test
+    public void readerDuringDownload_cacheMissDoesNotAskTheShare() {
+        ShadowSmbSpiderStorage.hasImage = true;
+
+        SpiderDen den = den(SpiderQueen.MODE_DOWNLOAD);
+
+        assertFalse(den.hasCachedImage(INDEX));
+        assertNull(den.openCachedImage(INDEX));
+        assertFalse(askedShare());
+    }
+
+    @Test
     public void invariant5_nothingIsCopiedWhenThePageIsNowhere() {
         ShadowSmbSpiderStorage.hasImage = false;
 

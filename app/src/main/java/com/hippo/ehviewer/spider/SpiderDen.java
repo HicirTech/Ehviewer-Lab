@@ -285,6 +285,16 @@ public final class SpiderDen {
         return sCache.contain(key);
     }
 
+    /** Already in the read cache. Does not open or write the share. */
+    public boolean hasCachedImage(int index) {
+        return containInCache(index);
+    }
+
+    @Nullable
+    public InputStreamPipe openCachedImage(int index) {
+        return openCacheInputStreamPipe(index);
+    }
+
     /**
      * @param extension with dot
      */
