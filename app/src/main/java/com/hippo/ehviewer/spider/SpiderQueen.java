@@ -623,6 +623,12 @@ public final class SpiderQueen implements Runnable {
             }
         }
 
+        // A cached page is shown while the download still uploads it.
+        boolean cachedForReader = mReadReference > 0 && mSpiderDen.hasCachedImage(index);
+        if (cachedForReader) {
+            queueDecode(index);
+        }
+
         Object result;
 
         switch (state) {
@@ -631,7 +637,7 @@ public final class SpiderQueen implements Runnable {
                 result = null;
                 break;
             case STATE_DOWNLOADING:
-                result = mPagePercentMap.get(index);
+                result = cachedForReader ? null : mPagePercentMap.get(index);
                 break;
             case STATE_FAILED:
                 String error = mPageErrorMap.get(index);
@@ -641,12 +647,7 @@ public final class SpiderQueen implements Runnable {
                 result = error;
                 break;
             case STATE_FINISHED:
-                synchronized (mDecodeRequestQueue) {
-                    if (!contain(mDecodeIndexArray, index) && !mDecodeRequestQueue.contains(index)) {
-                        mDecodeRequestQueue.add(index);
-                        mDecodeRequestQueue.notify();
-                    }
-                }
+                queueDecode(index);
                 result = null;
                 break;
         }
@@ -654,6 +655,15 @@ public final class SpiderQueen implements Runnable {
         tryToEnsureWorkers();
 
         return result;
+    }
+
+    private void queueDecode(int index) {
+        synchronized (mDecodeRequestQueue) {
+            if (!contain(mDecodeIndexArray, index) && !mDecodeRequestQueue.contains(index)) {
+                mDecodeRequestQueue.add(index);
+                mDecodeRequestQueue.notify();
+            }
+        }
     }
 
     private void ensureWorkers() {
@@ -1857,7 +1867,10 @@ public final class SpiderQueen implements Runnable {
                     continue;
                 }
 
-                InputStreamPipe pipe = mSpiderDen.openInputStreamPipe(index);
+                InputStreamPipe pipe = mReadReference > 0 ? mSpiderDen.openCachedImage(index) : null;
+                if (pipe == null) {
+                    pipe = mSpiderDen.openInputStreamPipe(index);
+                }
                 if (pipe == null) {
                     resetDecodeIndex();
                     // contain() may restore the page, so "present" must not fail it.
