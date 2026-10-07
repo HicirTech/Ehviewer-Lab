@@ -1,18 +1,12 @@
 {
-  "version": "2.0.2.5-hl.2",
-  "versionCode": 14,
+  "version": "2.0.2.5-hl.3",
+  "versionCode": 15,
   "mustUpdate": false,
   "updateContent": {
-    "fileDownloadUrl": "https://github.com/HicirTech/Ehviewer-Lab/releases/tag/v2.0.2.5-hl.2",
-    "title": "EhViewer@Lab 2.0.2.5-hl.2",
+    "fileDownloadUrl": "https://github.com/HicirTech/Ehviewer-Lab/releases/tag/v2.0.2.5-hl.3",
+    "title": "EhViewer@Lab 2.0.2.5-hl.3",
     "content": [
-      "新增「增强式下载行为」:读满 N 页、读到首页或末页、长按菜单或按音量键时,下载到手机或网络存储",
-      "「自动下载到网络存储」并入增强式下载行为,升级后原设置自动保留",
-      "下载到手机不再弹出分类选择框,沿用记住的分类",
-      "修复阅读时开始下载同一本画廊、页面全部立刻失败的问题",
-      "同时下载多本归档时互不打断,同名画廊的归档不再互相覆盖(暂停中的归档下载更新后从头开始)",
-      "Android 15 及以上:系统给后台下载的时长用完后自动暂停,不再崩溃",
-      "没有「所有文件访问」权限或画廊已标记为网络存储时,归档也能正常导入"
+      "阅读时若已开始下载到网络存储,缓存里已有的页直接显示,不再一直等待"
     ]
   }
 }
