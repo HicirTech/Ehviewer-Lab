@@ -31,6 +31,7 @@ import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
+import java.io.IOException;
 import java.io.InputStream;
 import java.lang.reflect.Field;
 import java.util.ArrayList;
@@ -220,7 +221,7 @@ public class SmbReadWorkflowTest {
         }
     }
 
-    private List<GalleryInfo> firstInfos(int count, String label) {
+    private List<GalleryInfo> firstInfos(int count, String label) throws IOException {
         List<GalleryRef> refs = SmbInventory.listGalleryRefs();
         assertTrue(label + ": expected a library of at least " + mMinGalleries
                 + " galleries, found " + refs.size(), refs.size() >= mMinGalleries);

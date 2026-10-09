@@ -16,6 +16,7 @@ import androidx.annotation.Nullable;
 import com.hippo.ehviewer.client.data.GalleryInfo;
 
 import com.hippo.ehviewer.storage.GalleryRef;
+import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -50,6 +51,7 @@ public final class SmbAutoTune {
 
     public static final class Result {
         public final boolean ok;
+        /** As {@link SmbBenchmark.Result#problem}. */
         @Nullable public final String problem;
         public final int galleries;
         public final int imagesSampled;
@@ -86,7 +88,13 @@ public final class SmbAutoTune {
         if (!SmbConnection.isConfigured()) {
             return Result.unavailable("unconfigured");
         }
-        List<GalleryRef> refs = SmbInventory.listGalleryRefs();
+        List<GalleryRef> refs;
+        try {
+            refs = SmbInventory.listGalleryRefs();
+        } catch (IOException e) {
+            Log.w(TAG, "Could not list the share to tune against", e);
+            return Result.unavailable(e.getMessage());
+        }
         if (refs.isEmpty()) {
             return Result.unavailable("empty");
         }

@@ -26,6 +26,7 @@ import com.hippo.ehviewer.storage.NetworkStorageStateStore;
 import com.hippo.ehviewer.storage.SortMode;
 import com.hippo.streampipe.InputStreamPipe;
 
+import java.io.IOException;
 import java.io.InputStream;
 import java.util.List;
 import java.util.concurrent.TimeoutException;
@@ -91,13 +92,13 @@ public final class SmbNetworkStorage implements NetworkStorage {
     private final NetworkStorageInventory inventory = new NetworkStorageInventory() {
         @NonNull
         @Override
-        public List<GalleryRef> listGalleryRefs() {
+        public List<GalleryRef> listGalleryRefs() throws IOException {
             return SmbInventory.listGalleryRefs();
         }
 
         @NonNull
         @Override
-        public List<GalleryInfo> loadInventory(@NonNull SortMode mode) {
+        public List<GalleryInfo> loadInventory(@NonNull SortMode mode) throws IOException {
             return SmbInventory.loadInventory(mode);
         }
 

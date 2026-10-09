@@ -15,6 +15,8 @@ import com.hippo.util.ExceptionUtils;
 import jcifs.smb.NtStatus;
 import jcifs.smb.SmbAuthException;
 import jcifs.smb.SmbException;
+import jcifs.util.transport.ConnectionTimeoutException;
+import jcifs.util.transport.RequestTimeoutException;
 
 /** Walks the cause chain: jcifs wraps the interesting exception two levels deep. */
 final class SmbErrors {
@@ -40,13 +42,15 @@ final class SmbErrors {
                     return GetText.getString(R.string.smb_error_access_denied);
                 }
             }
-            if (t instanceof java.net.UnknownHostException
-                    // A failed NetBIOS lookup; jcifs does not export its exception type.
-                    || (t.getMessage() != null && t.getMessage().contains("<00>"))) {
+            if (t instanceof java.net.UnknownHostException) {
                 return GetText.getString(R.string.error_unknown_host);
             }
-            if (t instanceof java.net.SocketTimeoutException) {
-                return GetText.getString(R.string.error_timeout);
+            // jcifs' read loop absorbs read-side socket timeouts, so one that surfaces came from connecting.
+            if (t instanceof ConnectionTimeoutException || t instanceof java.net.SocketTimeoutException) {
+                return GetText.getString(R.string.smb_error_connect_timeout);
+            }
+            if (t instanceof RequestTimeoutException) {
+                return GetText.getString(R.string.smb_error_read_timeout);
             }
             if (t instanceof java.net.ConnectException
                     || t instanceof java.net.NoRouteToHostException) {

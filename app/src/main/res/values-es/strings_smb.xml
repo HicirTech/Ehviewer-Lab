@@ -15,6 +15,7 @@
     <string name="local_inventory_empty">Aún no hay galerías en el recurso compartido %1$s</string>
     <string name="local_inventory_disabled">Activa «Guardar galerías en almacenamiento de red» en los ajustes y configúralo</string>
     <string name="local_inventory_timeout">El recurso compartido %1$s no respondió en 7 segundos</string>
+    <string name="storage_share_open_failed">No se pudo abrir el recurso compartido %1$s: %2$s</string>
     <string name="local_inventory_sort_title">Ordenar por</string>
     <string name="local_inventory_sort_download_date">Fecha de descarga (más recientes primero)</string>
     <string name="local_inventory_sort_posted_date">Fecha de publicación (más recientes primero)</string>
@@ -121,6 +122,8 @@
     <string name="smb_error_auth">Usuario o contraseña incorrectos</string>
     <string name="smb_error_share_not_found">No existe ese recurso compartido en el host</string>
     <string name="smb_error_access_denied">El host denegó el acceso</string>
+    <string name="smb_error_connect_timeout">Se agotó el tiempo al conectar con el host</string>
+    <string name="smb_error_read_timeout">Se agotó el tiempo al leer del host</string>
     <string name="notifications_disabled_hint">Las notificaciones están desactivadas: las descargas se ejecutarán silenciosamente en segundo plano</string>
 
     <!-- Power Download (#159) -->

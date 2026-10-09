@@ -233,9 +233,7 @@ public class NetworkStorageSettingsFragment extends BasePreferenceFragmentCompat
                 if (!result.ok) {
                     new AlertDialog.Builder(requireContext())
                             .setTitle(R.string.settings_smb_autotune)
-                            .setMessage("empty".equals(result.problem)
-                                    ? R.string.settings_smb_benchmark_empty
-                                    : R.string.settings_smb_benchmark_unconfigured)
+                            .setMessage(describeProblem(appContext, result.problem))
                             .setPositiveButton(android.R.string.ok, null)
                             .show();
                     return;
@@ -309,9 +307,7 @@ public class NetworkStorageSettingsFragment extends BasePreferenceFragmentCompat
     private static CharSequence describe(@NonNull Context context,
                                          @NonNull SmbBenchmark.Result r) {
         if (!r.ok) {
-            return "empty".equals(r.problem)
-                    ? context.getString(R.string.settings_smb_benchmark_empty)
-                    : context.getString(R.string.settings_smb_benchmark_unconfigured);
+            return describeProblem(context, r.problem);
         }
         String perGallery = String.format(java.util.Locale.US, "%.1f", r.millisPerGallery());
         String throughput = String.format(java.util.Locale.US, "%.1f", r.imageMegabytesPerSecond());
@@ -321,5 +317,17 @@ public class NetworkStorageSettingsFragment extends BasePreferenceFragmentCompat
                 r.imageConcurrency, r.imagesRead, r.imageMillis, throughput)
                 + "\n\n"
                 + context.getString(R.string.settings_smb_benchmark_hint);
+    }
+
+    @NonNull
+    private static String describeProblem(@NonNull Context context, @NonNull String problem) {
+        if ("empty".equals(problem)) {
+            return context.getString(R.string.settings_smb_benchmark_empty);
+        }
+        if ("unconfigured".equals(problem)) {
+            return context.getString(R.string.settings_smb_benchmark_unconfigured);
+        }
+        return context.getString(R.string.storage_share_open_failed,
+                NetworkStorage.active().displayName(), problem);
     }
 }

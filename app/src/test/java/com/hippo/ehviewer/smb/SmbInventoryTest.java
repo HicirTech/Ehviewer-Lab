@@ -10,9 +10,12 @@ package com.hippo.ehviewer.smb;
 import com.hippo.ehviewer.storage.GalleryRef;
 import com.hippo.ehviewer.storage.SortMode;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
 
+import com.hippo.ehviewer.GetText;
+import com.hippo.ehviewer.R;
 import com.hippo.ehviewer.Settings;
 import com.hippo.ehviewer.client.data.GalleryInfo;
 import com.hippo.ehviewer.storage.NetworkStorageSettings;
@@ -44,7 +47,9 @@ import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
+import jcifs.smb.SmbException;
 import jcifs.smb.SmbFile;
+import jcifs.util.transport.TransportException;
 
 /** The share as a list (#97). */
 @RunWith(RobolectricTestRunner.class)
@@ -61,6 +66,7 @@ public class SmbInventoryTest {
     static final Set<String> unreadable = new HashSet<>();
     static final Set<String> opened = ConcurrentHashMap.newKeySet();
     static volatile OpenHook onOpen = path -> {};
+    static Exception listFailure;
 
     interface OpenHook {
         void at(String path) throws IOException, InterruptedException;
@@ -82,6 +88,9 @@ public class SmbInventoryTest {
 
         @Implementation
         protected SmbFile[] listFiles() throws Exception {
+            if (listFailure != null) {
+                throw listFailure;
+            }
             String[] names = listings.get(real.getPath());
             if (names == null) {
                 return null;
@@ -126,6 +135,7 @@ public class SmbInventoryTest {
     @Before
     public void setUp() throws Exception {
         Settings.initialize(RuntimeEnvironment.getApplication());
+        GetText.initialize(RuntimeEnvironment.getApplication());
         Settings.putString(NetworkStorageSettings.KEY_SMB_HOST, "192.0.2.7");
         Settings.putString(NetworkStorageSettings.KEY_SMB_SHARE_NAME, "share");
         Settings.putString(NetworkStorageSettings.KEY_SMB_SHARE_PATH, "");
@@ -138,6 +148,7 @@ public class SmbInventoryTest {
         unreadable.clear();
         opened.clear();
         onOpen = path -> {};
+        listFailure = null;
         rootPath = SmbConnection.galleryRootUrl();
         existing.add(rootPath);
     }
@@ -153,7 +164,7 @@ public class SmbInventoryTest {
     }
 
     @Test
-    public void foreignFoldersAreNotGalleries() {
+    public void foreignFoldersAreNotGalleries() throws Exception {
         listings.put(rootPath, new String[]{"42-Answer/", "state/", "misc backups/"});
         List<GalleryRef> refs = SmbInventory.listGalleryRefs();
         assertEquals(1, refs.size());
@@ -162,7 +173,7 @@ public class SmbInventoryTest {
     }
 
     @Test
-    public void theOrderingKeyPrefersCreateTimeAndFallsBackToMtime() {
+    public void theOrderingKeyPrefersCreateTimeAndFallsBackToMtime() throws Exception {
         listings.put(rootPath, new String[]{"1-A/", "2-B/"});
         createTimes.put(rootPath + "1-A/", 1000L);
         mtimes.put(rootPath + "1-A/", 9999L);
@@ -175,7 +186,7 @@ public class SmbInventoryTest {
     }
 
     @Test
-    public void loadInventoryReadsEveryGallery() {
+    public void loadInventoryReadsEveryGallery() throws Exception {
         listings.put(rootPath, new String[]{"1-A/", "2-B/"});
         folderWithMetadata("1-A", 1L);
         folderWithMetadata("2-B", 2L);
@@ -186,7 +197,7 @@ public class SmbInventoryTest {
     }
 
     @Test
-    public void oneUnreadableGalleryDoesNotLoseTheRest() {
+    public void oneUnreadableGalleryDoesNotLoseTheRest() throws Exception {
         listings.put(rootPath, new String[]{"1-A/", "2-B/", "3-C/"});
         folderWithMetadata("1-A", 1L);
         folderWithMetadata("2-B", 2L);
@@ -197,7 +208,7 @@ public class SmbInventoryTest {
     }
 
     @Test
-    public void aRefWithoutMetadataReadsAsNull() {
+    public void aRefWithoutMetadataReadsAsNull() throws Exception {
         listings.put(rootPath, new String[]{"7-G/"});
         existing.add(rootPath + "7-G/");
         List<GalleryRef> refs = SmbInventory.listGalleryRefs();
@@ -288,7 +299,40 @@ public class SmbInventoryTest {
     }
 
     @Test
-    public void nothingConfiguredMeansEmptyAnswers() {
+    public void aShareThatCannotBeListedSaysWhy() {
+        listFailure = refused();
+
+        IOException e = assertThrows(IOException.class, SmbInventory::listGalleryRefs);
+
+        assertEquals(GetText.getString(R.string.error_socket), e.getMessage());
+        assertSame("the jcifs chain must stay attached", listFailure, e.getCause());
+    }
+
+    @Test
+    public void theEagerLoadOfAShareThatCannotBeListedSaysWhy() {
+        listFailure = refused();
+
+        IOException e = assertThrows(IOException.class,
+                () -> SmbInventory.loadInventory(SortMode.TITLE_ASC));
+
+        assertEquals(GetText.getString(R.string.error_socket), e.getMessage());
+    }
+
+    @Test
+    public void aShareWithoutTheGalleryFolderIsEmptyNotFailed() throws Exception {
+        existing.remove(rootPath);
+
+        assertTrue(SmbInventory.listGalleryRefs().isEmpty());
+        assertTrue(SmbInventory.loadInventory(SortMode.TITLE_ASC).isEmpty());
+    }
+
+    private static SmbException refused() {
+        return new SmbException("Failed to connect: 0.0.0.0<00>/192.0.2.7",
+                new TransportException(new java.net.ConnectException("Connection refused")));
+    }
+
+    @Test
+    public void nothingConfiguredMeansEmptyAnswers() throws Exception {
         Settings.putString(NetworkStorageSettings.KEY_SMB_HOST, "");
         assertTrue(SmbInventory.listGalleryRefs().isEmpty());
         assertTrue(SmbInventory.loadInventory().isEmpty());
