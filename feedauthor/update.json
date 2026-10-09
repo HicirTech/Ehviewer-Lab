@@ -1,12 +1,14 @@
 {
-  "version": "2.0.2.5-hl.3",
-  "versionCode": 15,
+  "version": "2.0.2.5-hl.4",
+  "versionCode": 16,
   "mustUpdate": false,
   "updateContent": {
-    "fileDownloadUrl": "https://github.com/HicirTech/Ehviewer-Lab/releases/tag/v2.0.2.5-hl.3",
-    "title": "EhViewer@Lab 2.0.2.5-hl.3",
+    "fileDownloadUrl": "https://github.com/HicirTech/Ehviewer-Lab/releases/tag/v2.0.2.5-hl.4",
+    "title": "EhViewer@Lab 2.0.2.5-hl.4",
     "content": [
-      "阅读时若已开始下载到网络存储,缓存里已有的页直接显示,不再一直等待"
+      "移动数据 + WireGuard 等慢链路下打开 SMB 库不再报「7 秒内未响应」,一页的画廊记录同时读取,加载更快",
+      "连不上共享时说明原因(连接超时、读取超时、网络错误等),SMB 库、「测试当前共享」「自动测出最快并发」和保存「SMB 连接」时都会显示",
+      "网络断续时,画廊列表、收藏和历史里表示已存到网络存储的标记不再消失"
     ]
   }
 }
