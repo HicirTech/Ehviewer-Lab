@@ -9,7 +9,7 @@ package com.hippo.ehviewer.ui.scene.localinventory;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
-import com.hippo.ehviewer.EhApplication;
+import com.hippo.ehviewer.GetText;
 import com.hippo.ehviewer.R;
 import com.hippo.ehviewer.client.data.GalleryInfo;
 import com.hippo.ehviewer.smb.SmbCoverPrefetch;
@@ -23,6 +23,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
@@ -96,6 +97,11 @@ final class InventoryPager {
         } catch (TimeoutException te) {
             fut.cancel(true);
             throw shareTimeout();
+        } catch (ExecutionException ee) {
+            if (ee.getCause() instanceof IOException) {
+                throw shareUnlistable((IOException) ee.getCause());
+            }
+            throw ee;
         } finally {
             pool.shutdownNow();
         }
@@ -126,12 +132,18 @@ final class InventoryPager {
 
     @NonNull
     private static IOException shareTimeout() {
-        return new IOException(EhApplication.getInstance()
-                .getString(R.string.local_inventory_timeout, NetworkStorage.active().displayName()));
+        return new IOException(GetText.getString(
+                R.string.local_inventory_timeout, NetworkStorage.active().displayName()));
     }
 
     @NonNull
-    private Ordering buildOrdering(@NonNull SortMode mode) {
+    private static IOException shareUnlistable(@NonNull IOException reason) {
+        return new IOException(GetText.getString(R.string.storage_share_open_failed,
+                NetworkStorage.active().displayName(), reason.getMessage()), reason);
+    }
+
+    @NonNull
+    private Ordering buildOrdering(@NonNull SortMode mode) throws IOException {
         if (mode == SortMode.DOWNLOAD_DATE_DESC) {
             List<GalleryRef> refs = NetworkStorage.active().inventory().listGalleryRefs();
             Collections.sort(refs, (a, b) -> Long.compare(b.folderMtime, a.folderMtime));

@@ -15,6 +15,7 @@
     <string name="local_inventory_empty">No galleries on the %1$s share yet</string>
     <string name="local_inventory_disabled">Enable \"Save Galleries To Network Storage\" in Settings and configure it</string>
     <string name="local_inventory_timeout">%1$s share did not respond within 7 seconds</string>
+    <string name="storage_share_open_failed">Could not open the %1$s share: %2$s</string>
     <string name="local_inventory_sort_title">Sort by</string>
     <string name="local_inventory_sort_download_date">Download date (newest first)</string>
     <string name="local_inventory_sort_posted_date">Posted date (newest first)</string>
@@ -128,9 +129,9 @@
     <string name="smb_error_auth">Wrong username or password</string>
     <string name="smb_error_share_not_found">No such share on the host</string>
     <string name="smb_error_access_denied">Access denied by the host</string>
-    <string name="notifications_disabled_hint">Notifications are off — downloads will run silently in the background</string>
     <string name="smb_error_connect_timeout">Connecting to the host timed out</string>
     <string name="smb_error_read_timeout">Reading from the host timed out</string>
+    <string name="notifications_disabled_hint">Notifications are off — downloads will run silently in the background</string>
 
     <!-- Power Download (#159) -->
     <string name="settings_power_download">Power Download</string>

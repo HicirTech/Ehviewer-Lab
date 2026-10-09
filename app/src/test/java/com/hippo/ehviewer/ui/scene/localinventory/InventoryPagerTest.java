@@ -9,7 +9,11 @@ package com.hippo.ehviewer.ui.scene.localinventory;
 import com.hippo.ehviewer.storage.GalleryRef;
 import com.hippo.ehviewer.storage.SortMode;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertSame;
+import static org.junit.Assert.assertThrows;
 
+import com.hippo.ehviewer.GetText;
+import com.hippo.ehviewer.R;
 import com.hippo.ehviewer.client.data.GalleryInfo;
 import com.hippo.ehviewer.smb.SmbCoverPrefetch;
 import com.hippo.ehviewer.smb.SmbInventory;
@@ -18,10 +22,12 @@ import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.robolectric.RobolectricTestRunner;
+import org.robolectric.RuntimeEnvironment;
 import org.robolectric.annotation.Config;
 import org.robolectric.annotation.Implementation;
 import org.robolectric.annotation.Implements;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -37,12 +43,16 @@ public class InventoryPagerTest {
     static final List<GalleryInfo> inventoryOnShare = new ArrayList<>();
     static int listCalls;
     static int readCalls;
+    static IOException listFailure;
 
     @Implements(SmbInventory.class)
     public static class ShadowSmbInventory {
         @Implementation
-        protected static List<GalleryRef> listGalleryRefs() {
+        protected static List<GalleryRef> listGalleryRefs() throws IOException {
             listCalls++;
+            if (listFailure != null) {
+                throw listFailure;
+            }
             return new ArrayList<>(refsOnShare);
         }
 
@@ -75,10 +85,12 @@ public class InventoryPagerTest {
 
     @Before
     public void setUp() {
+        GetText.initialize(RuntimeEnvironment.getApplication());
         refsOnShare.clear();
         inventoryOnShare.clear();
         listCalls = 0;
         readCalls = 0;
+        listFailure = null;
         pager = new InventoryPager();
     }
 
@@ -146,5 +158,17 @@ public class InventoryPagerTest {
         assertEquals(1, page.data.size());
         assertEquals("the cached record must survive the rename", "Old", page.data.get(0).title);
         assertEquals(0, readCalls);
+    }
+
+    @Test
+    public void aShareThatCannotBeListedNamesTheShareAndTheReason() {
+        listFailure = new IOException("Network error");
+
+        IOException e = assertThrows(IOException.class,
+                () -> pager.loadPageBounded(SortMode.DOWNLOAD_DATE_DESC, 0, true));
+
+        assertEquals(GetText.getString(R.string.storage_share_open_failed, "SMB", "Network error"),
+                e.getMessage());
+        assertSame(listFailure, e.getCause());
     }
 }

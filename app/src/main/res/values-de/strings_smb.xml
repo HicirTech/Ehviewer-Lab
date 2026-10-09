@@ -15,6 +15,7 @@
     <string name="local_inventory_empty">Noch keine Galerien auf der %1$s-Freigabe</string>
     <string name="local_inventory_disabled">Aktiviere „Galerien auf Netzwerkspeicher speichern“ in den Einstellungen und richte es ein</string>
     <string name="local_inventory_timeout">Die %1$s-Freigabe hat innerhalb von 7 Sekunden nicht geantwortet</string>
+    <string name="storage_share_open_failed">Die %1$s-Freigabe konnte nicht geöffnet werden: %2$s</string>
     <string name="local_inventory_sort_title">Sortieren nach</string>
     <string name="local_inventory_sort_download_date">Download-Datum (neueste zuerst)</string>
     <string name="local_inventory_sort_posted_date">Veröffentlichungsdatum (neueste zuerst)</string>
@@ -121,9 +122,9 @@
     <string name="smb_error_auth">Falscher Benutzername oder falsches Passwort</string>
     <string name="smb_error_share_not_found">Keine solche Freigabe auf dem Host</string>
     <string name="smb_error_access_denied">Zugriff vom Host verweigert</string>
-    <string name="notifications_disabled_hint">Benachrichtigungen sind aus — Downloads laufen still im Hintergrund</string>
     <string name="smb_error_connect_timeout">Zeitüberschreitung beim Verbinden mit dem Host</string>
     <string name="smb_error_read_timeout">Zeitüberschreitung beim Lesen vom Host</string>
+    <string name="notifications_disabled_hint">Benachrichtigungen sind aus — Downloads laufen still im Hintergrund</string>
 
     <!-- Power Download (#159) -->
     <string name="settings_power_download">Erweitertes Download-Verhalten</string>

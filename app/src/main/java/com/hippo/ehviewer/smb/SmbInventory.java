@@ -50,12 +50,12 @@ public final class SmbInventory {
     private SmbInventory() {}
 
     @NonNull
-    public static List<GalleryInfo> loadInventory() {
+    public static List<GalleryInfo> loadInventory() throws IOException {
         return loadInventory(SortMode.DOWNLOAD_DATE_DESC);
     }
 
     @NonNull
-    public static List<GalleryInfo> loadInventory(@NonNull SortMode mode) {
+    public static List<GalleryInfo> loadInventory(@NonNull SortMode mode) throws IOException {
         if (!SmbConnection.isConfigured()) {
             return new ArrayList<>();
         }
@@ -106,11 +106,10 @@ public final class SmbInventory {
                 }
             }
         } catch (Throwable e) {
-            Log.e(TAG, "Failed to load SMB inventory", e);
             Log.w("SmbPerf", "inventory.load mode=" + mode + " reads=" + reads
                     + " FAILED after " + (SystemClock.elapsedRealtime() - tLoad) + "ms thr="
                     + Thread.currentThread().getName());
-            return toGalleryList(entries);
+            throw shareFailure(e);
         }
 
         long tSort = SystemClock.elapsedRealtime();
@@ -158,7 +157,7 @@ public final class SmbInventory {
 
     /** All gallery folders in one listing, no metadata reads — first-paint cheap. */
     @NonNull
-    public static List<GalleryRef> listGalleryRefs() {
+    public static List<GalleryRef> listGalleryRefs() throws IOException {
         List<GalleryRef> refs = new ArrayList<>();
         if (!SmbConnection.isConfigured()) {
             return refs;
@@ -200,12 +199,20 @@ public final class SmbInventory {
                 refs.add(new GalleryRef(name, mtime));
             }
         } catch (Throwable e) {
-            Log.e(TAG, "Failed to list SMB gallery folders", e);
+            Log.w("SmbPerf", "inventory.refs FAILED after " + (SystemClock.elapsedRealtime() - t0)
+                    + "ms thr=" + Thread.currentThread().getName());
+            throw shareFailure(e);
         }
         Log.i("SmbPerf", "inventory.refs n=" + refs.size() + " "
                 + (SystemClock.elapsedRealtime() - t0) + "ms thr="
                 + Thread.currentThread().getName());
         return refs;
+    }
+
+    /** The jcifs chain stays attached as the cause. */
+    @NonNull
+    private static IOException shareFailure(@NonNull Throwable e) {
+        return new IOException(SmbErrors.describe(e), e);
     }
 
     /** One folder's metadata.json as a GalleryInfo, or null. Off the main thread. */

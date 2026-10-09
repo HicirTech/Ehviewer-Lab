@@ -14,6 +14,7 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
 import com.hippo.ehviewer.storage.GalleryRef;
+import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.List;
@@ -33,7 +34,7 @@ public final class SmbBenchmark {
 
     public static final class Result {
         public final boolean ok;
-        /** Why there is nothing to report, when {@link #ok} is false. */
+        /** When {@link #ok} is false: "unconfigured", "empty", or why the share failed, worded for the user. */
         @Nullable public final String problem;
 
         public final int galleriesOnShare;
@@ -91,7 +92,13 @@ public final class SmbBenchmark {
         int imageConcurrency = SmbConcurrency.image();
 
         long t0 = SystemClock.elapsedRealtime();
-        List<GalleryRef> refs = SmbInventory.listGalleryRefs();
+        List<GalleryRef> refs;
+        try {
+            refs = SmbInventory.listGalleryRefs();
+        } catch (IOException e) {
+            Log.w(TAG, "Could not list the share to benchmark it", e);
+            return Result.unavailable(e.getMessage());
+        }
         long listMillis = SystemClock.elapsedRealtime() - t0;
 
         if (refs.isEmpty()) {
