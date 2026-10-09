@@ -21,6 +21,7 @@ import org.robolectric.annotation.Config;
 import org.robolectric.annotation.Implementation;
 import org.robolectric.annotation.Implements;
 import org.robolectric.annotation.RealObject;
+import org.robolectric.shadows.ShadowLog;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -158,5 +159,19 @@ public class SmbSelfCheckTest {
         SelfCheck r = SmbSelfCheck.run(new ConnectionDraft("", "", "", "", "", "", false));
 
         assertFalse(r.connectOk);
+    }
+
+    @Test
+    public void aFailedStageLogsWhatJcifsThrew() {
+        connectFails = true;
+
+        SmbSelfCheck.run(draft());
+
+        boolean logged = false;
+        for (ShadowLog.LogItem item : ShadowLog.getLogsForTag("SmbSelfCheck")) {
+            logged |= item.throwable instanceof SmbException
+                    && ((SmbException) item.throwable).getNtStatus() == 0xC0000022;
+        }
+        assertTrue("the connect stage's exception must reach the log", logged);
     }
 }

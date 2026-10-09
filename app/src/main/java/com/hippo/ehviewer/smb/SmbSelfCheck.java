@@ -75,14 +75,14 @@ final class SmbSelfCheck {
                 return SelfCheck.failedToConnect(null);
             }
         } catch (Throwable e) {
-            return SelfCheck.failedToConnect(SmbErrors.describe(e));
+            return SelfCheck.failedToConnect(failure("connect", e));
         }
 
         // Stage 2: its contents can be read.
         try {
             new SmbFile(shareUrl, ctx).list();
         } catch (Throwable e) {
-            return new SelfCheck(true, false, false, SmbErrors.describe(e));
+            return new SelfCheck(true, false, false, failure("read", e));
         }
 
         // Stage 3: a temporary file goes in, comes back byte-identical, and goes away.
@@ -113,7 +113,7 @@ final class SmbSelfCheck {
             }
             return new SelfCheck(true, true, true, null);
         } catch (Throwable e) {
-            return new SelfCheck(true, true, false, SmbErrors.describe(e));
+            return new SelfCheck(true, true, false, failure("write", e));
         } finally {
             if (temp != null) {
                 try {
@@ -123,6 +123,13 @@ final class SmbSelfCheck {
                 }
             }
         }
+    }
+
+    /** jcifs has no log binding, so the chain behind the user's reason is logged here. */
+    @NonNull
+    private static String failure(@NonNull String stage, @NonNull Throwable e) {
+        Log.w(TAG, "Probe failed at " + stage, e);
+        return SmbErrors.describe(e);
     }
 
     /** Tight timeouts: jcifs defaults let a black-holed address spin for minutes. */
