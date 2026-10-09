@@ -40,6 +40,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
@@ -256,6 +257,7 @@ public class SmbInventoryTest {
     @Test
     public void aStalledReadFailsThePageAndDropsTheQueuedReads() throws Exception {
         Settings.putString(SmbConcurrency.KEY_METADATA, "1");
+        awaitOneInventoryWorker();
         listings.put(rootPath, new String[]{"1-A/", "2-B/", "3-C/"});
         folderWithMetadata("1-A", 1L);
         folderWithMetadata("2-B", 2L);
@@ -266,6 +268,18 @@ public class SmbInventoryTest {
         assertThrows(TimeoutException.class, () -> SmbInventory.readGalleryInfos(refs, 200));
         drainInventoryPool();
         assertEquals(Collections.singleton(rootPath + "1-A/" + SmbMetadata.METADATA_FILE), opened);
+    }
+
+    /** Idle workers left by earlier tests exit only some time after the pool shrinks. */
+    private static void awaitOneInventoryWorker() throws InterruptedException {
+        ThreadPoolExecutor pool = SmbInventory.inventoryExecutor();
+        long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5);
+        while (pool.getPoolSize() > 1) {
+            if (System.nanoTime() > deadline) {
+                throw new AssertionError("the inventory pool kept " + pool.getPoolSize() + " workers");
+            }
+            Thread.sleep(10);
+        }
     }
 
     /** One worker here, so a no-op runs only after every task queued before it. */
