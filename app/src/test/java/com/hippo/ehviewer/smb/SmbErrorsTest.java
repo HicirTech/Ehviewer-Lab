@@ -21,6 +21,9 @@ import org.robolectric.annotation.Config;
 import jcifs.CIFSException;
 import jcifs.smb.NtStatus;
 import jcifs.smb.SmbException;
+import jcifs.util.transport.ConnectionTimeoutException;
+import jcifs.util.transport.RequestTimeoutException;
+import jcifs.util.transport.TransportException;
 
 /** jcifs failures must come out in the app's error dialect, never as raw exception strings. */
 @RunWith(RobolectricTestRunner.class)
@@ -57,15 +60,46 @@ public class SmbErrorsTest {
 
     @Test
     public void aFailedNetbiosLookupReadsAsUnknownHost() {
-        assertEquals(expect(R.string.error_unknown_host),
-                SmbErrors.describe(new CIFSException("Failed to connect: 0.0.0.0<00>/192.0.2.99")));
+        SmbException failed = new SmbException("Failed to connect to server",
+                new java.net.UnknownHostException("NOSUCHNB"));
+        assertEquals(expect(R.string.error_unknown_host), SmbErrors.describe(failed));
     }
 
     @Test
-    public void aWrappedTimeoutReadsAsTimeout() {
+    public void anUnreachableIpHostReadsAsANetworkError() {
+        assertEquals(expect(R.string.error_socket), SmbErrors.describe(
+                failedToConnect(new java.net.NoRouteToHostException("No route to host"))));
+    }
+
+    @Test
+    public void aRefusedIpHostReadsAsANetworkError() {
+        assertEquals(expect(R.string.error_socket), SmbErrors.describe(
+                failedToConnect(new java.net.ConnectException("Connection refused"))));
+    }
+
+    @Test
+    public void aHostThatNeverAnswersReadsAsAConnectTimeout() {
+        SmbException silent = new SmbException("Failed to connect: 0.0.0.0<00>/192.0.2.99",
+                new ConnectionTimeoutException("Connection timeout"));
+        assertEquals(expect(R.string.smb_error_connect_timeout), SmbErrors.describe(silent));
+    }
+
+    @Test
+    public void aSocketConnectTimeoutReadsAsAConnectTimeout() {
         CIFSException wrapped = new CIFSException("Failed to connect",
                 new java.net.SocketTimeoutException("connect timed out"));
-        assertEquals(expect(R.string.error_timeout), SmbErrors.describe(wrapped));
+        assertEquals(expect(R.string.smb_error_connect_timeout), SmbErrors.describe(wrapped));
+    }
+
+    @Test
+    public void aRequestLeftUnansweredReadsAsAReadTimeout() {
+        assertEquals(expect(R.string.smb_error_read_timeout), SmbErrors.describe(
+                new RequestTimeoutException("Transport1 timedout waiting for response to Smb2ReadRequest")));
+    }
+
+    /** What jcifs-ng 2.1.10 throws when an IP host fails: it names the host 0.0.0.0<00>. */
+    private static SmbException failedToConnect(Exception cause) {
+        return new SmbException("Failed to connect: 0.0.0.0<00>/192.0.2.99", new TransportException(cause));
     }
 
     @Test
