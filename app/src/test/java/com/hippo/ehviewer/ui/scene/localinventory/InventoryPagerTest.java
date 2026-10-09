@@ -47,12 +47,16 @@ public class InventoryPagerTest {
         }
 
         @Implementation
-        protected static GalleryInfo readGalleryInfo(GalleryRef ref) {
-            readCalls++;
-            GalleryInfo gi = new GalleryInfo();
-            gi.gid = Long.parseLong(ref.folderName.split("-")[0]);
-            gi.title = ref.folderName;
-            return gi;
+        protected static List<GalleryInfo> readGalleryInfos(List<GalleryRef> refs, long stallMillis) {
+            List<GalleryInfo> infos = new ArrayList<>();
+            for (GalleryRef ref : refs) {
+                readCalls++;
+                GalleryInfo gi = new GalleryInfo();
+                gi.gid = Long.parseLong(ref.folderName.split("-")[0]);
+                gi.title = ref.folderName;
+                infos.add(gi);
+            }
+            return infos;
         }
 
         @Implementation
@@ -85,60 +89,60 @@ public class InventoryPagerTest {
     }
 
     @Test
-    public void pagesSliceTheOrderingAndReadLazily() {
+    public void pagesSliceTheOrderingAndReadLazily() throws Exception {
         seedRefs(120);
-        InventoryPager.Page p0 = pager.loadPage(SortMode.DOWNLOAD_DATE_DESC, 0, true);
+        InventoryPager.Page p0 = pager.loadPageBounded(SortMode.DOWNLOAD_DATE_DESC, 0, true);
         assertEquals(3, p0.pages);
         assertEquals(50, p0.data.size());
         assertEquals(50, readCalls);
 
-        InventoryPager.Page p2 = pager.loadPage(SortMode.DOWNLOAD_DATE_DESC, 2, false);
+        InventoryPager.Page p2 = pager.loadPageBounded(SortMode.DOWNLOAD_DATE_DESC, 2, false);
         assertEquals(20, p2.data.size());
         assertEquals(70, readCalls);
         assertEquals("paging must not re-list the share", 1, listCalls);
     }
 
     @Test
-    public void dateSortOrdersByMtimeDescending() {
+    public void dateSortOrdersByMtimeDescending() throws Exception {
         seedRefs(3);   // mtimes 1000, 1001, 1002
-        InventoryPager.Page page = pager.loadPage(SortMode.DOWNLOAD_DATE_DESC, 0, true);
+        InventoryPager.Page page = pager.loadPageBounded(SortMode.DOWNLOAD_DATE_DESC, 0, true);
         assertEquals(3L, page.data.get(0).gid);
         assertEquals(1L, page.data.get(2).gid);
     }
 
     @Test
-    public void metadataSortsServePagesFromTheCachedRecords() {
+    public void metadataSortsServePagesFromTheCachedRecords() throws Exception {
         for (int i = 0; i < 3; i++) {
             GalleryInfo gi = new GalleryInfo();
             gi.gid = i + 1;
             gi.title = "T" + (i + 1);
             inventoryOnShare.add(gi);
         }
-        InventoryPager.Page page = pager.loadPage(SortMode.TITLE_ASC, 0, true);
+        InventoryPager.Page page = pager.loadPageBounded(SortMode.TITLE_ASC, 0, true);
         assertEquals(3, page.data.size());
         assertEquals("cached ordering must not read per row", 0, readCalls);
     }
 
     @Test
-    public void forgottenRefsLeaveTheOrdering() {
+    public void forgottenRefsLeaveTheOrdering() throws Exception {
         seedRefs(2);
-        pager.loadPage(SortMode.DOWNLOAD_DATE_DESC, 0, true);
+        pager.loadPageBounded(SortMode.DOWNLOAD_DATE_DESC, 0, true);
         pager.forgetRef("1-G1");
-        InventoryPager.Page page = pager.loadPage(SortMode.DOWNLOAD_DATE_DESC, 0, false);
+        InventoryPager.Page page = pager.loadPageBounded(SortMode.DOWNLOAD_DATE_DESC, 0, false);
         assertEquals(1, page.data.size());
         assertEquals(2L, page.data.get(0).gid);
     }
 
     @Test
-    public void renamedRefsFollowTheirGallery() {
+    public void renamedRefsFollowTheirGallery() throws Exception {
         GalleryInfo gi = new GalleryInfo();
         gi.gid = 1;
         gi.title = "Old";
         inventoryOnShare.add(gi);
-        pager.loadPage(SortMode.TITLE_ASC, 0, true);
+        pager.loadPageBounded(SortMode.TITLE_ASC, 0, true);
 
         pager.renameRef("1-Old", "1-New");
-        InventoryPager.Page page = pager.loadPage(SortMode.TITLE_ASC, 0, false);
+        InventoryPager.Page page = pager.loadPageBounded(SortMode.TITLE_ASC, 0, false);
         assertEquals(1, page.data.size());
         assertEquals("the cached record must survive the rename", "Old", page.data.get(0).title);
         assertEquals(0, readCalls);

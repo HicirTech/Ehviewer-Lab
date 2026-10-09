@@ -10,6 +10,7 @@ package com.hippo.ehviewer.smb;
 import com.hippo.ehviewer.storage.GalleryRef;
 import com.hippo.ehviewer.storage.SortMode;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
 
 import com.hippo.ehviewer.Settings;
@@ -29,12 +30,18 @@ import org.robolectric.annotation.RealObject;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.InterruptedIOException;
 import java.nio.charset.StandardCharsets;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 import jcifs.smb.SmbFile;
 
@@ -51,6 +58,12 @@ public class SmbInventoryTest {
     static final Map<String, Long> createTimes = new HashMap<>();
     static final Map<String, Long> mtimes = new HashMap<>();
     static final Set<String> unreadable = new HashSet<>();
+    static final Set<String> opened = ConcurrentHashMap.newKeySet();
+    static volatile OpenHook onOpen = path -> {};
+
+    interface OpenHook {
+        void at(String path) throws IOException, InterruptedException;
+    }
 
     @Implements(SmbFile.class)
     public static class ShadowSmbFile {
@@ -93,6 +106,12 @@ public class SmbInventoryTest {
 
         @Implementation
         protected InputStream getInputStream() throws IOException {
+            opened.add(real.getPath());
+            try {
+                onOpen.at(real.getPath());
+            } catch (InterruptedException e) {
+                throw new InterruptedIOException();
+            }
             if (unreadable.contains(real.getPath())) {
                 throw new IOException("fixture: unreadable");
             }
@@ -116,6 +135,8 @@ public class SmbInventoryTest {
         createTimes.clear();
         mtimes.clear();
         unreadable.clear();
+        opened.clear();
+        onOpen = path -> {};
         rootPath = SmbConnection.galleryRootUrl();
         existing.add(rootPath);
     }
@@ -181,6 +202,75 @@ public class SmbInventoryTest {
         List<GalleryRef> refs = SmbInventory.listGalleryRefs();
         assertEquals(1, refs.size());
         assertTrue(SmbInventory.readGalleryInfo(refs.get(0)) == null);
+    }
+
+    @Test
+    public void pageReadsKeepTheRefOrder() throws Exception {
+        listings.put(rootPath, new String[]{"1-A/", "2-B/", "3-C/"});
+        folderWithMetadata("1-A", 1L);
+        existing.add(rootPath + "2-B/");
+        folderWithMetadata("3-C", 3L);
+        onOpen = path -> {
+            if (path.contains("1-A")) {
+                Thread.sleep(200);
+            }
+        };
+        List<GalleryInfo> infos =
+                SmbInventory.readGalleryInfos(SmbInventory.listGalleryRefs(), 10_000);
+        assertEquals(2, infos.size());
+        assertEquals(1L, infos.get(0).gid);
+        assertEquals(3L, infos.get(1).gid);
+    }
+
+    @Test
+    public void pageReadsRunSideBySide() throws Exception {
+        Settings.putString(SmbConcurrency.KEY_METADATA, "3");
+        listings.put(rootPath, new String[]{"1-A/", "2-B/", "3-C/"});
+        folderWithMetadata("1-A", 1L);
+        folderWithMetadata("2-B", 2L);
+        folderWithMetadata("3-C", 3L);
+        CountDownLatch allOpen = new CountDownLatch(3);
+        onOpen = path -> {
+            allOpen.countDown();
+            if (!allOpen.await(2, TimeUnit.SECONDS)) {
+                throw new IOException("fixture: reads ran one at a time");
+            }
+        };
+        assertEquals(3, SmbInventory.readGalleryInfos(SmbInventory.listGalleryRefs(), 10_000).size());
+    }
+
+    @Test
+    public void readsThatKeepFinishingOutlastTheStallLimit() throws Exception {
+        Settings.putString(SmbConcurrency.KEY_METADATA, "1");
+        String[] names = new String[16];
+        for (int i = 0; i < names.length; i++) {
+            names[i] = (i + 1) + "-G/";
+            folderWithMetadata((i + 1) + "-G", i + 1);
+        }
+        listings.put(rootPath, names);
+        onOpen = path -> Thread.sleep(40);
+        // 640 ms in all, never 320 ms without a finished read.
+        assertEquals(16, SmbInventory.readGalleryInfos(SmbInventory.listGalleryRefs(), 320).size());
+    }
+
+    @Test
+    public void aStalledReadFailsThePageAndDropsTheQueuedReads() throws Exception {
+        Settings.putString(SmbConcurrency.KEY_METADATA, "1");
+        listings.put(rootPath, new String[]{"1-A/", "2-B/", "3-C/"});
+        folderWithMetadata("1-A", 1L);
+        folderWithMetadata("2-B", 2L);
+        folderWithMetadata("3-C", 3L);
+        CountDownLatch never = new CountDownLatch(1);
+        onOpen = path -> never.await();
+        List<GalleryRef> refs = SmbInventory.listGalleryRefs();
+        assertThrows(TimeoutException.class, () -> SmbInventory.readGalleryInfos(refs, 200));
+        drainInventoryPool();
+        assertEquals(Collections.singleton(rootPath + "1-A/" + SmbMetadata.METADATA_FILE), opened);
+    }
+
+    /** One worker here, so a no-op runs only after every task queued before it. */
+    private static void drainInventoryPool() throws Exception {
+        SmbInventory.inventoryExecutor().submit(() -> {}).get(5, TimeUnit.SECONDS);
     }
 
     @Test

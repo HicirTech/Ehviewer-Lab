@@ -28,6 +28,7 @@ import com.hippo.streampipe.InputStreamPipe;
 
 import java.io.InputStream;
 import java.util.List;
+import java.util.concurrent.TimeoutException;
 
 import jcifs.smb.SmbFile;
 
@@ -100,10 +101,11 @@ public final class SmbNetworkStorage implements NetworkStorage {
             return SmbInventory.loadInventory(mode);
         }
 
-        @Nullable
+        @NonNull
         @Override
-        public GalleryInfo readGalleryInfo(@NonNull GalleryRef ref) {
-            return SmbInventory.readGalleryInfo(ref);
+        public List<GalleryInfo> readGalleryInfos(@NonNull List<GalleryRef> refs, long stallMillis)
+                throws InterruptedException, TimeoutException {
+            return SmbInventory.readGalleryInfos(refs, stallMillis);
         }
 
         @Nullable

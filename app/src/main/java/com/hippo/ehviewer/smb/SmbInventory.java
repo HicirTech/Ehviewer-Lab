@@ -247,6 +247,50 @@ public final class SmbInventory {
         }
     }
 
+    /** Skips folders without readable metadata, as loadInventory does. */
+    @NonNull
+    public static List<GalleryInfo> readGalleryInfos(@NonNull List<GalleryRef> refs, long stallMillis)
+            throws InterruptedException, java.util.concurrent.TimeoutException {
+        long t0 = SystemClock.elapsedRealtime();
+        java.util.concurrent.CompletionService<GalleryInfo> reads =
+                new java.util.concurrent.ExecutorCompletionService<>(inventoryExecutor());
+        List<java.util.concurrent.Future<GalleryInfo>> pending = new ArrayList<>(refs.size());
+        for (GalleryRef ref : refs) {
+            pending.add(reads.submit(() -> readGalleryInfo(ref)));
+        }
+        try {
+            for (int done = 0; done < pending.size(); done++) {
+                if (reads.poll(stallMillis, java.util.concurrent.TimeUnit.MILLISECONDS) == null) {
+                    Log.w("SmbPerf", "inventory.infos n=" + refs.size() + " done=" + done
+                            + " STALLED after " + (SystemClock.elapsedRealtime() - t0) + "ms thr="
+                            + Thread.currentThread().getName());
+                    throw new java.util.concurrent.TimeoutException();
+                }
+            }
+        } catch (InterruptedException | java.util.concurrent.TimeoutException e) {
+            for (java.util.concurrent.Future<GalleryInfo> f : pending) {
+                f.cancel(true);
+            }
+            throw e;
+        }
+        List<GalleryInfo> infos = new ArrayList<>(pending.size());
+        for (java.util.concurrent.Future<GalleryInfo> f : pending) {
+            GalleryInfo info;
+            try {
+                info = f.get();
+            } catch (java.util.concurrent.ExecutionException e) {
+                Log.w(TAG, "Skipping a gallery whose metadata could not be read", e);
+                continue;
+            }
+            if (info != null) {
+                infos.add(info);
+            }
+        }
+        Log.i("SmbPerf", "inventory.infos n=" + refs.size() + " read=" + infos.size() + " "
+                + (SystemClock.elapsedRealtime() - t0) + "ms thr=" + Thread.currentThread().getName());
+        return infos;
+    }
+
     /** By gid and title alone; worker thread, and the caller should cache the result. */
     @Nullable
     public static GalleryInfo readGalleryMetadata(@NonNull GalleryInfo hint) {
