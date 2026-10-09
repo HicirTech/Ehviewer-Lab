@@ -34,7 +34,7 @@ final class InventoryPager {
     /** Bounds the SMB metadata reads a page waits on. */
     static final int PAGE_SIZE = 50;
 
-    private static final long LOAD_TIMEOUT_S = 7;
+    private static final long STALL_TIMEOUT_S = 7;
 
     /** One page's galleries plus the total page count. */
     static final class Page {
@@ -63,50 +63,71 @@ final class InventoryPager {
     @Nullable
     private volatile Ordering mOrdering;
 
-    /** jcifs timeouts need a global context rebuild, so the read runs on a throwaway thread. */
     @NonNull
     Page loadPageBounded(@NonNull SortMode mode, int page, boolean rebuild) throws Exception {
+        Ordering ordering = mOrdering;
+        if (rebuild || ordering == null) {
+            ordering = buildOrderingBounded(mode);
+            mOrdering = ordering;
+        }
+        List<GalleryRef> refs = ordering.refs;
+        int total = refs.size();
+        int pages = Math.max(1, (total + PAGE_SIZE - 1) / PAGE_SIZE);
+        int from = Math.min(page * PAGE_SIZE, total);
+        List<GalleryRef> slice = refs.subList(from, Math.min(from + PAGE_SIZE, total));
+        List<GalleryInfo> data = ordering.infos != null
+                ? cachedInfos(ordering.infos, slice)
+                : readInfos(slice);
+        SmbCoverPrefetch.prefetch(data);
+        return new Page(data, pages);
+    }
+
+    /** jcifs timeouts need a global context rebuild, so the listing runs on a throwaway thread. */
+    @NonNull
+    private Ordering buildOrderingBounded(@NonNull SortMode mode) throws Exception {
         ExecutorService pool = Executors.newSingleThreadExecutor(r -> {
             Thread t = new Thread(r, "smb-inventory-page");
             t.setDaemon(true);
             return t;
         });
-        Future<Page> fut = pool.submit(() -> loadPage(mode, page, rebuild));
+        Future<Ordering> fut = pool.submit(() -> buildOrdering(mode));
         try {
-            return fut.get(LOAD_TIMEOUT_S, TimeUnit.SECONDS);
+            return fut.get(STALL_TIMEOUT_S, TimeUnit.SECONDS);
         } catch (TimeoutException te) {
             fut.cancel(true);
-            throw new IOException(EhApplication.getInstance()
-                    .getString(R.string.local_inventory_timeout, NetworkStorage.active().displayName()));
+            throw shareTimeout();
         } finally {
             pool.shutdownNow();
         }
     }
 
     @NonNull
-    Page loadPage(@NonNull SortMode mode, int page, boolean rebuild) {
-        Ordering ordering = mOrdering;
-        if (rebuild || ordering == null) {
-            ordering = buildOrdering(mode);
-            mOrdering = ordering;
+    private static List<GalleryInfo> readInfos(@NonNull List<GalleryRef> slice) throws Exception {
+        try {
+            return NetworkStorage.active().inventory()
+                    .readGalleryInfos(slice, TimeUnit.SECONDS.toMillis(STALL_TIMEOUT_S));
+        } catch (TimeoutException te) {
+            throw shareTimeout();
         }
-        List<GalleryRef> refs = ordering.refs;
-        int total = refs.size();
-        int pages = Math.max(1, (total + PAGE_SIZE - 1) / PAGE_SIZE);
-        List<GalleryInfo> data = new ArrayList<>();
-        int from = page * PAGE_SIZE;
-        int to = Math.min(from + PAGE_SIZE, total);
-        for (int i = from; i < to; i++) {
-            GalleryRef ref = refs.get(i);
-            GalleryInfo gi = ordering.infos != null
-                    ? ordering.infos.get(ref.folderName)
-                    : NetworkStorage.active().inventory().readGalleryInfo(ref);
+    }
+
+    @NonNull
+    private static List<GalleryInfo> cachedInfos(@NonNull Map<String, GalleryInfo> infos,
+                                                 @NonNull List<GalleryRef> slice) {
+        List<GalleryInfo> data = new ArrayList<>(slice.size());
+        for (GalleryRef ref : slice) {
+            GalleryInfo gi = infos.get(ref.folderName);
             if (gi != null) {
                 data.add(gi);
             }
         }
-        SmbCoverPrefetch.prefetch(data);
-        return new Page(data, pages);
+        return data;
+    }
+
+    @NonNull
+    private static IOException shareTimeout() {
+        return new IOException(EhApplication.getInstance()
+                .getString(R.string.local_inventory_timeout, NetworkStorage.active().displayName()));
     }
 
     @NonNull
