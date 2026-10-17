@@ -529,8 +529,7 @@ public class LocalInventoryScene extends BaseScene
         if (mHelper != null) {
             mHelper.setRefreshLayoutEnable(false);
         }
-        setDrawerLockMode(DrawerLayout.LOCK_MODE_LOCKED_CLOSED, Gravity.LEFT);
-        setDrawerLockMode(DrawerLayout.LOCK_MODE_LOCKED_CLOSED, Gravity.RIGHT);
+        lockLeftDrawer(true);
     }
 
     @Override
@@ -543,8 +542,14 @@ public class LocalInventoryScene extends BaseScene
         if (mHelper != null) {
             mHelper.setRefreshLayoutEnable(true);
         }
-        setDrawerLockMode(DrawerLayout.LOCK_MODE_UNLOCKED, Gravity.LEFT);
-        setDrawerLockMode(DrawerLayout.LOCK_MODE_UNLOCKED, Gravity.RIGHT);
+        lockLeftDrawer(false);
+    }
+
+    /** Never the right one: the library has none, so MainActivity keeps it locked shut. */
+    @Override
+    public void lockLeftDrawer(boolean locked) {
+        setDrawerLockMode(locked ? DrawerLayout.LOCK_MODE_LOCKED_CLOSED : DrawerLayout.LOCK_MODE_UNLOCKED,
+                Gravity.LEFT);
     }
 
     @Override

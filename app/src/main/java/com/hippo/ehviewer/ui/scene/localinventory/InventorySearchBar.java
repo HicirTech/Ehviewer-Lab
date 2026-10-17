@@ -7,10 +7,8 @@
 package com.hippo.ehviewer.ui.scene.localinventory;
 
 import android.animation.Animator;
-import android.annotation.SuppressLint;
 import android.content.Context;
 import android.content.res.Resources;
-import android.view.Gravity;
 import android.view.View;
 
 import androidx.annotation.NonNull;
@@ -21,7 +19,6 @@ import androidx.recyclerview.widget.RecyclerView;
 import com.hippo.android.resource.AttrResources;
 import com.hippo.drawable.AddDeleteDrawable;
 import com.hippo.drawable.DrawerArrowDrawable;
-import com.hippo.drawerlayout.DrawerLayout;
 import com.hippo.easyrecyclerview.FastScroller;
 import com.hippo.ehviewer.R;
 import com.hippo.ehviewer.client.data.ListUrlBuilder;
@@ -43,7 +40,7 @@ import com.hippo.widget.SearchBarMover;
 final class InventorySearchBar implements SearchBar.Helper, SearchBar.OnStateChangeListener,
         SearchLayout.Helper, SearchBarMover.Helper, View.OnClickListener {
 
-    /** Its showTip and setDrawerLockMode are BaseScene's. */
+    /** Its showTip is BaseScene's. */
     interface Host {
         /** A null query lists the whole library again. */
         void onSearch(@Nullable InventoryQuery query, @NonNull String keyword);
@@ -52,7 +49,7 @@ final class InventorySearchBar implements SearchBar.Helper, SearchBar.OnStateCha
 
         void showTip(@StringRes int id, int length);
 
-        void setDrawerLockMode(int lockMode, int edgeGravity);
+        void lockLeftDrawer(boolean locked);
 
         void openTagSelector();
     }
@@ -313,7 +310,6 @@ final class InventorySearchBar implements SearchBar.Helper, SearchBar.OnStateCha
         mHost.onBackPressed();
     }
 
-    @SuppressLint("RtlHardcoded")
     @Override
     public void onStateChange(SearchBar searchBar, int newState, int oldState, boolean animation) {
         long duration = animation ? ANIMATE_TIME : 0;
@@ -322,10 +318,7 @@ final class InventorySearchBar implements SearchBar.Helper, SearchBar.OnStateCha
         } else {
             mRightDrawable.setDelete(duration);
         }
-        int lockMode = newState == SearchBar.STATE_NORMAL
-                ? DrawerLayout.LOCK_MODE_UNLOCKED : DrawerLayout.LOCK_MODE_LOCKED_CLOSED;
-        mHost.setDrawerLockMode(lockMode, Gravity.LEFT);
-        mHost.setDrawerLockMode(lockMode, Gravity.RIGHT);
+        mHost.lockLeftDrawer(newState != SearchBar.STATE_NORMAL);
     }
 
     @Override
