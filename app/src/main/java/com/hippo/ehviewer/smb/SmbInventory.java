@@ -10,12 +10,15 @@ import com.alibaba.fastjson.JSONObject;
 import com.hippo.ehviewer.client.data.GalleryInfo;
 
 import com.hippo.ehviewer.storage.GalleryRef;
+import com.hippo.ehviewer.storage.NetworkStorageInventory;
 import com.hippo.ehviewer.storage.SortMode;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import jcifs.CIFSContext;
 import jcifs.smb.SmbFile;
@@ -265,21 +268,7 @@ public final class SmbInventory {
         for (GalleryRef ref : refs) {
             pending.add(reads.submit(() -> readGalleryInfo(ref)));
         }
-        try {
-            for (int done = 0; done < pending.size(); done++) {
-                if (reads.poll(stallMillis, java.util.concurrent.TimeUnit.MILLISECONDS) == null) {
-                    Log.w("SmbPerf", "inventory.infos n=" + refs.size() + " done=" + done
-                            + " STALLED after " + (SystemClock.elapsedRealtime() - t0) + "ms thr="
-                            + Thread.currentThread().getName());
-                    throw new java.util.concurrent.TimeoutException();
-                }
-            }
-        } catch (InterruptedException | java.util.concurrent.TimeoutException e) {
-            for (java.util.concurrent.Future<GalleryInfo> f : pending) {
-                f.cancel(true);
-            }
-            throw e;
-        }
+        awaitAll(reads, pending, stallMillis, "inventory.infos", t0);
         List<GalleryInfo> infos = new ArrayList<>(pending.size());
         for (java.util.concurrent.Future<GalleryInfo> f : pending) {
             GalleryInfo info;
@@ -296,6 +285,60 @@ public final class SmbInventory {
         Log.i("SmbPerf", "inventory.infos n=" + refs.size() + " read=" + infos.size() + " "
                 + (SystemClock.elapsedRealtime() - t0) + "ms thr=" + Thread.currentThread().getName());
         return infos;
+    }
+
+    @NonNull
+    public static Map<String, Long> readMetadataMtimes(@NonNull List<GalleryRef> refs, long stallMillis)
+            throws InterruptedException, java.util.concurrent.TimeoutException {
+        long t0 = SystemClock.elapsedRealtime();
+        java.util.concurrent.CompletionService<Long> checks =
+                new java.util.concurrent.ExecutorCompletionService<>(inventoryExecutor());
+        List<java.util.concurrent.Future<Long>> pending = new ArrayList<>(refs.size());
+        for (GalleryRef ref : refs) {
+            pending.add(checks.submit(() -> metadataMtime(ref)));
+        }
+        awaitAll(checks, pending, stallMillis, "inventory.mtimes", t0);
+        Map<String, Long> mtimes = new HashMap<>();
+        for (int i = 0; i < pending.size(); i++) {
+            try {
+                mtimes.put(refs.get(i).folderName, pending.get(i).get());
+            } catch (java.util.concurrent.ExecutionException e) {
+                Log.w(TAG, "Skipping a gallery whose metadata could not be checked", e);
+            }
+        }
+        Log.i("SmbPerf", "inventory.mtimes n=" + refs.size() + " checked=" + mtimes.size() + " "
+                + (SystemClock.elapsedRealtime() - t0) + "ms thr=" + Thread.currentThread().getName());
+        return mtimes;
+    }
+
+    private static long metadataMtime(@NonNull GalleryRef ref) throws IOException {
+        CIFSContext cifs = SmbConnection.buildContext();
+        SmbFile galleryRoot = new SmbFile(SmbConnection.galleryRootUrl(), cifs);
+        SmbFile metadata = new SmbFile(new SmbFile(galleryRoot, ref.folderName + "/"),
+                SmbMetadata.METADATA_FILE);
+        return metadata.exists() ? metadata.lastModified() : NetworkStorageInventory.NO_METADATA;
+    }
+
+    /** Cancels them all once none finishes for stallMillis. */
+    private static <T> void awaitAll(@NonNull java.util.concurrent.CompletionService<T> done,
+                                     @NonNull List<java.util.concurrent.Future<T>> pending,
+                                     long stallMillis, @NonNull String what, long t0)
+            throws InterruptedException, java.util.concurrent.TimeoutException {
+        try {
+            for (int finished = 0; finished < pending.size(); finished++) {
+                if (done.poll(stallMillis, java.util.concurrent.TimeUnit.MILLISECONDS) == null) {
+                    Log.w("SmbPerf", what + " n=" + pending.size() + " done=" + finished
+                            + " STALLED after " + (SystemClock.elapsedRealtime() - t0) + "ms thr="
+                            + Thread.currentThread().getName());
+                    throw new java.util.concurrent.TimeoutException();
+                }
+            }
+        } catch (InterruptedException | java.util.concurrent.TimeoutException e) {
+            for (java.util.concurrent.Future<T> f : pending) {
+                f.cancel(true);
+            }
+            throw e;
+        }
     }
 
     /** By gid and title alone; worker thread, and the caller should cache the result. */

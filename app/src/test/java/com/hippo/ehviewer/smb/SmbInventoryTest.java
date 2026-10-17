@@ -18,6 +18,7 @@ import com.hippo.ehviewer.GetText;
 import com.hippo.ehviewer.R;
 import com.hippo.ehviewer.Settings;
 import com.hippo.ehviewer.client.data.GalleryInfo;
+import com.hippo.ehviewer.storage.NetworkStorageInventory;
 import com.hippo.ehviewer.storage.NetworkStorageSettings;
 
 import org.junit.Before;
@@ -64,8 +65,10 @@ public class SmbInventoryTest {
     static final Map<String, Long> createTimes = new HashMap<>();
     static final Map<String, Long> mtimes = new HashMap<>();
     static final Set<String> unreadable = new HashSet<>();
+    static final Set<String> uncheckable = new HashSet<>();
     static final Set<String> opened = ConcurrentHashMap.newKeySet();
     static volatile OpenHook onOpen = path -> {};
+    static volatile OpenHook onExists = path -> {};
     static Exception listFailure;
 
     interface OpenHook {
@@ -77,7 +80,15 @@ public class SmbInventoryTest {
         @RealObject SmbFile real;
 
         @Implementation
-        protected boolean exists() {
+        protected boolean exists() throws SmbException {
+            try {
+                onExists.at(real.getPath());
+            } catch (IOException | InterruptedException e) {
+                throw new SmbException("fixture: check interrupted", e);
+            }
+            if (uncheckable.contains(real.getPath())) {
+                throw new SmbException("fixture: uncheckable");
+            }
             return existing.contains(real.getPath());
         }
 
@@ -146,8 +157,10 @@ public class SmbInventoryTest {
         createTimes.clear();
         mtimes.clear();
         unreadable.clear();
+        uncheckable.clear();
         opened.clear();
         onOpen = path -> {};
+        onExists = path -> {};
         listFailure = null;
         rootPath = SmbConnection.galleryRootUrl();
         existing.add(rootPath);
@@ -279,6 +292,48 @@ public class SmbInventoryTest {
         assertThrows(TimeoutException.class, () -> SmbInventory.readGalleryInfos(refs, 200));
         drainInventoryPool();
         assertEquals(Collections.singleton(rootPath + "1-A/" + SmbMetadata.METADATA_FILE), opened);
+    }
+
+    @Test
+    public void metadataMtimesAreByFolderAndMarkTheMissingOnes() throws Exception {
+        listings.put(rootPath, new String[]{"1-A/", "2-B/"});
+        folderWithMetadata("1-A", 1L);
+        mtimes.put(rootPath + "1-A/" + SmbMetadata.METADATA_FILE, 5000L);
+        existing.add(rootPath + "2-B/");
+
+        Map<String, Long> found = SmbInventory.readMetadataMtimes(SmbInventory.listGalleryRefs(), 10_000);
+
+        assertEquals(2, found.size());
+        assertEquals(Long.valueOf(5000L), found.get("1-A"));
+        assertEquals(Long.valueOf(NetworkStorageInventory.NO_METADATA), found.get("2-B"));
+    }
+
+    @Test
+    public void aFolderThatCannotBeCheckedIsLeftOutNotMarkedMissing() throws Exception {
+        listings.put(rootPath, new String[]{"1-A/", "2-B/"});
+        folderWithMetadata("1-A", 1L);
+        folderWithMetadata("2-B", 2L);
+        uncheckable.add(rootPath + "2-B/" + SmbMetadata.METADATA_FILE);
+
+        Map<String, Long> found = SmbInventory.readMetadataMtimes(SmbInventory.listGalleryRefs(), 10_000);
+
+        assertEquals(Collections.singleton("1-A"), found.keySet());
+    }
+
+    @Test
+    public void aStalledCheckFailsTheSweep() throws Exception {
+        Settings.putString(SmbConcurrency.KEY_METADATA, "1");
+        awaitOneInventoryWorker();
+        listings.put(rootPath, new String[]{"1-A/", "2-B/"});
+        folderWithMetadata("1-A", 1L);
+        folderWithMetadata("2-B", 2L);
+        List<GalleryRef> refs = SmbInventory.listGalleryRefs();
+        CountDownLatch never = new CountDownLatch(1);
+        onExists = path -> never.await();
+
+        assertThrows(TimeoutException.class, () -> SmbInventory.readMetadataMtimes(refs, 200));
+        onExists = path -> {};
+        drainInventoryPool();
     }
 
     /** Idle workers left by earlier tests exit only some time after the pool shrinks. */
