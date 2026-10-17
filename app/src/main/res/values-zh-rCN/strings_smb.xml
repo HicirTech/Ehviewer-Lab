@@ -38,6 +38,10 @@
     <string name="local_inventory_delete_confirm_many">%1$d 本画廊将从 %2$s 共享上抹掉,无法恢复。</string>
     <string name="local_inventory_delete_many_done">已删除 %1$d / %2$d</string>
     <string name="local_inventory_resync_many_done">已更新 %1$d / %2$d</string>
+    <string name="local_inventory_search_hint">搜索 %1$s 库</string>
+    <string name="local_inventory_search_empty">%1$s 库里没有匹配的画廊</string>
+    <string name="local_inventory_search_unsupported">订阅搜索和图片搜索要用到网站，库里用不了</string>
+    <string name="local_inventory_search_stale">没能核对 %1$s 共享，这些结果可能不是最新的</string>
     <string name="smb_page_repair_failed">这一页已重新载入,但没能写回 %1$s 共享</string>
     <string name="smb_download_notif_title">正在保存到 %1$s</string>
     <string name="smb_download_notif_preparing">准备中…</string>

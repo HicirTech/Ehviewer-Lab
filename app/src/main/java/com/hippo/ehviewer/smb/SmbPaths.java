@@ -106,4 +106,14 @@ public final class SmbPaths {
             return NOT_A_GALLERY;
         }
     }
+
+    /** As the name keeps it: forbidden characters dropped, cut to 255 bytes. */
+    @Nullable
+    public static String parseTitle(@Nullable String folderName) {
+        if (!isGalleryFolderName(folderName)) {
+            return null;
+        }
+        //noinspection ConstantConditions -- isGalleryFolderName rejects null
+        return folderName.substring(folderName.indexOf('-') + 1);
+    }
 }

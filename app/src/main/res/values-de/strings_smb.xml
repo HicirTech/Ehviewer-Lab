@@ -37,6 +37,10 @@
     <string name="local_inventory_delete_confirm_many">%1$d Galerien werden von der %2$s-Freigabe gelöscht. Das kann nicht rückgängig gemacht werden.</string>
     <string name="local_inventory_delete_many_done">%1$d von %2$d gelöscht</string>
     <string name="local_inventory_resync_many_done">%1$d von %2$d aktualisiert</string>
+    <string name="local_inventory_search_hint">%1$s-Bibliothek durchsuchen</string>
+    <string name="local_inventory_search_empty">Nichts in der %1$s-Bibliothek passt</string>
+    <string name="local_inventory_search_unsupported">Die Suche in gefolgten Etiketten und die Bildsuche brauchen die Website und gehen in der Bibliothek nicht</string>
+    <string name="local_inventory_search_stale">Die %1$s-Freigabe konnte nicht geprüft werden. Diese Ergebnisse sind womöglich veraltet.</string>
     <string name="smb_page_repair_failed">Die Seite wurde neu geladen, konnte aber nicht auf die %1$s-Freigabe zurückgeschrieben werden</string>
     <string name="smb_download_notif_title">Speichern auf %1$s</string>
     <string name="smb_download_notif_preparing">Vorbereiten…</string>

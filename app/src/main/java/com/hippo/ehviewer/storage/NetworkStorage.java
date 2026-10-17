@@ -64,6 +64,10 @@ public interface NetworkStorage {
     /** Inverse of {@link #galleryFolderName}; {@link #NOT_A_GALLERY} for any other name. */
     long parseGalleryGid(@NonNull String folderName);
 
+    /** The title as {@link #galleryFolderName} kept it; null for any other name. */
+    @Nullable
+    String parseGalleryTitle(@NonNull String folderName);
+
     /** Null when the gid is not a target. */
     @Nullable
     GallerySpiderStorage spiderStorage(@NonNull GalleryInfo info, long gid);

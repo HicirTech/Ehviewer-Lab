@@ -37,6 +37,10 @@
     <string name="local_inventory_delete_confirm_many">갤러리 %1$d개가 %2$s 공유에서 지워집니다. 되돌릴 수 없습니다.</string>
     <string name="local_inventory_delete_many_done">%2$d개 중 %1$d개 삭제됨</string>
     <string name="local_inventory_resync_many_done">%2$d개 중 %1$d개 업데이트됨</string>
+    <string name="local_inventory_search_hint">%1$s 라이브러리 검색</string>
+    <string name="local_inventory_search_empty">%1$s 라이브러리에 일치하는 갤러리가 없습니다</string>
+    <string name="local_inventory_search_unsupported">구독 검색과 이미지 검색은 사이트가 필요해서 라이브러리에서는 쓸 수 없습니다</string>
+    <string name="local_inventory_search_stale">%1$s 공유를 확인하지 못했습니다. 이 결과는 최신이 아닐 수 있습니다.</string>
     <string name="smb_page_repair_failed">페이지를 다시 불러왔지만 %1$s 공유에 다시 쓰지 못했습니다</string>
     <string name="smb_download_notif_title">%1$s에 저장 중</string>
     <string name="smb_download_notif_preparing">준비 중…</string>

@@ -183,6 +183,33 @@ public class SmbPathsTest {
     }
 
     @Test
+    public void parseTitle_recoversWhatBuildGalleryFolderNameEncoded() {
+        String title = "[Artist] A Title (Convention) [English]";
+
+        assertEquals(title, SmbPaths.parseTitle(SmbPaths.buildGalleryFolderName(4035531L, title)));
+    }
+
+    @Test
+    public void parseTitle_keepsTheDashesOfTheTitle() {
+        assertEquals("a-b-c", SmbPaths.parseTitle("123-a-b-c"));
+    }
+
+    @Test
+    public void parseTitle_isTheNameNotTheRecord() {
+        String folder = SmbPaths.buildGalleryFolderName(7L, "Re: Zero / Part 2");
+
+        assertEquals("Re Zero  Part 2", SmbPaths.parseTitle(folder));
+    }
+
+    @Test
+    public void parseTitle_refusesEverythingIsGalleryFolderNameRefuses() {
+        String[] notGalleries = {null, "", "@eaDir", "#recycle", "state", "123-", "123"};
+        for (String name : notGalleries) {
+            assertEquals("parseTitle accepts " + name, null, SmbPaths.parseTitle(name));
+        }
+    }
+
+    @Test
     public void folderName_theOverloadAgreesWithTheRecordVersion() {
         GalleryInfo info = new GalleryInfo();
         info.gid = 4035531L;

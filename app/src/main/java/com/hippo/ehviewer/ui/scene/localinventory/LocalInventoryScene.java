@@ -6,6 +6,7 @@
  */
 package com.hippo.ehviewer.ui.scene.localinventory;
 
+import android.app.Activity;
 import android.app.Dialog;
 import android.content.Context;
 import android.content.DialogInterface;
@@ -14,6 +15,9 @@ import android.content.res.Resources;
 import android.graphics.Color;
 import android.graphics.drawable.ColorDrawable;
 import android.os.Bundle;
+import android.os.SystemClock;
+import android.text.TextUtils;
+import android.util.Log;
 import android.view.Gravity;
 import android.view.LayoutInflater;
 import android.view.MenuItem;
@@ -22,6 +26,8 @@ import android.view.ViewGroup;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AlertDialog;
@@ -43,11 +49,13 @@ import com.hippo.ehviewer.client.data.GalleryInfo;
 import com.hippo.ehviewer.smb.SmbCoverDataContainer;
 import com.hippo.ehviewer.smb.SmbDeviceColor;
 import com.hippo.ehviewer.storage.GalleryTargets;
+import com.hippo.ehviewer.storage.InventoryQuery;
 import com.hippo.ehviewer.storage.NetworkStorage;
 import com.hippo.ehviewer.storage.NetworkStorageSettings;
 import com.hippo.ehviewer.storage.SortMode;
 import com.hippo.ehviewer.ui.GalleryActivity;
-import com.hippo.ehviewer.ui.scene.ToolbarScene;
+import com.hippo.ehviewer.ui.TagSelectorActivity;
+import com.hippo.ehviewer.ui.scene.BaseScene;
 import com.hippo.ehviewer.ui.scene.gallery.detail.GalleryDetailScene;
 import com.hippo.ehviewer.widget.SmbStatusBadge;
 import com.hippo.ehviewer.widget.GalleryInfoContentHelper;
@@ -70,11 +78,16 @@ import java.util.Map;
 import java.util.concurrent.ExecutorService;
 
 /** Browses the galleries on the network share. */
-public class LocalInventoryScene extends ToolbarScene
+public class LocalInventoryScene extends BaseScene
         implements EasyRecyclerView.OnItemClickListener, EasyRecyclerView.OnItemLongClickListener,
-        FabLayout.OnClickFabListener, EasyRecyclerView.CustomChoiceListener {
+        FabLayout.OnClickFabListener, EasyRecyclerView.CustomChoiceListener, InventorySearchBar.Host {
+
+    private static final String TAG = "LocalInventoryScene";
 
     private static final String KEY_SORT = "local_inventory_sort";
+
+    /** TagSelectorActivity's result extra. */
+    private static final String EXTRA_SELECTED_TAGS = "selected_tags";
 
     // Secondary FAB indexes, in scene_local_inventory.xml order.
     private static final int FAB_SORT = 0;
@@ -92,6 +105,11 @@ public class LocalInventoryScene extends ToolbarScene
     private InventoryHelper mHelper;
     @Nullable
     private FabLayout mFabLayout;
+    @Nullable
+    private InventorySearchBar mSearchBar;
+    /** Null while the page lists the whole library. */
+    @Nullable
+    private InventorySearch mSearch;
     private boolean mHasFirstRefresh;
     @Nullable
     private ExecutorService mExecutor;
@@ -161,6 +179,16 @@ public class LocalInventoryScene extends ToolbarScene
         }
     });
 
+    private final ActivityResultLauncher<Intent> mTagSelectorLauncher = registerForActivityResult(
+            new ActivityResultContracts.StartActivityForResult(), result -> {
+                Intent data = result.getData();
+                String tags = result.getResultCode() == Activity.RESULT_OK && data != null
+                        ? data.getStringExtra(EXTRA_SELECTED_TAGS) : null;
+                if (mSearchBar != null && !TextUtils.isEmpty(tags)) {
+                    mSearchBar.applyTags(tags);
+                }
+            });
+
     /** By gid, as last applied. */
     @NonNull
     private Map<Long, InventoryBadges.Mark> mDownloadMarks = Collections.emptyMap();
@@ -229,7 +257,7 @@ public class LocalInventoryScene extends ToolbarScene
 
     @Nullable
     @Override
-    public View onCreateView3(LayoutInflater inflater,
+    public View onCreateView2(LayoutInflater inflater,
             @Nullable ViewGroup container, @Nullable Bundle savedInstanceState) {
         View view = inflater.inflate(R.layout.scene_local_inventory, container, false);
         ContentLayout contentLayout = (ContentLayout) ViewUtils.$$(view, R.id.content_layout);
@@ -266,6 +294,15 @@ public class LocalInventoryScene extends ToolbarScene
         mRecyclerView.addItemDecoration(decoration);
         decoration.applyPaddings(mRecyclerView);
 
+        // Room for the search bar, as on the online list.
+        int paddingTopSB = resources.getDimensionPixelOffset(R.dimen.gallery_padding_top_search_bar);
+        mRecyclerView.setPadding(mRecyclerView.getPaddingLeft(), mRecyclerView.getPaddingTop() + paddingTopSB,
+                mRecyclerView.getPaddingRight(), mRecyclerView.getPaddingBottom());
+        View fastScroller = contentLayout.getFastScroller();
+        fastScroller.setPadding(fastScroller.getPaddingLeft(), fastScroller.getPaddingTop() + paddingTopSB,
+                fastScroller.getPaddingRight(), fastScroller.getPaddingBottom());
+        contentLayout.getRefreshLayout().setHeaderTranslationY(paddingTopSB);
+
         mHelper = new InventoryHelper();
         mHelper.setEmptyString(getEmptyString());
         contentLayout.setHelper(mHelper);
@@ -275,6 +312,10 @@ public class LocalInventoryScene extends ToolbarScene
         mFabLayout.setExpanded(false, false);
         mFabLayout.setHidePrimaryFab(false);
         mFabLayout.setOnClickFabListener(this);
+        addAboveSnackView(mFabLayout);
+
+        mSearchBar = new InventorySearchBar(this, view, contentLayout, mFabLayout);
+        mSearchBar.showSearch(mSearch);
 
         // On return from a detail the ContentLayout restores its own data.
         if (!mHasFirstRefresh) {
@@ -289,14 +330,33 @@ public class LocalInventoryScene extends ToolbarScene
         if (!NetworkStorage.active().isConfigured() || !NetworkStorageSettings.isEnabled()) {
             return getString(R.string.local_inventory_disabled);
         }
+        if (mSearch != null) {
+            return getString(R.string.local_inventory_search_empty, NetworkStorage.active().displayName());
+        }
         return getString(R.string.local_inventory_empty, NetworkStorage.active().displayName());
     }
 
     @Override
-    public void onViewCreated(View view, @Nullable Bundle savedInstanceState) {
-        super.onViewCreated(view, savedInstanceState);
-        setTitle(getString(R.string.local_inventory, NetworkStorage.active().displayName()));
-        setNavigationIcon(R.drawable.v_arrow_left_dark_x24);
+    public void onSearch(@Nullable InventoryQuery query, @NonNull String keyword) {
+        if (mHelper == null) {
+            return;
+        }
+        // The refresh below moves every row, so a selection would point at other galleries.
+        leaveSelection();
+        mSearch = query == null ? null : new InventorySearch(query, keyword);
+        mHelper.setEmptyString(getEmptyString());
+        if (mSearchBar != null) {
+            mSearchBar.showSearch(mSearch);
+        }
+        mHelper.refresh();
+    }
+
+    @Override
+    public void openTagSelector() {
+        Context context = getEHContext();
+        if (context != null) {
+            mTagSelectorLauncher.launch(new Intent(context, TagSelectorActivity.class));
+        }
     }
 
     @Override
@@ -343,6 +403,13 @@ public class LocalInventoryScene extends ToolbarScene
             mRecyclerView.outOfCustomChoiceMode();
             return;
         }
+        if (mSearchBar != null && mSearchBar.onBackPressed()) {
+            return;
+        }
+        if (mSearch != null) {
+            onSearch(null, "");
+            return;
+        }
         super.onBackPressed();
     }
 
@@ -366,13 +433,12 @@ public class LocalInventoryScene extends ToolbarScene
     }
 
     @Override
-    public void onNavigationClick(View view) {
-        onBackPressed();
-    }
-
-    @Override
     public void onDestroyView() {
         super.onDestroyView();
+        if (mSearchBar != null) {
+            mSearchBar.destroy();
+            mSearchBar = null;
+        }
         if (mHelper != null) {
             if (1 == mHelper.getShownViewIndex()) {
                 mHasFirstRefresh = false;
@@ -384,8 +450,11 @@ public class LocalInventoryScene extends ToolbarScene
             mRecyclerView.stopScroll();
             mRecyclerView = null;
         }
+        if (mFabLayout != null) {
+            removeAboveSnackView(mFabLayout);
+            mFabLayout = null;
+        }
         mAdapter = null;
-        mFabLayout = null;
     }
 
     private static int savedSortOrdinal() {
@@ -444,6 +513,9 @@ public class LocalInventoryScene extends ToolbarScene
 
     @Override
     public void onIntoCustomChoice(EasyRecyclerView view) {
+        if (mSearchBar != null) {
+            mSearchBar.leaveSearchState();
+        }
         showSelectionFabs();
         if (mFabLayout != null) {
             mFabLayout.setAutoCancel(false);
@@ -457,8 +529,7 @@ public class LocalInventoryScene extends ToolbarScene
         if (mHelper != null) {
             mHelper.setRefreshLayoutEnable(false);
         }
-        setDrawerLockMode(DrawerLayout.LOCK_MODE_LOCKED_CLOSED, Gravity.LEFT);
-        setDrawerLockMode(DrawerLayout.LOCK_MODE_LOCKED_CLOSED, Gravity.RIGHT);
+        lockLeftDrawer(true);
     }
 
     @Override
@@ -471,8 +542,14 @@ public class LocalInventoryScene extends ToolbarScene
         if (mHelper != null) {
             mHelper.setRefreshLayoutEnable(true);
         }
-        setDrawerLockMode(DrawerLayout.LOCK_MODE_UNLOCKED, Gravity.LEFT);
-        setDrawerLockMode(DrawerLayout.LOCK_MODE_UNLOCKED, Gravity.RIGHT);
+        lockLeftDrawer(false);
+    }
+
+    /** Never the right one: the library has none, so MainActivity keeps it locked shut. */
+    @Override
+    public void lockLeftDrawer(boolean locked) {
+        setDrawerLockMode(locked ? DrawerLayout.LOCK_MODE_LOCKED_CLOSED : DrawerLayout.LOCK_MODE_UNLOCKED,
+                Gravity.LEFT);
     }
 
     @Override
@@ -590,6 +667,9 @@ public class LocalInventoryScene extends ToolbarScene
             String after = NetworkStorage.active().galleryFolderName(fresh);
             if (!before.equals(after)) {
                 mPager.renameRef(before, after);
+                if (mSearch != null) {
+                    mSearch.renameRef(before, after);
+                }
             }
             mHelper.getData().set(i, fresh);
             if (mAdapter != null) {
@@ -643,12 +723,20 @@ public class LocalInventoryScene extends ToolbarScene
                 break;
             }
         }
-        mPager.forgetRef(NetworkStorage.active().galleryFolderName(gi));
+        String folderName = NetworkStorage.active().galleryFolderName(gi);
+        mPager.forgetRef(folderName);
+        if (mSearch != null) {
+            mSearch.forgetRef(folderName);
+        }
     }
 
     private void openDetail(@Nullable GalleryInfo gi) {
         if (gi == null) {
             return;
+        }
+        // The view comes back with the bar closed, so it must not leave the drawers locked.
+        if (mSearchBar != null) {
+            mSearchBar.leaveSearchState();
         }
         Bundle args = new Bundle();
         args.putString(GalleryDetailScene.KEY_ACTION, GalleryDetailScene.ACTION_GALLERY_INFO);
@@ -787,35 +875,123 @@ public class LocalInventoryScene extends ToolbarScene
 
     private final class InventoryHelper extends GalleryInfoContentHelper {
 
+        /** One-shot: the next refresh shows the search's checked answer instead of searching again. */
+        private boolean mShowCheckedAnswer;
+
         @Override
         protected void getPageData(int taskId, int type, int page) {
-            final boolean rebuild = type == TYPE_REFRESH;
             final SortMode mode = SortMode.fromOrdinal(savedSortOrdinal());
+            InventorySearch search = mSearch;
+            if (search != null) {
+                getSearchPage(search, mode, taskId, type, page);
+                return;
+            }
+            final boolean rebuild = type == TYPE_REFRESH;
             mWorker.execute(() -> {
-                final InventoryPager.Page result;
                 try {
-                    result = mPager.loadPageBounded(mode, page, rebuild);
+                    deliver(taskId, page, mPager.loadPageBounded(mode, page, rebuild));
                 } catch (Throwable e) {
-                    final Exception ex = e instanceof Exception ? (Exception) e : new Exception(e);
-                    SimpleHandler.getInstance().post(() -> {
-                        if (isCurrentTask(taskId)) {
-                            onGetException(taskId, ex);
-                        }
-                    });
+                    fail(taskId, e);
+                }
+            });
+        }
+
+        /** A refresh answers anew; any other page comes from the answer on screen. */
+        private void getSearchPage(@NonNull InventorySearch search, @NonNull SortMode mode,
+                                   int taskId, int type, int page) {
+            Context context = getEHContext();
+            if (context == null) {
+                return;
+            }
+            final boolean answer = type == TYPE_REFRESH && !mShowCheckedAnswer;
+            mShowCheckedAnswer = false;
+            final InventoryPager.Ordering listing = mPager.ordering();
+            // Looked up per answer: the share may have been switched since the search began.
+            final InventorySearchCache cache = InventorySearchCache.forShare(context, NetworkStorage.active().address());
+            mWorker.execute(() -> {
+                try {
+                    InventoryPager.Ordering shown = search.shown;
+                    if (answer || shown == null) {
+                        answer(search, cache, mode, listing, taskId);
+                    } else {
+                        deliver(taskId, page, InventoryPager.pageOf(shown, page));
+                    }
+                } catch (Throwable e) {
+                    fail(taskId, e);
+                }
+            });
+        }
+
+        /** Worker thread. Shows the quick answer at once, then the checked one when it differs. */
+        private void answer(@NonNull InventorySearch search, @NonNull InventorySearchCache cache,
+                            @NonNull SortMode mode, @Nullable InventoryPager.Ordering listing,
+                            int taskId) throws Exception {
+            long t0 = SystemClock.elapsedRealtime();
+            InventoryPager.Ordering quick = search.quickAnswer(cache, listing, mode);
+            if (quick != null) {
+                search.shown = quick;
+                deliver(taskId, 0, InventoryPager.pageOf(quick, 0));
+                Log.i("SmbPerf", "search.quick hits=" + quick.refs.size() + " "
+                        + (SystemClock.elapsedRealtime() - t0) + "ms");
+            }
+            InventoryPager.Ordering checked;
+            try {
+                checked = search.checkedAnswer(cache, mPager, mode);
+            } catch (Exception e) {
+                if (quick == null) {
+                    throw e;
+                }
+                Log.w(TAG, "Search results left unchecked", e);
+                SimpleHandler.getInstance().post(() -> {
+                    if (mSearch == search) {
+                        showTip(getString(R.string.local_inventory_search_stale,
+                                NetworkStorage.active().displayName()), LENGTH_LONG);
+                    }
+                });
+                return;
+            }
+            Log.i("SmbPerf", "search.checked hits=" + checked.refs.size() + " "
+                    + (SystemClock.elapsedRealtime() - t0) + "ms");
+            if (quick == null) {
+                search.shown = checked;
+                deliver(taskId, 0, InventoryPager.pageOf(checked, 0));
+            } else if (InventorySearch.sameAnswer(quick, checked)) {
+                search.shown = checked;
+            } else {
+                SimpleHandler.getInstance().post(() -> showCheckedAnswer(search, checked));
+            }
+        }
+
+        private void showCheckedAnswer(@NonNull InventorySearch search, @NonNull InventoryPager.Ordering checked) {
+            if (mSearch != search || mHelper != this) {
+                return;
+            }
+            search.shown = checked;
+            mShowCheckedAnswer = true;
+            doGetData(TYPE_REFRESH, 0, REFRESH_TYPE_HEADER);
+        }
+
+        private void deliver(int taskId, int page, @NonNull InventoryPager.Page result) {
+            SimpleHandler.getInstance().post(() -> {
+                if (!isCurrentTask(taskId)) {
                     return;
                 }
-                SimpleHandler.getInstance().post(() -> {
-                    if (!isCurrentTask(taskId)) {
-                        return;
-                    }
-                    // SpiderDen reads marked gids from the share.
-                    for (GalleryInfo gi : result.data) {
-                        GalleryTargets.mark(gi.gid);
-                    }
-                    onGetPageData(taskId, result.pages, page + 1, result.data);
-                    // After the page is on screen: a badge is never worth making the page wait.
-                    mBadges.refresh();
-                });
+                // SpiderDen reads marked gids from the share.
+                for (GalleryInfo gi : result.data) {
+                    GalleryTargets.mark(gi.gid);
+                }
+                onGetPageData(taskId, result.pages, page + 1, result.data);
+                // After the page is on screen: a badge is never worth making the page wait.
+                mBadges.refresh();
+            });
+        }
+
+        private void fail(int taskId, @NonNull Throwable e) {
+            final Exception ex = e instanceof Exception ? (Exception) e : new Exception(e);
+            SimpleHandler.getInstance().post(() -> {
+                if (isCurrentTask(taskId)) {
+                    onGetException(taskId, ex);
+                }
             });
         }
 

@@ -10,6 +10,21 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent"/>
 
+    <!-- The online list's search set (#185), laid out as in scene_gallery_list.xml. -->
+    <com.hippo.ehviewer.widget.SearchLayout
+        android:id="@+id/search_layout"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"/>
+
+    <com.hippo.ehviewer.widget.SearchBar
+        android:id="@+id/search_bar"
+        style="@style/CardView.Normal"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginLeft="@dimen/gallery_search_bar_margin_h"
+        android:layout_marginTop="@dimen/gallery_search_bar_margin_v"
+        android:layout_marginRight="@dimen/gallery_search_bar_margin_h"/>
+
     <com.hippo.widget.FabLayout
         android:id="@+id/fab_layout"
         android:layout_width="match_parent"
@@ -77,6 +92,25 @@
             android:layout_height="wrap_content"
             app:backgroundTint="?attr/widgetColorThemePrimary"
             app:srcCompat="@drawable/v_dots_vertical_secondary_dark_x24" />
+
+    </com.hippo.widget.FabLayout>
+
+    <com.hippo.widget.FabLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:paddingRight="@dimen/corner_fab_margin"
+        android:paddingBottom="@dimen/corner_fab_margin">
+
+        <com.google.android.material.floatingactionbutton.FloatingActionButton
+            android:id="@+id/search_fab"
+            style="@style/Widget.Design.FloatingActionButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:visibility="invisible"
+            android:scaleX="0"
+            android:scaleY="0"
+            app:backgroundTint="?attr/widgetColorThemeAccent"
+            app:srcCompat="@drawable/v_magnify_dark_x24" />
 
     </com.hippo.widget.FabLayout>
 

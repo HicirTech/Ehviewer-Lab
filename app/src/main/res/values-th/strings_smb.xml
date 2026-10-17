@@ -37,6 +37,10 @@
     <string name="local_inventory_delete_confirm_many">แกลเลอรี %1$d รายการจะถูกลบออกจากแชร์ %2$s และไม่สามารถกู้คืนได้</string>
     <string name="local_inventory_delete_many_done">ลบแล้ว %1$d จาก %2$d</string>
     <string name="local_inventory_resync_many_done">อัปเดตแล้ว %1$d จาก %2$d</string>
+    <string name="local_inventory_search_hint">ค้นหาในคลัง %1$s</string>
+    <string name="local_inventory_search_empty">ไม่มีแกลเลอรีในคลัง %1$s ที่ตรงกัน</string>
+    <string name="local_inventory_search_unsupported">การค้นหาการสมัครสมาชิกและการค้นหาด้วยรูปต้องใช้เว็บไซต์ จึงใช้ในคลังไม่ได้</string>
+    <string name="local_inventory_search_stale">ตรวจสอบแชร์ %1$s ไม่ได้ ผลลัพธ์นี้อาจไม่เป็นปัจจุบัน</string>
     <string name="smb_page_repair_failed">โหลดหน้านี้ใหม่แล้ว แต่ไม่สามารถเขียนกลับไปยังแชร์ %1$s ได้</string>
     <string name="smb_download_notif_title">กำลังบันทึกไปยัง %1$s</string>
     <string name="smb_download_notif_preparing">กำลังเตรียม…</string>

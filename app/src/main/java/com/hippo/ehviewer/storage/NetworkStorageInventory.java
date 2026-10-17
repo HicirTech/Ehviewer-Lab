@@ -13,6 +13,7 @@ import com.hippo.ehviewer.client.data.GalleryInfo;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.TimeoutException;
 
 /** Blocking IO; worker threads. An IOException means the share could not be listed, worded for the user. */
@@ -29,6 +30,13 @@ public interface NetworkStorageInventory {
     /** In ref order; TimeoutException once no read finishes for stallMillis. */
     @NonNull
     List<GalleryInfo> readGalleryInfos(@NonNull List<GalleryRef> refs, long stallMillis)
+            throws InterruptedException, TimeoutException;
+
+    long NO_METADATA = -1L;
+
+    /** By folder name: NO_METADATA when there is none, left out when the check failed. Times out as readGalleryInfos. */
+    @NonNull
+    Map<String, Long> readMetadataMtimes(@NonNull List<GalleryRef> refs, long stallMillis)
             throws InterruptedException, TimeoutException;
 
     /** For a gallery known only by gid and title. */
