@@ -86,6 +86,12 @@ public final class SmbNetworkStorage implements NetworkStorage {
 
     @Nullable
     @Override
+    public String parseGalleryTitle(@NonNull String folderName) {
+        return SmbPaths.parseTitle(folderName);
+    }
+
+    @Nullable
+    @Override
     public GallerySpiderStorage spiderStorage(@NonNull GalleryInfo info, long gid) {
         return SmbSpiderStorage.createIfTarget(info, gid);
     }
