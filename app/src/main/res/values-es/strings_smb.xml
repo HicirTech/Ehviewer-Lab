@@ -37,6 +37,10 @@
     <string name="local_inventory_delete_confirm_many">%1$d galerías se borrarán del recurso compartido %2$s. Esto no se puede deshacer.</string>
     <string name="local_inventory_delete_many_done">Eliminadas %1$d de %2$d</string>
     <string name="local_inventory_resync_many_done">Actualizadas %1$d de %2$d</string>
+    <string name="local_inventory_search_hint">Buscar en la biblioteca de %1$s</string>
+    <string name="local_inventory_search_empty">Nada en la biblioteca de %1$s coincide</string>
+    <string name="local_inventory_search_unsupported">La búsqueda de etiquetas suscritas y la búsqueda de imagen necesitan el sitio; la biblioteca no puede hacerlas</string>
+    <string name="local_inventory_search_stale">No se pudo comprobar el recurso compartido %1$s. Puede que estos resultados no estén al día.</string>
     <string name="smb_page_repair_failed">La página se volvió a cargar, pero no se pudo escribir de vuelta en el recurso compartido %1$s</string>
     <string name="smb_download_notif_title">Guardando en %1$s</string>
     <string name="smb_download_notif_preparing">Preparando…</string>

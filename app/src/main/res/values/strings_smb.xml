@@ -37,6 +37,10 @@
     <string name="local_inventory_delete_confirm_many">%1$d galleries will be erased from the %2$s share. This cannot be undone.</string>
     <string name="local_inventory_delete_many_done">Deleted %1$d of %2$d</string>
     <string name="local_inventory_resync_many_done">Updated %1$d of %2$d</string>
+    <string name="local_inventory_search_hint">Search the %1$s library</string>
+    <string name="local_inventory_search_empty">Nothing in the %1$s library matches</string>
+    <string name="local_inventory_search_unsupported">Subscription and image search need the site, so the library cannot run them</string>
+    <string name="local_inventory_search_stale">Could not check the %1$s share. These results may be out of date.</string>
     <string name="smb_page_repair_failed">The page was reloaded, but it could not be written back to the %1$s share</string>
     <string name="smb_download_notif_title">Saving to %1$s</string>
     <string name="smb_download_notif_preparing">Preparing…</string>

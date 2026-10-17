@@ -37,6 +37,10 @@
     <string name="local_inventory_delete_confirm_many">%1$d 件のギャラリーが %2$s 共有から消去されます。元に戻すことはできません。</string>
     <string name="local_inventory_delete_many_done">%1$d/%2$d 件を削除しました</string>
     <string name="local_inventory_resync_many_done">%1$d/%2$d 件を更新しました</string>
+    <string name="local_inventory_search_hint">%1$s ライブラリを検索</string>
+    <string name="local_inventory_search_empty">%1$s ライブラリに一致するギャラリーはありません</string>
+    <string name="local_inventory_search_unsupported">購読検索と画像検索にはサイトが必要なため、ライブラリでは使えません</string>
+    <string name="local_inventory_search_stale">%1$s 共有を確認できませんでした。この結果は最新でない可能性があります。</string>
     <string name="smb_page_repair_failed">ページを再読み込みしましたが、%1$s 共有に書き戻せませんでした</string>
     <string name="smb_download_notif_title">%1$s に保存中</string>
     <string name="smb_download_notif_preparing">準備中…</string>

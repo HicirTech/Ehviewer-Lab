@@ -37,6 +37,10 @@
     <string name="local_inventory_delete_confirm_many">%1$d galeries seront effacées du partage %2$s. Cette action est irréversible.</string>
     <string name="local_inventory_delete_many_done">%1$d sur %2$d supprimées</string>
     <string name="local_inventory_resync_many_done">%1$d sur %2$d mises à jour</string>
+    <string name="local_inventory_search_hint">Chercher dans la bibliothèque %1$s</string>
+    <string name="local_inventory_search_empty">Rien ne correspond dans la bibliothèque %1$s</string>
+    <string name="local_inventory_search_unsupported">La recherche dans les tags suivis et la recherche d\'image ont besoin du site : la bibliothèque ne peut pas les faire</string>
+    <string name="local_inventory_search_stale">Impossible de vérifier le partage %1$s. Ces résultats ne sont peut-être pas à jour.</string>
     <string name="smb_page_repair_failed">La page a été rechargée, mais elle n\'a pas pu être réécrite sur le partage %1$s</string>
     <string name="smb_download_notif_title">Enregistrement sur %1$s</string>
     <string name="smb_download_notif_preparing">Préparation…</string>

@@ -37,6 +37,10 @@
     <string name="local_inventory_delete_confirm_many">%1$d 本畫廊將從 %2$s 共享上抹掉,無法復原。</string>
     <string name="local_inventory_delete_many_done">已刪除 %1$d / %2$d</string>
     <string name="local_inventory_resync_many_done">已更新 %1$d / %2$d</string>
+    <string name="local_inventory_search_hint">搜尋 %1$s 庫</string>
+    <string name="local_inventory_search_empty">%1$s 庫裡沒有符合的畫廊</string>
+    <string name="local_inventory_search_unsupported">訂閱搜尋和圖片搜尋需要用到網站，庫裡無法使用</string>
+    <string name="local_inventory_search_stale">無法核對 %1$s 共享，這些結果可能不是最新的</string>
     <string name="smb_page_repair_failed">這一頁已重新載入,但沒能寫回 %1$s 共享</string>
     <string name="smb_download_notif_title">正在儲存至 %1$s</string>
     <string name="smb_download_notif_preparing">準備中…</string>
