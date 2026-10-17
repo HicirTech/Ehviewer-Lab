@@ -49,7 +49,7 @@ final class InventoryPager {
     }
 
     /** infos is null when metadata is read lazily per page (the date sort). */
-    private static final class Ordering {
+    static final class Ordering {
         @NonNull final List<GalleryRef> refs;
         @Nullable final Map<String, GalleryInfo> infos;
 
@@ -57,6 +57,55 @@ final class InventoryPager {
                  @Nullable Map<String, GalleryInfo> infos) {
             this.refs = refs;
             this.infos = infos;
+        }
+
+        /** Copied, not mutated: a page load may be reading this one. */
+        @NonNull
+        Ordering renamed(@NonNull String from, @NonNull String to) {
+            List<GalleryRef> moved = new ArrayList<>(refs.size());
+            boolean found = false;
+            for (GalleryRef ref : refs) {
+                if (!found && ref.folderName.equals(from)) {
+                    found = true;
+                    moved.add(new GalleryRef(to, ref.folderMtime));
+                } else {
+                    moved.add(ref);
+                }
+            }
+            if (!found) {
+                return this;
+            }
+            Map<String, GalleryInfo> movedInfos = null;
+            if (infos != null) {
+                movedInfos = new HashMap<>(infos);
+                GalleryInfo info = movedInfos.remove(from);
+                if (info != null) {
+                    movedInfos.put(to, info);
+                }
+            }
+            return new Ordering(moved, movedInfos);
+        }
+
+        @NonNull
+        Ordering without(@NonNull String folderName) {
+            List<GalleryRef> kept = new ArrayList<>(refs.size());
+            boolean removed = false;
+            for (GalleryRef ref : refs) {
+                if (!removed && ref.folderName.equals(folderName)) {
+                    removed = true;
+                    continue;
+                }
+                kept.add(ref);
+            }
+            if (!removed) {
+                return this;
+            }
+            Map<String, GalleryInfo> keptInfos = null;
+            if (infos != null) {
+                keptInfos = new HashMap<>(infos);
+                keptInfos.remove(folderName);
+            }
+            return new Ordering(kept, keptInfos);
         }
     }
 
@@ -71,6 +120,11 @@ final class InventoryPager {
             ordering = buildOrderingBounded(mode);
             mOrdering = ordering;
         }
+        return pageOf(ordering, page);
+    }
+
+    @NonNull
+    static Page pageOf(@NonNull Ordering ordering, int page) throws Exception {
         List<GalleryRef> refs = ordering.refs;
         int total = refs.size();
         int pages = Math.max(1, (total + PAGE_SIZE - 1) / PAGE_SIZE);
@@ -81,6 +135,22 @@ final class InventoryPager {
                 : readInfos(slice);
         SmbCoverPrefetch.prefetch(data);
         return new Page(data, pages);
+    }
+
+    /** What the library page lists now; null before its first page. */
+    @Nullable
+    Ordering ordering() {
+        return mOrdering;
+    }
+
+    /** The share's folders, newest first, within the bound a page has. */
+    @NonNull
+    List<GalleryRef> listBounded() throws Exception {
+        return buildOrderingBounded(SortMode.DOWNLOAD_DATE_DESC).refs;
+    }
+
+    static long stallMillis() {
+        return TimeUnit.SECONDS.toMillis(STALL_TIMEOUT_S);
     }
 
     /** jcifs timeouts need a global context rebuild, so the listing runs on a throwaway thread. */
@@ -110,8 +180,7 @@ final class InventoryPager {
     @NonNull
     private static List<GalleryInfo> readInfos(@NonNull List<GalleryRef> slice) throws Exception {
         try {
-            return NetworkStorage.active().inventory()
-                    .readGalleryInfos(slice, TimeUnit.SECONDS.toMillis(STALL_TIMEOUT_S));
+            return NetworkStorage.active().inventory().readGalleryInfos(slice, stallMillis());
         } catch (TimeoutException te) {
             throw shareTimeout();
         }
@@ -131,7 +200,7 @@ final class InventoryPager {
     }
 
     @NonNull
-    private static IOException shareTimeout() {
+    static IOException shareTimeout() {
         return new IOException(GetText.getString(
                 R.string.local_inventory_timeout, NetworkStorage.active().displayName()));
     }
@@ -160,58 +229,17 @@ final class InventoryPager {
         return new Ordering(refs, infos);
     }
 
-    /** Replaced, not mutated: a page load may be reading the current ordering. */
     void renameRef(@NonNull String from, @NonNull String to) {
         Ordering current = mOrdering;
-        if (current == null) {
-            return;
+        if (current != null) {
+            mOrdering = current.renamed(from, to);
         }
-        List<GalleryRef> refs = new ArrayList<>(current.refs.size());
-        boolean found = false;
-        for (GalleryRef ref : current.refs) {
-            if (!found && ref.folderName.equals(from)) {
-                found = true;
-                refs.add(new GalleryRef(to, ref.folderMtime));
-            } else {
-                refs.add(ref);
-            }
-        }
-        if (!found) {
-            return;
-        }
-        Map<String, GalleryInfo> infos = null;
-        if (current.infos != null) {
-            infos = new HashMap<>(current.infos);
-            GalleryInfo moved = infos.remove(from);
-            if (moved != null) {
-                infos.put(to, moved);
-            }
-        }
-        mOrdering = new Ordering(refs, infos);
     }
 
     void forgetRef(@NonNull String folderName) {
         Ordering current = mOrdering;
-        if (current == null) {
-            return;
+        if (current != null) {
+            mOrdering = current.without(folderName);
         }
-        List<GalleryRef> refs = new ArrayList<>(current.refs.size());
-        boolean removed = false;
-        for (GalleryRef ref : current.refs) {
-            if (!removed && ref.folderName.equals(folderName)) {
-                removed = true;
-                continue;
-            }
-            refs.add(ref);
-        }
-        if (!removed) {
-            return;
-        }
-        Map<String, GalleryInfo> infos = null;
-        if (current.infos != null) {
-            infos = new HashMap<>(current.infos);
-            infos.remove(folderName);
-        }
-        mOrdering = new Ordering(refs, infos);
     }
 }
