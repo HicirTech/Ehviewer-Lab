@@ -1,14 +1,14 @@
 {
-  "version": "2.0.2.5-hl.5",
-  "versionCode": 17,
+  "version": "2.0.2.6-hl.1",
+  "versionCode": 18,
   "mustUpdate": false,
   "updateContent": {
-    "fileDownloadUrl": "https://github.com/HicirTech/Ehviewer-Lab/releases/tag/v2.0.2.5-hl.5",
-    "title": "EhViewer@Lab 2.0.2.5-hl.5",
+    "fileDownloadUrl": "https://github.com/HicirTech/Ehviewer-Lab/releases/tag/v2.0.2.6-hl.1",
+    "title": "EhViewer@Lab 2.0.2.6-hl.1",
     "content": [
-      "SMB 库可以搜索了:顶栏换成和在线列表一样的搜索栏,能按标题、日文标题、标签、上传者和分类找画廊,也能按分类、评分和页数筛选",
-      "搜索结果马上出来,随后到共享上核对,书库有新增或改动时自动更新",
-      "SMB 库里不再能划出空白的右抽屉"
+      "跟进上游 EhViewer 2.0.2.6",
+      "更新表站图床 ehgt.org 的内置地址,旧地址过期导致的缩略图加载失败已修复",
+      "下载页筛选新增「本地导入」"
     ]
   }
 }
