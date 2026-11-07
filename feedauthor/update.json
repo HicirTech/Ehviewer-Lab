@@ -1,14 +1,14 @@
 {
-  "version": "2.0.2.6-hl.1",
-  "versionCode": 18,
+  "version": "2.0.2.7-hl.1",
+  "versionCode": 19,
   "mustUpdate": false,
   "updateContent": {
-    "fileDownloadUrl": "https://github.com/HicirTech/Ehviewer-Lab/releases/tag/v2.0.2.6-hl.1",
-    "title": "EhViewer@Lab 2.0.2.6-hl.1",
+    "fileDownloadUrl": "https://github.com/HicirTech/Ehviewer-Lab/releases/tag/v2.0.2.7-hl.1",
+    "title": "EhViewer@Lab 2.0.2.7-hl.1",
     "content": [
-      "跟进上游 EhViewer 2.0.2.6",
-      "更新表站图床 ehgt.org 的内置地址,旧地址过期导致的缩略图加载失败已修复",
-      "下载页筛选新增「本地导入」"
+      "跟进上游 EhViewer 2.0.2.7",
+      "恢复下载项能识别 CBOR 格式的 .ehviewer 文件和目录里的 ComicInfo.xml",
+      "恢复下载项时某一批画廊取不到信息不再让整个恢复失败,取不到信息的画廊用文件夹名作标题"
     ]
   }
 }
