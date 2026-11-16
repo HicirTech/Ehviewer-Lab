@@ -1920,6 +1920,8 @@ public final class SpiderQueen implements Runnable {
                             Log.e(TAG, "解码失败", e);
                             Analytics.recordException(e);
                         }
+                        pipe.close();
+                        pipe.release();
                     }
                     if (image == null) {
                         error = GetText.getString(R.string.error_decoding_failed);
