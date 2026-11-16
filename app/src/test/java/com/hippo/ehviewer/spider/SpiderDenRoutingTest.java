@@ -23,6 +23,8 @@ import java.lang.reflect.Field;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 
 import org.junit.After;
 import org.junit.Before;
@@ -428,6 +430,41 @@ public class SpiderDenRoutingTest {
         assertFalse(den.hasCachedImage(INDEX));
         assertNull(den.openCachedImage(INDEX));
         assertFalse(askedShare());
+    }
+
+    @Test
+    public void readerDuringDownload_doesNotWaitForAPageBeingWritten() throws Exception {
+        seedCache();
+        SpiderDen den = den(SpiderQueen.MODE_DOWNLOAD);
+        CountDownLatch holding = new CountDownLatch(1);
+        CountDownLatch done = new CountDownLatch(1);
+        Thread worker = new Thread(() -> {
+            OutputStreamPipe pipe = cache().getOutputStreamPipe(EhCacheKeyFactory.getImageKey(GID, INDEX));
+            pipe.obtain();
+            holding.countDown();
+            try {
+                done.await();
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+            pipe.release();
+        });
+        worker.setDaemon(true);
+        worker.start();
+        assertTrue(holding.await(2, TimeUnit.SECONDS));
+
+        boolean[] cached = {true};
+        Thread glThread = new Thread(() -> cached[0] = den.hasCachedImage(INDEX));
+        glThread.setDaemon(true);
+        glThread.start();
+        glThread.join(2000);
+        boolean waited = glThread.isAlive();
+
+        done.countDown();
+        worker.join();
+        glThread.join();
+        assertFalse("the reader's GL thread waited on the page being written", waited);
+        assertFalse(cached[0]);
     }
 
     @Test
