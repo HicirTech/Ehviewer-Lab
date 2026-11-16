@@ -1,14 +1,13 @@
 {
-  "version": "2.0.2.7-hl.1",
-  "versionCode": 19,
+  "version": "2.0.2.7-hl.2",
+  "versionCode": 20,
   "mustUpdate": false,
   "updateContent": {
-    "fileDownloadUrl": "https://github.com/HicirTech/Ehviewer-Lab/releases/tag/v2.0.2.7-hl.1",
-    "title": "EhViewer@Lab 2.0.2.7-hl.1",
+    "fileDownloadUrl": "https://github.com/HicirTech/Ehviewer-Lab/releases/tag/v2.0.2.7-hl.2",
+    "title": "EhViewer@Lab 2.0.2.7-hl.2",
     "content": [
-      "跟进上游 EhViewer 2.0.2.7",
-      "恢复下载项能识别 CBOR 格式的 .ehviewer 文件和目录里的 ComicInfo.xml",
-      "恢复下载项时某一批画廊取不到信息不再让整个恢复失败,取不到信息的画廊用文件夹名作标题"
+      "修复边看边下载时阅读页偶尔卡死、提示应用无响应的问题",
+      "翻到正在下载的页时,阅读页不再卡住等它下完"
     ]
   }
 }
