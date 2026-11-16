@@ -239,6 +239,22 @@ public class SimpleDiskCache {
         return result;
     }
 
+    /** Like {@link #contain(String)}, but false instead of waiting while another thread writes the key. */
+    public boolean tryContain(@NonNull String key) {
+        String diskKey = hashKeyForDisk(key);
+        CounterLock lock = obtainLock(diskKey);
+        if (null == mDiskLruCache || !lock.readLock().tryLock()) {
+            releaseLock(diskKey, lock);
+            return false;
+        }
+        try {
+            return mDiskLruCache.contain(diskKey);
+        } finally {
+            lock.readLock().unlock();
+            releaseLock(diskKey, lock);
+        }
+    }
+
     public boolean remove(@NonNull String key) {
         String diskKey = hashKeyForDisk(key);
         CounterLock lock = obtainLock(diskKey);

@@ -285,9 +285,12 @@ public final class SpiderDen {
         return sCache.contain(key);
     }
 
-    /** Already in the read cache. Does not open or write the share. */
+    /** Already in the read cache. Does not touch the share or wait on a writer: the GL thread calls it. */
     public boolean hasCachedImage(int index) {
-        return containInCache(index);
+        if (sCache == null) {
+            return false;
+        }
+        return sCache.tryContain(EhCacheKeyFactory.getImageKey(mGid, index));
     }
 
     @Nullable
