@@ -28,10 +28,37 @@ public final class SmbGalleryDirectory {
         CIFSContext cifs = SmbConnection.buildContext();
         SmbFile galleryRoot = new SmbFile(SmbConnection.galleryRootUrl(), cifs);
         ensureDir(galleryRoot, cifs);
-        SmbFile galleryDir = new SmbFile(galleryRoot, SmbPaths.buildGalleryFolderName(info) + "/");
-        ensureDir(galleryDir, cifs);
+        String folderName = SmbPaths.buildGalleryFolderName(info);
+        SmbFile galleryDir = new SmbFile(galleryRoot, folderName + "/");
+        try {
+            ensureDir(galleryDir, cifs);
+        } catch (IOException e) {
+            if (ntStatus(e) != jcifs.smb.NtStatus.NT_STATUS_OBJECT_NAME_INVALID) {
+                throw e;
+            }
+            createByRename(galleryRoot, galleryDir, info.gid, cifs);
+            // A fresh handle: the one above has cached that the folder is missing.
+            galleryDir = new SmbFile(galleryRoot, folderName + "/");
+        }
         Log.i("SmbPerf", "getGalleryDir gid=" + info.gid + " " + (SystemClock.elapsedRealtime() - t0) + "ms thr=" + Thread.currentThread().getName());
         return galleryDir;
+    }
+
+    /** UNAS refuses a long name when creating over SMB but takes it in a rename (#196). */
+    private static void createByRename(@NonNull SmbFile root, @NonNull SmbFile dir, long gid,
+                                       @NonNull CIFSContext cifs) throws IOException {
+        SmbFile temp = new SmbFile(root, SmbTempFiles.nameFor("g" + gid) + "/");
+        temp.mkdir();
+        try {
+            // One-arg renameTo: refuses rather than replaces a folder another device just made.
+            temp.renameTo(dir);
+            Log.i(TAG, "Created the folder of gid=" + gid + " by renaming a short one");
+        } catch (IOException e) {
+            SmbTempFiles.delete(temp);
+            if (!new SmbFile(dir.getURL().toString(), cifs).exists()) {
+                throw e;
+            }
+        }
     }
 
     /** Callers race on mkdirs at job start; the loser must not fail over an existing folder. */
@@ -92,16 +119,21 @@ public final class SmbGalleryDirectory {
     }
 
     private static boolean isFolderMissing(@NonNull Throwable e) {
+        int status = ntStatus(e);
+        return status == jcifs.smb.NtStatus.NT_STATUS_OBJECT_NAME_NOT_FOUND
+                || status == jcifs.smb.NtStatus.NT_STATUS_OBJECT_PATH_NOT_FOUND
+                || status == jcifs.smb.NtStatus.NT_STATUS_NO_SUCH_FILE
+                || status == jcifs.smb.NtStatus.NT_STATUS_BAD_NETWORK_NAME;
+    }
+
+    /** The first SmbException's status in the cause chain; 0 when there is none. */
+    private static int ntStatus(@NonNull Throwable e) {
         for (Throwable c = e; c != null; c = c.getCause() == c ? null : c.getCause()) {
             if (c instanceof jcifs.smb.SmbException) {
-                int status = ((jcifs.smb.SmbException) c).getNtStatus();
-                return status == jcifs.smb.NtStatus.NT_STATUS_OBJECT_NAME_NOT_FOUND
-                        || status == jcifs.smb.NtStatus.NT_STATUS_OBJECT_PATH_NOT_FOUND
-                        || status == jcifs.smb.NtStatus.NT_STATUS_NO_SUCH_FILE
-                        || status == jcifs.smb.NtStatus.NT_STATUS_BAD_NETWORK_NAME;
+                return ((jcifs.smb.SmbException) c).getNtStatus();
             }
         }
-        return false;
+        return 0;
     }
 
     static void invalidateListing(long gid) {

@@ -9,6 +9,7 @@ package com.hippo.ehviewer.smb;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
 
 import com.hippo.ehviewer.Settings;
@@ -25,7 +26,9 @@ import org.robolectric.annotation.Implementation;
 import org.robolectric.annotation.Implements;
 import org.robolectric.annotation.RealObject;
 
+import java.io.IOException;
 import java.lang.reflect.Field;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -48,6 +51,12 @@ public class SmbGalleryDirectoryTest {
 
     static boolean listFails;
     static boolean mkdirsFails;
+    /** As on the UNAS of #196: a longer name cannot be created, only renamed to; 0 = no limit. */
+    static int createLimitBytes;
+    /** Another device makes the target while our rename is on the wire. */
+    static boolean renameLosesTheRace;
+    /** A failure to create that has nothing to do with the name; 0 = none. */
+    static int mkdirsStatus;
 
     @Implements(SmbFile.class)
     public static class ShadowSmbFile {
@@ -67,7 +76,44 @@ public class SmbGalleryDirectoryTest {
                 existing.add(real.getPath());
                 throw new jcifs.smb.SmbException(0xC0000035, false); // OBJECT_NAME_COLLISION
             }
+            if (mkdirsStatus != 0) {
+                throw new jcifs.smb.SmbException(mkdirsStatus, false);
+            }
+            refuseOverLimit(real.getPath());
             existing.add(real.getPath());
+        }
+
+        @Implementation
+        protected void mkdir() throws jcifs.smb.SmbException {
+            wireCalls.add("mkdir:" + real.getPath());
+            refuseOverLimit(real.getPath());
+            existing.add(real.getPath());
+        }
+
+        @Implementation
+        protected void renameTo(jcifs.SmbResource dest) throws jcifs.smb.SmbException {
+            String to = ((SmbFile) dest).getPath();
+            wireCalls.add("rename:" + real.getPath() + " -> " + to);
+            if (renameLosesTheRace) {
+                existing.add(to);
+                throw new jcifs.smb.SmbException(0xC0000035, false); // OBJECT_NAME_COLLISION
+            }
+            existing.remove(real.getPath());
+            existing.add(to);
+        }
+
+        @Implementation
+        protected void delete() {
+            wireCalls.add("delete:" + real.getPath());
+            existing.remove(real.getPath());
+        }
+
+        private static void refuseOverLimit(String path) throws jcifs.smb.SmbException {
+            String trimmed = path.endsWith("/") ? path.substring(0, path.length() - 1) : path;
+            String name = trimmed.substring(trimmed.lastIndexOf('/') + 1);
+            if (createLimitBytes > 0 && name.getBytes(StandardCharsets.UTF_8).length > createLimitBytes) {
+                throw new jcifs.smb.SmbException(0xC0000033, false); // OBJECT_NAME_INVALID
+            }
         }
 
         @Implementation
@@ -94,6 +140,9 @@ public class SmbGalleryDirectoryTest {
         wireCalls.clear();
         listFails = false;
         mkdirsFails = false;
+        createLimitBytes = 0;
+        renameLosesTheRace = false;
+        mkdirsStatus = 0;
         clearListingCache();
     }
 
@@ -176,5 +225,45 @@ public class SmbGalleryDirectoryTest {
         SmbGalleryDirectory.getGalleryDir(gallery);
         assertTrue("the winner's folder is good enough",
                 wireCalls.stream().anyMatch(c -> c.startsWith("mkdirs:")));
+    }
+
+    @Test
+    public void aNameTheShareWillNotCreateIsMadeByRenamingAShortFolder() throws Exception {
+        createLimitBytes = 215;
+        GalleryInfo longTitle = com.hippo.ehviewer.storage.NetworkStorage.lookupKey(43L, "t".repeat(300));
+        String full = SmbGalleryDirectory.resolveGalleryDir(longTitle).getPath();
+
+        SmbFile dir = SmbGalleryDirectory.getGalleryDir(longTitle);
+
+        assertEquals("the folder keeps its full name", full, dir.getPath());
+        assertTrue(existing.contains(full));
+        assertTrue("made by a rename: " + wireCalls,
+                wireCalls.stream().anyMatch(c -> c.startsWith("rename:")));
+        assertTrue("no short folder left behind: " + existing,
+                existing.stream().noneMatch(p -> p.endsWith(".tmp/")));
+    }
+
+    @Test
+    public void aFolderAnotherDeviceMadeDuringTheRenameIsUsed() throws Exception {
+        createLimitBytes = 215;
+        renameLosesTheRace = true;
+        GalleryInfo longTitle = com.hippo.ehviewer.storage.NetworkStorage.lookupKey(43L, "t".repeat(300));
+        String full = SmbGalleryDirectory.resolveGalleryDir(longTitle).getPath();
+
+        SmbGalleryDirectory.getGalleryDir(longTitle);
+
+        assertTrue(existing.contains(full));
+        assertTrue("the short folder must be removed: " + existing,
+                existing.stream().noneMatch(p -> p.endsWith(".tmp/")));
+    }
+
+    @Test
+    public void otherFailuresToCreateTheFolderAreNotRetriedByRename() {
+        existing.add(SmbConnection.galleryRootUrl());
+        mkdirsStatus = 0xC0000022; // ACCESS_DENIED
+
+        assertThrows(IOException.class, () -> SmbGalleryDirectory.getGalleryDir(gallery));
+        assertTrue("only a refused name goes through a rename: " + wireCalls,
+                wireCalls.stream().noneMatch(c -> c.startsWith("mkdir:") || c.startsWith("rename:")));
     }
 }
