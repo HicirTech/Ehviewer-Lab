@@ -301,6 +301,22 @@ public class SmbDirectDownloaderTest {
     }
 
     @Test
+    public void aSaveThatStoredNoPageIsPausedNotFinished() {
+        SmbDirectDownloader.getInstance().start(context, gallery(1));
+        drain();
+        assertEquals(1, listeners.size());
+
+        listeners.get(0).onFinish(0, 10, 10);
+        drain();
+
+        assertEquals("nothing reached the share, so the task must stay to be resumed",
+                SmbDirectDownloader.TaskSnapshot.State.PAUSED, stateOf(1));
+        assertTrue("the queen must be released: " + calls, calls.contains("stop"));
+        assertFalse("nothing to finalize: " + calls, calls.contains("finalize:1"));
+        GalleryTargets.unmark(1);
+    }
+
+    @Test
     public void startFailure_leavesNoMarkBehind() {
         obtainThrows = true;
 
