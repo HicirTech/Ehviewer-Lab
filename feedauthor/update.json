@@ -1,13 +1,13 @@
 {
-  "version": "2.0.2.7-hl.2",
-  "versionCode": 20,
+  "version": "2.0.2.7-hl.3",
+  "versionCode": 21,
   "mustUpdate": false,
   "updateContent": {
-    "fileDownloadUrl": "https://github.com/HicirTech/Ehviewer-Lab/releases/tag/v2.0.2.7-hl.2",
-    "title": "EhViewer@Lab 2.0.2.7-hl.2",
+    "fileDownloadUrl": "https://github.com/HicirTech/Ehviewer-Lab/releases/tag/v2.0.2.7-hl.3",
+    "title": "EhViewer@Lab 2.0.2.7-hl.3",
     "content": [
-      "修复边看边下载时阅读页偶尔卡死、提示应用无响应的问题",
-      "翻到正在下载的页时,阅读页不再卡住等它下完"
+      "修复标题很长的画廊存不进 SMB 共享的问题",
+      "共享上建不了文件夹时直接提示保存失败,一页都没存上的保存改为暂停"
     ]
   }
 }
