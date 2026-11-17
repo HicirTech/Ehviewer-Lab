@@ -493,6 +493,13 @@ public final class SmbDirectDownloader {
 
         @Override
         public void onFinish(int finished, int downloaded, int total) {
+            if (finished == 0) {
+                // Nothing reached the share: finishing would retire the task as saved (#196).
+                Log.w(TAG, "SMB direct download saved no page gid=" + info.gid
+                        + " (" + downloaded + "/" + total + " done), pausing it");
+                pause(info.gid);
+                return;
+            }
             onJobFinish(info);
             notifyObservers();
         }

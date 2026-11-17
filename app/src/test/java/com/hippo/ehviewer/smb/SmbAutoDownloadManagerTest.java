@@ -58,6 +58,7 @@ public class SmbAutoDownloadManagerTest {
     static final List<Long> started = Collections.synchronizedList(new ArrayList<>());
     static boolean configured = true;
     static boolean alreadyComplete = false;
+    static boolean skeletonWritten = true;
 
     private Context context;
 
@@ -95,7 +96,7 @@ public class SmbAutoDownloadManagerTest {
     public static class ShadowSmbMetadata {
         @Implementation
         protected static boolean writeMetadataSkeleton(GalleryInfo info) {
-            return true;
+            return skeletonWritten;
         }
     }
 
@@ -190,6 +191,7 @@ public class SmbAutoDownloadManagerTest {
         Settings.putBoolean(NetworkStorageSettings.KEY_ENABLED, true);
         configured = true;
         alreadyComplete = false;
+        skeletonWritten = true;
         accepted.clear();
         started.clear();
     }
@@ -255,6 +257,19 @@ public class SmbAutoDownloadManagerTest {
 
         assertTrue("nothing about a local import may reach the share", accepted.isEmpty());
         assertTrue(started.isEmpty());
+    }
+
+    @Test
+    public void aGalleryWithoutAFolderOnTheShareIsNeverFetched() {
+        skeletonWritten = false;
+
+        SmbAutoDownloadManager.getInstance().enqueueManual(context, gallery());
+        pump();
+
+        assertTrue("no page may be fetched with nowhere to put it", started.isEmpty());
+        assertNull(stateOf(GID));
+        assertEquals(context.getString(R.string.smb_save_failed, NetworkStorage.active().displayName()),
+                ShadowToast.getTextOfLatestToast());
     }
 
     @Test
