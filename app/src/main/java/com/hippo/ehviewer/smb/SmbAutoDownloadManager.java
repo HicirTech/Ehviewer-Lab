@@ -71,10 +71,10 @@ public final class SmbAutoDownloadManager {
                     }
                     return;
                 }
-                try {
-                    NetworkStorage.active().metadata().writeMetadataSkeleton(galleryInfo);
-                } catch (Throwable e) {
-                    Log.w(TAG, "Failed to write skeleton metadata gid=" + galleryInfo.gid, e);
+                // The skeleton makes the folder: without one, every page would be fetched for nothing.
+                if (!NetworkStorage.active().metadata().writeMetadataSkeleton(galleryInfo)) {
+                    toast(appContext, appContext.getString(R.string.smb_save_failed, NetworkStorage.active().displayName()));
+                    return;
                 }
                 // Only past the gates: an earlier "started" could be contradicted a moment later.
                 toast(appContext, appContext.getString(R.string.smb_save_started,
