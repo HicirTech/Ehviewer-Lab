@@ -1,13 +1,14 @@
 {
-  "version": "2.0.2.7-hl.3",
-  "versionCode": 21,
+  "version": "2.0.2.7-hl.4",
+  "versionCode": 22,
   "mustUpdate": false,
   "updateContent": {
-    "fileDownloadUrl": "https://github.com/HicirTech/Ehviewer-Lab/releases/tag/v2.0.2.7-hl.3",
-    "title": "EhViewer@Lab 2.0.2.7-hl.3",
+    "fileDownloadUrl": "https://github.com/HicirTech/Ehviewer-Lab/releases/tag/v2.0.2.7-hl.4",
+    "title": "EhViewer@Lab 2.0.2.7-hl.4",
     "content": [
-      "修复标题很长的画廊存不进 SMB 共享的问题",
-      "共享上建不了文件夹时直接提示保存失败,一页都没存上的保存改为暂停"
+      "库里新增缺失文件检查:找出缺页、缺封面或缺元数据的画廊,可全选后一起修复",
+      "保存到共享时缺页不再算作完成,任务会暂停并提示,可在下载列表里继续",
+      "修复在库里点封面有时进了详情页而不是阅读器的问题"
     ]
   }
 }
