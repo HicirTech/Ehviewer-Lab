@@ -7,9 +7,12 @@
 
 package com.hippo.ehviewer.smb;
 
+import com.hippo.ehviewer.spider.SpiderInfo;
+import com.hippo.ehviewer.storage.GalleryCheck;
 import com.hippo.ehviewer.storage.GalleryRef;
 import com.hippo.ehviewer.storage.SortMode;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
@@ -31,11 +34,16 @@ import org.robolectric.annotation.Implementation;
 import org.robolectric.annotation.Implements;
 import org.robolectric.annotation.RealObject;
 
+import android.util.SparseArray;
+
 import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InterruptedIOException;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -66,6 +74,9 @@ public class SmbInventoryTest {
     static final Map<String, Long> mtimes = new HashMap<>();
     static final Set<String> unreadable = new HashSet<>();
     static final Set<String> uncheckable = new HashSet<>();
+    static final Set<String> unlistable = new HashSet<>();
+    /** By path; a listed file without an entry holds one byte. */
+    static final Map<String, Long> sizes = new HashMap<>();
     static final Set<String> opened = ConcurrentHashMap.newKeySet();
     static volatile OpenHook onOpen = path -> {};
     static volatile OpenHook onExists = path -> {};
@@ -102,6 +113,9 @@ public class SmbInventoryTest {
             if (listFailure != null) {
                 throw listFailure;
             }
+            if (unlistable.contains(real.getPath())) {
+                throw new SmbException("fixture: unlistable");
+            }
             String[] names = listings.get(real.getPath());
             if (names == null) {
                 return null;
@@ -111,6 +125,12 @@ public class SmbInventoryTest {
                 out[i] = new SmbFile(real, names[i]);
             }
             return out;
+        }
+
+        @Implementation
+        protected long length() {
+            Long size = sizes.get(real.getPath());
+            return size != null ? size : 1L;
         }
 
         @Implementation
@@ -158,6 +178,8 @@ public class SmbInventoryTest {
         mtimes.clear();
         unreadable.clear();
         uncheckable.clear();
+        unlistable.clear();
+        sizes.clear();
         opened.clear();
         onOpen = path -> {};
         onExists = path -> {};
@@ -334,6 +356,120 @@ public class SmbInventoryTest {
         assertThrows(TimeoutException.class, () -> SmbInventory.readMetadataMtimes(refs, 200));
         onExists = path -> {};
         drainInventoryPool();
+    }
+
+    /** A gallery folder holding these files, with a metadata.json when one is given. */
+    private String galleryFolder(String name, String metadataJson, String... files) {
+        String folder = rootPath + name + "/";
+        existing.add(folder);
+        List<String> listing = new ArrayList<>(Arrays.asList(files));
+        if (metadataJson != null) {
+            listing.add(SmbMetadata.METADATA_FILE);
+            existing.add(folder + SmbMetadata.METADATA_FILE);
+            contents.put(folder + SmbMetadata.METADATA_FILE, metadataJson.getBytes(StandardCharsets.UTF_8));
+        }
+        listings.put(folder, listing.toArray(new String[0]));
+        return folder;
+    }
+
+    private static void ehviewerSays(String folder, long gid, String token, int pages) {
+        SpiderInfo header = new SpiderInfo();
+        header.gid = gid;
+        header.token = token;
+        header.pages = pages;
+        header.previewPages = 1;
+        header.previewPerPage = 40;
+        header.pTokenMap = new SparseArray<>();
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        header.write(out);
+        existing.add(folder + ".ehviewer");
+        contents.put(folder + ".ehviewer", out.toByteArray());
+    }
+
+    private static GalleryCheck check(String folderName) throws IOException {
+        return SmbInventory.checkGallery(new GalleryRef(folderName, 0L));
+    }
+
+    @Test
+    public void aCompleteGalleryHasNothingMissing() throws Exception {
+        galleryFolder("1-A", "{\"gid\":1,\"token\":\"t1\",\"title\":\"A\",\"pages\":2}",
+                "00000001.jpg", "00000002.webp", "cover.jpg");
+
+        GalleryCheck c = check("1-A");
+
+        assertEquals(2, c.expectedPages);
+        assertEquals(0, c.missingPages);
+        assertFalse(c.hasProblem());
+        assertTrue(c.hasToken());
+    }
+
+    @Test
+    public void absentAndEmptyPagesAreBothMissing() throws Exception {
+        String folder = galleryFolder("1-A", "{\"gid\":1,\"token\":\"t1\",\"title\":\"A\",\"pages\":3}",
+                "00000001.jpg", "00000002.jpg", "cover.jpg");
+        sizes.put(folder + "00000002.jpg", 0L);
+
+        GalleryCheck c = check("1-A");
+
+        assertEquals(3, c.expectedPages);
+        assertEquals("page 2 is empty, page 3 absent", 2, c.missingPages);
+    }
+
+    @Test
+    public void withoutMetadataTheEhviewerRecordGivesPagesAndToken() throws Exception {
+        String folder = galleryFolder("5-Five", null, "00000001.jpg", "cover.jpg");
+        ehviewerSays(folder, 5L, "tok5", 4);
+
+        GalleryCheck c = check("5-Five");
+
+        assertTrue(c.recordMissing);
+        assertEquals(4, c.expectedPages);
+        assertEquals(3, c.missingPages);
+        assertTrue(c.hasToken());
+        assertEquals("Five", c.title);
+    }
+
+    @Test
+    public void withNeitherRecordThereIsNoPageCountAndNoToken() throws Exception {
+        galleryFolder("6-Six", null, "00000001.jpg");
+
+        GalleryCheck c = check("6-Six");
+
+        assertEquals(GalleryCheck.UNKNOWN_PAGES, c.expectedPages);
+        assertTrue(c.hasProblem());
+        assertFalse(c.hasToken());
+        assertEquals("the folder name stands in for the title", "Six", c.title);
+    }
+
+    @Test
+    public void aMissingCoverIsAProblem() throws Exception {
+        galleryFolder("1-A", "{\"gid\":1,\"token\":\"t1\",\"title\":\"A\",\"pages\":1}", "00000001.jpg");
+
+        GalleryCheck c = check("1-A");
+
+        assertEquals(0, c.missingPages);
+        assertTrue(c.coverMissing);
+        assertTrue(c.hasProblem());
+    }
+
+    @Test
+    public void checksKeepTheRefOrderReportEachOneAndLeaveOutTheFailed() throws Exception {
+        galleryFolder("1-A", "{\"gid\":1,\"token\":\"t1\",\"title\":\"A\",\"pages\":1}", "00000001.jpg");
+        galleryFolder("2-B", "{\"gid\":2,\"token\":\"t2\",\"title\":\"B\",\"pages\":1}");
+        galleryFolder("3-C", "{\"gid\":3,\"token\":\"t3\",\"title\":\"C\",\"pages\":1}", "00000001.jpg");
+        unlistable.add(rootPath + "2-B/");
+        List<GalleryRef> refs = Arrays.asList(
+                new GalleryRef("3-C", 0L), new GalleryRef("2-B", 0L), new GalleryRef("1-A", 0L));
+        List<String> heard = Collections.synchronizedList(new ArrayList<>());
+
+        List<GalleryCheck> checks = SmbInventory.checkGalleries(refs, 10_000,
+                (done, total) -> heard.add(done + "/" + total));
+
+        assertEquals(2, checks.size());
+        assertEquals("3-C", checks.get(0).folderName);
+        assertEquals("1-A", checks.get(1).folderName);
+        assertEquals("every check is heard, the failed one too", 3, heard.size());
+        assertTrue(heard.contains("3/3"));
     }
 
     /** Idle workers left by earlier tests exit only some time after the pool shrinks. */

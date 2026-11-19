@@ -42,4 +42,15 @@ public interface NetworkStorageInventory {
     /** For a gallery known only by gid and title. */
     @Nullable
     GalleryInfo readGalleryMetadata(@NonNull GalleryInfo hint);
+
+    /** Hears each finished check; any thread. */
+    interface CheckProgress {
+        void onChecked(int done, int total);
+    }
+
+    /** Each folder's files against its record, in ref order; a failed check is left out. Times out as readGalleryInfos. */
+    @NonNull
+    List<GalleryCheck> checkGalleries(@NonNull List<GalleryRef> refs, long stallMillis,
+                                      @NonNull CheckProgress progress)
+            throws InterruptedException, TimeoutException;
 }

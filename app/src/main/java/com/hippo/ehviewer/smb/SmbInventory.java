@@ -9,6 +9,8 @@ import androidx.annotation.Nullable;
 import com.alibaba.fastjson.JSONObject;
 import com.hippo.ehviewer.client.data.GalleryInfo;
 
+import com.hippo.ehviewer.spider.SpiderInfo;
+import com.hippo.ehviewer.storage.GalleryCheck;
 import com.hippo.ehviewer.storage.GalleryRef;
 import com.hippo.ehviewer.storage.NetworkStorageInventory;
 import com.hippo.ehviewer.storage.SortMode;
@@ -19,6 +21,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import jcifs.CIFSContext;
 import jcifs.smb.SmbFile;
@@ -317,6 +320,77 @@ public final class SmbInventory {
         SmbFile metadata = new SmbFile(new SmbFile(galleryRoot, ref.folderName + "/"),
                 SmbMetadata.METADATA_FILE);
         return metadata.exists() ? metadata.lastModified() : NetworkStorageInventory.NO_METADATA;
+    }
+
+    @NonNull
+    public static List<GalleryCheck> checkGalleries(@NonNull List<GalleryRef> refs, long stallMillis,
+                                                    @NonNull NetworkStorageInventory.CheckProgress progress)
+            throws InterruptedException, java.util.concurrent.TimeoutException {
+        long t0 = SystemClock.elapsedRealtime();
+        java.util.concurrent.CompletionService<GalleryCheck> checks =
+                new java.util.concurrent.ExecutorCompletionService<>(inventoryExecutor());
+        java.util.concurrent.atomic.AtomicInteger done = new java.util.concurrent.atomic.AtomicInteger();
+        List<java.util.concurrent.Future<GalleryCheck>> pending = new ArrayList<>(refs.size());
+        for (GalleryRef ref : refs) {
+            pending.add(checks.submit(() -> {
+                try {
+                    return checkGallery(ref);
+                } finally {
+                    progress.onChecked(done.incrementAndGet(), refs.size());
+                }
+            }));
+        }
+        awaitAll(checks, pending, stallMillis, "inventory.checks", t0);
+        List<GalleryCheck> out = new ArrayList<>(pending.size());
+        for (java.util.concurrent.Future<GalleryCheck> f : pending) {
+            try {
+                out.add(f.get());
+            } catch (java.util.concurrent.ExecutionException e) {
+                Log.w(TAG, "Skipping a gallery whose files could not be checked", e);
+            }
+        }
+        Log.i("SmbPerf", "inventory.checks n=" + refs.size() + " checked=" + out.size() + " "
+                + (SystemClock.elapsedRealtime() - t0) + "ms thr=" + Thread.currentThread().getName());
+        return out;
+    }
+
+    /** One listing of the folder, then its records: metadata.json, else .ehviewer. */
+    @NonNull
+    static GalleryCheck checkGallery(@NonNull GalleryRef ref) throws IOException {
+        CIFSContext cifs = SmbConnection.buildContext();
+        SmbFile folder = new SmbFile(new SmbFile(SmbConnection.galleryRootUrl(), cifs),
+                ref.folderName + "/");
+        Set<String> stored = SmbGalleryDirectory.storedNames(folder);
+        GalleryInfo info = stored.contains(SmbMetadata.METADATA_FILE) ? readGalleryInfo(ref) : null;
+        boolean recordMissing = info == null;
+        int expected = info != null && info.pages > 0 ? info.pages : GalleryCheck.UNKNOWN_PAGES;
+        if (info == null || expected == GalleryCheck.UNKNOWN_PAGES) {
+            SpiderInfo header = SmbGalleryFiles.readSpiderInfoHeader(folder, SmbPaths.parseGid(ref.folderName));
+            if (header != null) {
+                if (info == null) {
+                    info = recordFromHeader(header, ref.folderName);
+                }
+                if (expected == GalleryCheck.UNKNOWN_PAGES && header.pages > 0) {
+                    expected = header.pages;
+                }
+            }
+        }
+        int missing = expected == GalleryCheck.UNKNOWN_PAGES
+                ? 0 : expected - SmbGalleryLifecycle.countStoredPages(stored, expected);
+        String title = info != null && info.title != null ? info.title : SmbPaths.parseTitle(ref.folderName);
+        return new GalleryCheck(ref.folderName, title != null ? title : ref.folderName, info,
+                expected, missing, recordMissing, !SmbGalleryFiles.hasCover(stored));
+    }
+
+    /** The gid, token and page count a folder without metadata.json still keeps in .ehviewer. */
+    @NonNull
+    private static GalleryInfo recordFromHeader(@NonNull SpiderInfo header, @NonNull String folderName) {
+        GalleryInfo info = new GalleryInfo();
+        info.gid = header.gid;
+        info.token = header.token;
+        info.title = SmbPaths.parseTitle(folderName);
+        info.pages = header.pages;
+        return info;
     }
 
     /** Cancels them all once none finishes for stallMillis. */

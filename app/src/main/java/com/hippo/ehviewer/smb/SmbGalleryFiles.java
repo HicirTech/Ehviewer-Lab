@@ -30,6 +30,9 @@ public final class SmbGalleryFiles {
 
     private static final String SPIDER_INFO_FILE = ".ehviewer";
 
+    /** The cover's file name before its image extension. */
+    static final String COVER_NAME = "cover";
+
     /** jcifs sizes each SMB2 request from the caller's buffer, so this size sets throughput. */
     static final int SMB_IO_BUFFER = 256 * 1024;
 
@@ -126,10 +129,20 @@ public final class SmbGalleryFiles {
     /** Without pTokens; null when missing, unreadable or another gallery's. */
     @Nullable
     public static SpiderInfo readSpiderInfoHeader(@NonNull GalleryInfo info) {
-        InputStream is = openSpiderInfoInputStream(info);
+        return readHeader(openSpiderInfoInputStream(info), info.gid);
+    }
+
+    /** As above, for a folder already in hand. */
+    @Nullable
+    static SpiderInfo readSpiderInfoHeader(@NonNull SmbFile galleryDir, long gid) {
+        return readHeader(openSpiderInfoInputStream(galleryDir, gid), gid);
+    }
+
+    @Nullable
+    private static SpiderInfo readHeader(@Nullable InputStream is, long gid) {
         try {
             SpiderInfo header = SpiderInfo.readHeader(is);
-            return header != null && header.gid == info.gid ? header : null;
+            return header != null && header.gid == gid ? header : null;
         } finally {
             IOUtils.closeQuietly(is);
         }
@@ -137,21 +150,40 @@ public final class SmbGalleryFiles {
 
     @Nullable
     public static InputStream openSpiderInfoInputStream(@NonNull GalleryInfo info) {
+        try {
+            return openSpiderInfoInputStream(SmbGalleryDirectory.resolveGalleryDir(info), info.gid);
+        } catch (Throwable e) {
+            Log.i("SmbPerf", "spiderInfo.read gid=" + info.gid + " FAILED: " + e);
+            return null;
+        }
+    }
+
+    @Nullable
+    private static InputStream openSpiderInfoInputStream(@NonNull SmbFile galleryDir, long gid) {
         long t0 = SystemClock.elapsedRealtime();
         try {
-            SmbFile file = new SmbFile(SmbGalleryDirectory.resolveGalleryDir(info), SPIDER_INFO_FILE);
+            SmbFile file = new SmbFile(galleryDir, SPIDER_INFO_FILE);
             if (!file.exists()) {
-                Log.i("SmbPerf", "spiderInfo.read gid=" + info.gid + " missing " + (SystemClock.elapsedRealtime() - t0) + "ms");
+                Log.i("SmbPerf", "spiderInfo.read gid=" + gid + " missing " + (SystemClock.elapsedRealtime() - t0) + "ms");
                 return null;
             }
             // SpiderInfo.read() parses byte by byte; unbuffered, each byte is an SMB round trip.
             InputStream in = new java.io.BufferedInputStream(file.getInputStream(), 64 * 1024);
-            Log.i("SmbPerf", "spiderInfo.read gid=" + info.gid + " " + (SystemClock.elapsedRealtime() - t0) + "ms");
+            Log.i("SmbPerf", "spiderInfo.read gid=" + gid + " " + (SystemClock.elapsedRealtime() - t0) + "ms");
             return in;
         } catch (Throwable e) {
-            Log.i("SmbPerf", "spiderInfo.read gid=" + info.gid + " FAILED " + (SystemClock.elapsedRealtime() - t0) + "ms: " + e);
+            Log.i("SmbPerf", "spiderInfo.read gid=" + gid + " FAILED " + (SystemClock.elapsedRealtime() - t0) + "ms: " + e);
             return null;
         }
+    }
+
+    static boolean hasCover(@NonNull Set<String> names) {
+        for (String extension : com.hippo.ehviewer.gallery.GalleryProvider2.SUPPORT_IMAGE_EXTENSIONS) {
+            if (names.contains(COVER_NAME + extension)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     @Nullable
@@ -224,7 +256,7 @@ public final class SmbGalleryFiles {
         SmbFile galleryDir = SmbGalleryDirectory.resolveGalleryDir(info);
         int probes = 0;
         for (String extension : com.hippo.ehviewer.gallery.GalleryProvider2.SUPPORT_IMAGE_EXTENSIONS) {
-            SmbFile file = new SmbFile(galleryDir, "cover" + extension);
+            SmbFile file = new SmbFile(galleryDir, COVER_NAME + extension);
             probes++;
             if (file.exists()) {
                 Log.i("SmbPerf", "cover.find gid=" + info.gid + " probes=" + probes
