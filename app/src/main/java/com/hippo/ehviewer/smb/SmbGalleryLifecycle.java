@@ -18,6 +18,7 @@ import com.hippo.lib.yorozuya.IOUtils;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.util.Set;
 
 import jcifs.smb.SmbFile;
 
@@ -106,16 +107,15 @@ public final class SmbGalleryLifecycle {
     }
 
     private static int countSavedImages(@NonNull SmbFile galleryDir, int pageCount) throws IOException {
-        String[] names = galleryDir.list();
-        if (names == null || names.length == 0) {
-            return 0;
-        }
-        java.util.HashSet<String> present = new java.util.HashSet<>(names.length * 2);
-        java.util.Collections.addAll(present, names);
+        return countStoredPages(SmbGalleryDirectory.storedNames(galleryDir), pageCount);
+    }
+
+    /** Pages 1..pageCount found under any image extension. */
+    static int countStoredPages(@NonNull Set<String> names, int pageCount) {
         int count = 0;
         for (int i = 0; i < pageCount; i++) {
             for (String extension : com.hippo.ehviewer.gallery.GalleryProvider2.SUPPORT_IMAGE_EXTENSIONS) {
-                if (present.contains(SpiderDen.generateImageFilename(i, extension))) {
+                if (names.contains(SpiderDen.generateImageFilename(i, extension))) {
                     count++;
                     break;
                 }

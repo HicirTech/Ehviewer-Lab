@@ -8,7 +8,6 @@ import androidx.annotation.NonNull;
 import com.hippo.ehviewer.client.data.GalleryInfo;
 
 import java.io.IOException;
-import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
 
@@ -102,10 +101,7 @@ public final class SmbGalleryDirectory {
         Set<String> names = new HashSet<>();
         long tList = SystemClock.elapsedRealtime();
         try {
-            String[] list = resolveGalleryDir(info).list();
-            if (list != null) {
-                Collections.addAll(names, list);
-            }
+            names = storedNames(resolveGalleryDir(info));
             Log.i("SmbPerf", "list gid=" + info.gid + " n=" + names.size() + " " + (SystemClock.elapsedRealtime() - tList) + "ms thr=" + Thread.currentThread().getName());
         } catch (Throwable e) {
             if (!isFolderMissing(e)) {
@@ -115,6 +111,23 @@ public final class SmbGalleryDirectory {
             }
         }
         LISTING_CACHE.put(info.gid, names, now);
+        return names;
+    }
+
+    /** The folder's file names, empty files left out: a page stored as 0 bytes is not stored (#203). */
+    @NonNull
+    static Set<String> storedNames(@NonNull SmbFile dir) throws IOException {
+        Set<String> names = new HashSet<>();
+        SmbFile[] files = dir.listFiles();
+        if (files == null) {
+            return names;
+        }
+        for (SmbFile file : files) {
+            // Attributes ride the enumeration: no extra round trips.
+            if (!file.isDirectory() && file.length() > 0) {
+                names.add(file.getName());
+            }
+        }
         return names;
     }
 

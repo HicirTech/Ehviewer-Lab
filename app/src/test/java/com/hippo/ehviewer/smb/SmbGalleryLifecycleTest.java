@@ -48,6 +48,8 @@ public class SmbGalleryLifecycleTest {
     static final Map<String, String[]> listings = new HashMap<>();
     static final Map<String, byte[]> contents = new HashMap<>();
     static final List<String> deleted = new ArrayList<>();
+    /** By path; a listed file without an entry holds one byte. */
+    static final Map<String, Long> sizes = new HashMap<>();
 
     @Implements(SmbFile.class)
     public static class ShadowSmbFile {
@@ -59,8 +61,9 @@ public class SmbGalleryLifecycleTest {
         }
 
         @Implementation
-        protected String[] list() {
-            return listings.get(real.getPath());
+        protected long length() {
+            Long size = sizes.get(real.getPath());
+            return size != null ? size : 1L;
         }
 
         @Implementation
@@ -108,6 +111,7 @@ public class SmbGalleryLifecycleTest {
         listings.clear();
         contents.clear();
         deleted.clear();
+        sizes.clear();
         SmbGalleryDirectoryTest.clearListingCache();
         dirPath = SmbGalleryDirectory.resolveGalleryDir(gallery).getPath();
     }
@@ -146,6 +150,14 @@ public class SmbGalleryLifecycleTest {
     public void aGalleryMissingAPageIsNotComplete() {
         metadataSays(3);
         listings.put(dirPath, new String[]{"00000001.webp", "00000003.webp", "metadata.json"});
+        assertFalse(SmbGalleryLifecycle.isGalleryComplete(gallery));
+    }
+
+    @Test
+    public void anEmptyPageLeavesTheGalleryIncomplete() {
+        metadataSays(2);
+        listings.put(dirPath, new String[]{"00000001.webp", "00000002.jpg", "metadata.json"});
+        sizes.put(dirPath + "00000002.jpg", 0L);
         assertFalse(SmbGalleryLifecycle.isGalleryComplete(gallery));
     }
 

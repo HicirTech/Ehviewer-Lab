@@ -8,6 +8,7 @@
 package com.hippo.ehviewer.smb;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
@@ -48,6 +49,8 @@ public class SmbGalleryDirectoryTest {
     static final Set<String> existing = new HashSet<>();
     static final Map<String, String[]> listings = new HashMap<>();
     static final List<String> wireCalls = new ArrayList<>();
+    /** By path; a listed file without an entry holds one byte. */
+    static final Map<String, Long> sizes = new HashMap<>();
 
     static boolean listFails;
     static boolean mkdirsFails;
@@ -117,12 +120,31 @@ public class SmbGalleryDirectoryTest {
         }
 
         @Implementation
-        protected String[] list() throws jcifs.smb.SmbException {
+        protected SmbFile[] listFiles() throws Exception {
             wireCalls.add("list:" + real.getPath());
             if (listFails) {
                 throw new jcifs.smb.SmbException(0xC00000B5, false); // IO_TIMEOUT: transient
             }
-            return listings.get(real.getPath());
+            String[] names = listings.get(real.getPath());
+            if (names == null) {
+                return null;
+            }
+            SmbFile[] out = new SmbFile[names.length];
+            for (int i = 0; i < names.length; i++) {
+                out[i] = new SmbFile(real, names[i]);
+            }
+            return out;
+        }
+
+        @Implementation
+        protected boolean isDirectory() {
+            return real.getPath().endsWith("/");
+        }
+
+        @Implementation
+        protected long length() {
+            Long size = sizes.get(real.getPath());
+            return size != null ? size : 1L;
         }
     }
 
@@ -138,6 +160,7 @@ public class SmbGalleryDirectoryTest {
         existing.clear();
         listings.clear();
         wireCalls.clear();
+        sizes.clear();
         listFails = false;
         mkdirsFails = false;
         createLimitBytes = 0;
@@ -195,6 +218,17 @@ public class SmbGalleryDirectoryTest {
         SmbGalleryDirectory.galleryFilenames(gallery);
         assertEquals("invalidation must force a fresh listing",
                 2, wireCalls.stream().filter(c -> c.startsWith("list:")).count());
+    }
+
+    @Test
+    public void anEmptyPageIsNotStoredSoItIsFetchedAgain() throws Exception {
+        String dirPath = SmbGalleryDirectory.resolveGalleryDir(gallery).getPath();
+        listings.put(dirPath, new String[]{"00000001.webp", "00000002.webp"});
+        sizes.put(dirPath + "00000002.webp", 0L);
+
+        assertEquals(Set.of("00000001.webp"), SmbGalleryDirectory.galleryFilenames(gallery));
+        assertTrue(SmbGalleryFiles.containImage(gallery, 0));
+        assertFalse("a 0-byte page must not count as saved", SmbGalleryFiles.containImage(gallery, 1));
     }
 
     @Test
