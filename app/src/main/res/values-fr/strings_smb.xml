@@ -63,6 +63,7 @@
     <string name="smb_take_over_owner_returned">Cet appareil est de retour en ligne, son téléchargement n\'a donc pas été touché</string>
     <string name="smb_take_over_failed">Impossible de reprendre le téléchargement</string>
     <string name="smb_save_failed">Impossible de démarrer l\'enregistrement sur %1$s — le partage est peut-être injoignable</string>
+    <string name="smb_save_incomplete">Enregistrement sur %1$s en pause, pages manquantes ; reprenez-le dans Téléchargement : %2$s</string>
     <string name="smb_save_not_configured">%1$s n\'est pas configuré</string>
     <string name="gallery_download_target_title">Où enregistrer ?</string>
     <string name="gallery_download_target_local">Sur le téléphone</string>

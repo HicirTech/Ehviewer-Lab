@@ -63,6 +63,7 @@
     <string name="smb_take_over_owner_returned">That device is back online, so its download was left alone</string>
     <string name="smb_take_over_failed">Could not take over the download</string>
     <string name="smb_save_failed">Could not start the %1$s save — the share may be unreachable</string>
+    <string name="smb_save_incomplete">%1$s save paused with pages missing, resume it in Downloads: %2$s</string>
     <string name="smb_save_not_configured">%1$s is not configured</string>
     <string name="gallery_download_target_title">Where to save?</string>
     <string name="gallery_download_target_local">To phone</string>

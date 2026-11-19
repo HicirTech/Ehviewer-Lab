@@ -63,6 +63,7 @@
     <string name="smb_take_over_owner_returned">Das Gerät ist wieder online, sein Download wurde daher nicht angetastet</string>
     <string name="smb_take_over_failed">Der Download konnte nicht übernommen werden</string>
     <string name="smb_save_failed">Die %1$s-Speicherung konnte nicht gestartet werden — die Freigabe ist möglicherweise nicht erreichbar</string>
+    <string name="smb_save_incomplete">Speichern auf %1$s mit fehlenden Seiten pausiert, in Downloads fortsetzen: %2$s</string>
     <string name="smb_save_not_configured">%1$s ist nicht eingerichtet</string>
     <string name="gallery_download_target_title">Wohin speichern?</string>
     <string name="gallery_download_target_local">Auf das Telefon</string>

@@ -13,8 +13,10 @@ import android.content.Context;
 import android.content.pm.ServiceInfo;
 import android.os.Looper;
 
+import com.hippo.ehviewer.R;
 import com.hippo.ehviewer.client.data.GalleryInfo;
 import com.hippo.ehviewer.spider.SpiderQueen;
+import com.hippo.ehviewer.storage.NetworkStorage;
 import com.hippo.ehviewer.storage.NetworkStorageSettings;
 
 import java.util.ArrayList;
@@ -37,6 +39,7 @@ import org.robolectric.annotation.Implements;
 import org.robolectric.annotation.Resetter;
 import org.robolectric.shadow.api.Shadow;
 import org.robolectric.shadows.ShadowService;
+import org.robolectric.shadows.ShadowToast;
 
 /** Pins the SMB download task state machine (issue #43). */
 @RunWith(RobolectricTestRunner.class)
@@ -313,6 +316,25 @@ public class SmbDirectDownloaderTest {
                 SmbDirectDownloader.TaskSnapshot.State.PAUSED, stateOf(1));
         assertTrue("the queen must be released: " + calls, calls.contains("stop"));
         assertFalse("nothing to finalize: " + calls, calls.contains("finalize:1"));
+        GalleryTargets.unmark(1);
+    }
+
+    @Test
+    public void aSaveMissingSomePagesIsPausedNotFinished() {
+        SmbDirectDownloader.getInstance().start(context, gallery(1));
+        drain();
+        assertEquals(1, listeners.size());
+
+        listeners.get(0).onFinish(7, 10, 10);
+        drain();
+
+        assertEquals("three pages are missing, so the task must stay to be resumed",
+                SmbDirectDownloader.TaskSnapshot.State.PAUSED, stateOf(1));
+        assertTrue("the queen must be released: " + calls, calls.contains("stop"));
+        assertFalse("an incomplete save is not finalized: " + calls, calls.contains("finalize:1"));
+        assertEquals(context.getString(R.string.smb_save_incomplete,
+                        NetworkStorage.active().displayName(), "task fixture 1"),
+                ShadowToast.getTextOfLatestToast());
         GalleryTargets.unmark(1);
     }
 

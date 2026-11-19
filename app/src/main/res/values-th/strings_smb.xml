@@ -63,6 +63,7 @@
     <string name="smb_take_over_owner_returned">อุปกรณ์เครื่องนั้นกลับมาออนไลน์แล้ว จึงไม่ได้แตะต้องการดาวน์โหลดของเครื่องนั้น</string>
     <string name="smb_take_over_failed">ไม่สามารถรับช่วงการดาวน์โหลดได้</string>
     <string name="smb_save_failed">ไม่สามารถเริ่มบันทึกไปยัง %1$s ได้ — อาจเข้าถึงแชร์ไม่ได้</string>
+    <string name="smb_save_incomplete">หยุดบันทึกไปยัง %1$s ชั่วคราวเพราะยังขาดบางหน้า ทำต่อได้ในหน้าดาวน์โหลด: %2$s</string>
     <string name="smb_save_not_configured">ยังไม่ได้ตั้งค่า %1$s</string>
     <string name="gallery_download_target_title">บันทึกไว้ที่ไหน?</string>
     <string name="gallery_download_target_local">ลงโทรศัพท์</string>

@@ -63,6 +63,7 @@
     <string name="smb_take_over_owner_returned">その端末がオンラインに戻ったため、そのダウンロードには手を付けていません</string>
     <string name="smb_take_over_failed">ダウンロードを引き継げませんでした</string>
     <string name="smb_save_failed">%1$s への保存を開始できませんでした — 共有に接続できない可能性があります</string>
+    <string name="smb_save_incomplete">%1$s への保存はページが欠けたまま一時停止しました。ダウンロードで再開できます: %2$s</string>
     <string name="smb_save_not_configured">%1$s は設定されていません</string>
     <string name="gallery_download_target_title">どこに保存しますか？</string>
     <string name="gallery_download_target_local">本体に保存</string>
