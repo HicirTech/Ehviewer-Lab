@@ -15,6 +15,7 @@ import com.hippo.ehviewer.client.data.GalleryDetail;
 import com.hippo.ehviewer.client.data.GalleryInfo;
 import com.hippo.ehviewer.spider.GallerySpiderStorage;
 import com.hippo.ehviewer.storage.DownloadState;
+import com.hippo.ehviewer.storage.GalleryCheck;
 import com.hippo.ehviewer.storage.GalleryRef;
 import com.hippo.ehviewer.storage.NetworkStorage;
 import com.hippo.ehviewer.storage.NetworkStorageFiles;
@@ -127,6 +128,14 @@ public final class SmbNetworkStorage implements NetworkStorage {
         @Override
         public GalleryInfo readGalleryMetadata(@NonNull GalleryInfo hint) {
             return SmbInventory.readGalleryMetadata(hint);
+        }
+
+        @NonNull
+        @Override
+        public List<GalleryCheck> checkGalleries(@NonNull List<GalleryRef> refs, long stallMillis,
+                                                 @NonNull CheckProgress progress)
+                throws InterruptedException, TimeoutException {
+            return SmbInventory.checkGalleries(refs, stallMillis, progress);
         }
     };
 

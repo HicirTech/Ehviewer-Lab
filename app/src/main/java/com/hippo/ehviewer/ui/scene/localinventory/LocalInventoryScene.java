@@ -96,6 +96,7 @@ public class LocalInventoryScene extends BaseScene
     private static final int FAB_RESYNC_SELECTED = 3;
     private static final int FAB_DELETE_SELECTED = 4;
     private static final int FAB_SELECT_ALL = 5;
+    private static final int FAB_SCAN = 6;
 
     @Nullable
     private EasyRecyclerView mRecyclerView;
@@ -125,6 +126,8 @@ public class LocalInventoryScene extends BaseScene
     private final InventoryPager mPager = new InventoryPager();
 
     private final InventoryBadges mBadges = new InventoryBadges(mWorker, this::applyDownloadMarks);
+
+    private final InventoryScan mScan = new InventoryScan(mWorker, this::showResyncDialog);
 
     private final InventoryOps mOps = new InventoryOps(mWorker, new InventoryOps.Listener() {
         @Override
@@ -389,6 +392,9 @@ public class LocalInventoryScene extends BaseScene
                     mRecyclerView.checkAll();
                 }
                 break;
+            case FAB_SCAN:
+                scanForMissingFiles();
+                break;
         }
         view.setExpanded(false);
     }
@@ -569,6 +575,14 @@ public class LocalInventoryScene extends BaseScene
         mFabLayout.setSecondaryFabVisibilityAt(FAB_RESYNC_SELECTED, selecting);
         mFabLayout.setSecondaryFabVisibilityAt(FAB_DELETE_SELECTED, selecting);
         mFabLayout.setSecondaryFabVisibilityAt(FAB_SELECT_ALL, selecting);
+        mFabLayout.setSecondaryFabVisibilityAt(FAB_SCAN, !selecting);
+    }
+
+    private void scanForMissingFiles() {
+        Context context = getEHContext();
+        if (context != null) {
+            mScan.start(context);
+        }
     }
 
     private final Runnable mShowNormalFabsRunnable = () -> setFabs(false);

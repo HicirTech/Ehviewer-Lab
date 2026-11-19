@@ -234,7 +234,7 @@ public final class SmbGalleryLifecycle {
             InputStream in = response.body().byteStream();
             OutputStream out;
             try {
-                out = SmbGalleryFiles.openAtomicOutputStream(galleryDir, "cover" + extension, info.gid);
+                out = SmbGalleryFiles.openAtomicOutputStream(galleryDir, SmbGalleryFiles.COVER_NAME + extension, info.gid);
             } catch (IOException e) {
                 IOUtils.closeQuietly(in);
                 throw e;
