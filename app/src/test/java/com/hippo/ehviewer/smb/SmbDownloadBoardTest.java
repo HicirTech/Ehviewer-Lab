@@ -109,9 +109,11 @@ public class SmbDownloadBoardTest {
             calls.add("enqueue:" + info.gid);
         }
 
+        int rowState = com.hippo.ehviewer.dao.DownloadInfo.STATE_WAIT;
+
         @Override
         public int localRowState(long gid) {
-            return com.hippo.ehviewer.dao.DownloadInfo.STATE_WAIT;
+            return rowState;
         }
     }
 
@@ -219,6 +221,32 @@ public class SmbDownloadBoardTest {
         assertEquals(SmbDownloadBoard.TakeOverResult.TAKEN, got[0]);
         assertEquals(List.of("stamp:42", "enqueue:42"), device.calls);
         assertTrue(storeWrites.contains("removeTask:rival:42"));
+    }
+
+    @Test
+    public void aStoppedTaskWithPagesMissingShowsHowManyAreLeft() {
+        device.rowState = com.hippo.ehviewer.dao.DownloadInfo.STATE_NONE;
+        device.held.add(task(42L, 1_000L));
+
+        SmbTaskInfo row = sharedRow(42L);
+        assertEquals(com.hippo.ehviewer.dao.DownloadInfo.STATE_FAILED, row.state);
+        assertEquals(7, row.legacy);
+    }
+
+    @Test
+    public void aStoppedTaskWithEveryPageSavedStaysStopped() {
+        device.rowState = com.hippo.ehviewer.dao.DownloadInfo.STATE_NONE;
+        device.held.add(new DownloadState.Task(42L, "token42", "Gallery 42", 10, 10, 1_000L, null));
+
+        assertEquals(com.hippo.ehviewer.dao.DownloadInfo.STATE_NONE, sharedRow(42L).state);
+    }
+
+    @Test
+    public void aRunningTaskWithPagesMissingKeepsItsState() {
+        device.rowState = com.hippo.ehviewer.dao.DownloadInfo.STATE_DOWNLOAD;
+        device.held.add(task(42L, 1_000L));
+
+        assertEquals(com.hippo.ehviewer.dao.DownloadInfo.STATE_DOWNLOAD, sharedRow(42L).state);
     }
 
     private SmbTaskInfo sharedRow(long gid) {

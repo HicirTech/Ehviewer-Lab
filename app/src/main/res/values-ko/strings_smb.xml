@@ -63,6 +63,7 @@
     <string name="smb_take_over_owner_returned">해당 기기가 다시 온라인 상태가 되어 그 다운로드는 그대로 두었습니다</string>
     <string name="smb_take_over_failed">다운로드를 이어받지 못했습니다</string>
     <string name="smb_save_failed">%1$s 저장을 시작할 수 없습니다. 공유에 연결할 수 없는 것 같습니다</string>
+    <string name="smb_save_incomplete">%1$s 저장이 빠진 페이지가 있어 일시 중지되었습니다. 다운로드에서 이어서 저장하세요: %2$s</string>
     <string name="smb_save_not_configured">%1$s이(가) 구성되지 않았습니다</string>
     <string name="gallery_download_target_title">어디에 저장할까요?</string>
     <string name="gallery_download_target_local">휴대폰에 저장</string>

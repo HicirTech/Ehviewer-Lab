@@ -63,6 +63,7 @@
     <string name="smb_take_over_owner_returned">Ese dispositivo volvió a conectarse, así que su descarga se dejó intacta</string>
     <string name="smb_take_over_failed">No se pudo tomar el control de la descarga</string>
     <string name="smb_save_failed">No se pudo iniciar el guardado en %1$s; puede que el recurso compartido no esté accesible</string>
+    <string name="smb_save_incomplete">Guardado en %1$s en pausa con páginas pendientes; reanúdalo en Descargas: %2$s</string>
     <string name="smb_save_not_configured">%1$s no está configurado</string>
     <string name="gallery_download_target_title">¿Dónde guardar?</string>
     <string name="gallery_download_target_local">En el teléfono</string>

@@ -91,7 +91,7 @@ public final class SmbAutoDownloadManager {
     }
 
     /** Callers are off the main thread; Toast needs a Looper. */
-    private static void toast(@NonNull Context appContext, @NonNull String text) {
+    static void toast(@NonNull Context appContext, @NonNull String text) {
         SimpleHandler.getInstance().post(() ->
                 Toast.makeText(appContext, text, Toast.LENGTH_SHORT).show());
     }

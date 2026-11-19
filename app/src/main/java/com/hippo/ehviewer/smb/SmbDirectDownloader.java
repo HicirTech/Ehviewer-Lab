@@ -8,6 +8,7 @@ import androidx.annotation.Nullable;
 
 import com.hippo.ehviewer.EhApplication;
 import com.hippo.ehviewer.EhDB;
+import com.hippo.ehviewer.R;
 import com.hippo.ehviewer.client.data.GalleryInfo;
 import com.hippo.ehviewer.dao.DownloadInfo;
 import com.hippo.ehviewer.spider.SpiderDen;
@@ -303,6 +304,13 @@ public final class SmbDirectDownloader {
         });
     }
 
+    private void toastIncomplete(@NonNull GalleryInfo info) {
+        Context ctx = appContext != null ? appContext : EhApplication.getInstance();
+        SmbAutoDownloadManager.toast(ctx, ctx.getString(R.string.smb_save_incomplete,
+                NetworkStorage.active().displayName(),
+                info.title != null ? info.title : ("gid " + info.gid)));
+    }
+
     private void yieldOnMainThread(long gid) {
         releaseQueen(ledger.yield(gid), "yield", gid);
         GalleryTargets.unmark(gid);
@@ -493,11 +501,12 @@ public final class SmbDirectDownloader {
 
         @Override
         public void onFinish(int finished, int downloaded, int total) {
-            if (finished == 0) {
-                // Nothing reached the share: finishing would retire the task as saved (#196).
-                Log.w(TAG, "SMB direct download saved no page gid=" + info.gid
-                        + " (" + downloaded + "/" + total + " done), pausing it");
+            if (finished == 0 || finished < total) {
+                // Pages missing: finishing would retire it as saved and drop a move's phone copy (#198).
+                Log.w(TAG, "SMB direct download saved " + finished + "/" + total + " pages gid="
+                        + info.gid + " (" + downloaded + " done), pausing it");
                 pause(info.gid);
+                toastIncomplete(info);
                 return;
             }
             onJobFinish(info);
