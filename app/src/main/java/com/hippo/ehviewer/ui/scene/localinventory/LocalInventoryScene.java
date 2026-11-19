@@ -769,7 +769,7 @@ public class LocalInventoryScene extends BaseScene
         context.startActivity(intent);
     }
 
-    private final class InventoryHolder extends RecyclerView.ViewHolder {
+    static final class InventoryHolder extends RecyclerView.ViewHolder {
         final LoadImageView thumb;
         final TextView title;
         final TextView uploader;
@@ -783,6 +783,8 @@ public class LocalInventoryScene extends BaseScene
         InventoryHolder(View itemView) {
             super(itemView);
             thumb = (LoadImageView) itemView.findViewById(R.id.thumb);
+            // Click-to-retry clears click listeners on every reload, the reader's with them (#199).
+            thumb.setRetryType(LoadImageView.RETRY_TYPE_NONE);
             title = (TextView) itemView.findViewById(R.id.title);
             uploader = (TextView) itemView.findViewById(R.id.uploader);
             rating = (SimpleRatingView) itemView.findViewById(R.id.rating);
