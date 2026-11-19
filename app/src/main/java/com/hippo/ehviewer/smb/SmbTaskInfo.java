@@ -34,6 +34,8 @@ public final class SmbTaskInfo extends DownloadInfo {
         this.finished = owned.task.finished;
         this.total = owned.task.total;
         this.downloaded = owned.task.finished;
+        // Upstream's count of pages still missing; its row shows it on a failed task.
+        this.legacy = Math.max(0, owned.task.total - owned.task.finished);
         this.time = owned.task.claimedAt;
         this.state = state;
         this.deviceName = owned.deviceName;

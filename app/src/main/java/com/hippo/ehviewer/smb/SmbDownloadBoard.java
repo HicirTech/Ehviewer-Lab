@@ -219,7 +219,13 @@ public final class SmbDownloadBoard {
         if (!owned.clientId.equals(selfId)) {
             return com.hippo.ehviewer.dao.DownloadInfo.STATE_DOWNLOAD;
         }
-        return device.localRowState(owned.task.gid);
+        int state = device.localRowState(owned.task.gid);
+        // Stopped with pages missing: upstream's row reads that as "N incomplete" (#198).
+        if (state == com.hippo.ehviewer.dao.DownloadInfo.STATE_NONE
+                && owned.task.finished < owned.task.total) {
+            return com.hippo.ehviewer.dao.DownloadInfo.STATE_FAILED;
+        }
+        return state;
     }
 
     /** Whether a live rival already claims this gid. SMB I/O; worker thread. */
