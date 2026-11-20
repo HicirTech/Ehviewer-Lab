@@ -11,10 +11,12 @@
     <string name="settings_homelab_password_set">Festgelegt</string>
     <string name="settings_homelab_password_unset">Nicht festgelegt. HOMELAB_PASS aus der .env des Companions eintragen</string>
     <string name="settings_homelab_sr_enable">Seiten beim Lesen hochskalieren</string>
-    <string name="settings_homelab_sr_enable_summary">Seiten, die kleiner als der Bildschirm sind, gehen an das Homelab und kommen schärfer zurück. Nichts wird gespeichert</string>
+    <string name="settings_homelab_sr_enable_summary">Seiten gehen an das Homelab und kommen schärfer zurück. Nichts wird gespeichert</string>
     <string name="settings_homelab_sr_local">Auf diesem Gerät verarbeiten</string>
     <string name="settings_homelab_sr_local_summary">Noch nicht verfügbar; Seiten gehen an das Homelab</string>
     <string name="settings_homelab_sr_url">Super-Resolution-URL</string>
     <string name="settings_homelab_sr_url_unset">Nicht festgelegt, z. B. http://192.168.1.10:8790 oder https://sr.example.com</string>
     <string name="settings_homelab_sr_url_invalid">Unverschlüsseltes http geht nur mit einer LAN-Adresse (10.x, 172.16–31.x, 192.168.x); für einen Domainnamen https verwenden</string>
+    <string name="settings_homelab_sr_target">Zielauflösung</string>
+    <string name="settings_homelab_sr_target_device">Geräteauflösung</string>
 </resources>

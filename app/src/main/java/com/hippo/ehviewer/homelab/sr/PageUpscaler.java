@@ -30,8 +30,9 @@ import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
 /**
- * Super-resolution while reading (#207): a decoded page smaller than the screen goes to the homelab, and the
- * sharper copy comes back through {@link Delivery}. It lives only in memory: nothing is written to disk.
+ * Super-resolution while reading (#207): a decoded page goes to the homelab at the scale its {@link ScaleTarget}
+ * asks for, and the sharper copy comes back through {@link Delivery}. It lives only in memory: nothing is written
+ * to disk.
  */
 public final class PageUpscaler {
 
@@ -75,7 +76,7 @@ public final class PageUpscaler {
                 return;
             }
             startIfNeeded();
-            int scale = ScaleRule.pick(mLongSide, image.getWidth(), image.getHeight());
+            int scale = HomelabSettings.getScaleTarget().scaleFor(mLongSide, image.getWidth(), image.getHeight());
             if (scale == ScaleRule.NONE) {
                 return;
             }

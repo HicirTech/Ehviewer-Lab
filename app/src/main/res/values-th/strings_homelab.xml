@@ -11,10 +11,12 @@
     <string name="settings_homelab_password_set">ตั้งค่าแล้ว</string>
     <string name="settings_homelab_password_unset">ยังไม่ได้ตั้งค่า ใช้ HOMELAB_PASS จากไฟล์ .env ของ companion</string>
     <string name="settings_homelab_sr_enable">ขยายความละเอียดขณะอ่าน</string>
-    <string name="settings_homelab_sr_enable_summary">หน้าที่เล็กกว่าหน้าจอจะถูกส่งไปที่ homelab และกลับมาคมชัดขึ้น ไม่มีการบันทึก</string>
+    <string name="settings_homelab_sr_enable_summary">หน้าจะถูกส่งไปที่ homelab และกลับมาคมชัดขึ้น ไม่มีการบันทึก</string>
     <string name="settings_homelab_sr_local">ประมวลผลบนอุปกรณ์นี้</string>
     <string name="settings_homelab_sr_local_summary">ยังใช้งานไม่ได้ หน้าจะถูกส่งไปที่ homelab</string>
     <string name="settings_homelab_sr_url">URL สำหรับขยายความละเอียด</string>
     <string name="settings_homelab_sr_url_unset">ยังไม่ได้ตั้งค่า เช่น http://192.168.1.10:8790 หรือ https://sr.example.com</string>
     <string name="settings_homelab_sr_url_invalid">ใช้ http ได้เฉพาะกับที่อยู่ใน LAN (10.x, 172.16–31.x, 192.168.x) ถ้าใช้ชื่อโดเมนให้ใช้ https</string>
+    <string name="settings_homelab_sr_target">ความละเอียดเป้าหมาย</string>
+    <string name="settings_homelab_sr_target_device">ความละเอียดของอุปกรณ์</string>
 </resources>

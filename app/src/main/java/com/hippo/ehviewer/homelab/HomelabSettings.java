@@ -10,6 +10,7 @@ import androidx.annotation.NonNull;
 
 import com.hippo.ehviewer.Hosts;
 import com.hippo.ehviewer.Settings;
+import com.hippo.ehviewer.homelab.sr.ScaleTarget;
 
 import java.net.Inet4Address;
 import java.net.InetAddress;
@@ -25,6 +26,7 @@ public final class HomelabSettings {
     /** Upscale on this device instead of the homelab; the device side comes with #208. */
     public static final String KEY_SR_LOCAL = "homelab_sr_local";
     public static final String KEY_SR_URL = "homelab_sr_url";
+    public static final String KEY_SR_TARGET = "homelab_sr_target";
 
     private HomelabSettings() {}
 
@@ -38,6 +40,11 @@ public final class HomelabSettings {
     public static String getSuperResolutionUrl() {
         String url = normalizeUrl(Settings.getString(KEY_SR_URL, ""));
         return isAllowedUrl(url) ? url : "";
+    }
+
+    @NonNull
+    public static ScaleTarget getScaleTarget() {
+        return ScaleTarget.fromValue(Settings.getString(KEY_SR_TARGET, ScaleTarget.DEVICE.value));
     }
 
     /** https to any host; plain http only to a LAN address: 10/8, 172.16/12 or 192.168/16. */

@@ -16,6 +16,8 @@ import androidx.preference.Preference;
 import com.hippo.ehviewer.R;
 import com.hippo.ehviewer.Settings;
 import com.hippo.ehviewer.homelab.HomelabSettings;
+import com.hippo.ehviewer.homelab.sr.ScaleTarget;
+import com.hippo.preference.ListPreference;
 
 /** The homelab page (#207): one password for every homelab service, and super-resolution while reading. */
 public class HomelabSettingsFragment extends BasePreferenceFragmentCompat
@@ -26,6 +28,7 @@ public class HomelabSettingsFragment extends BasePreferenceFragmentCompat
         addPreferencesFromResource(R.xml.homelab_settings);
         Preference password = findPreference(HomelabSettings.KEY_PASSWORD);
         Preference url = findPreference(HomelabSettings.KEY_SR_URL);
+        ListPreference target = findPreference(HomelabSettings.KEY_SR_TARGET);
         if (password != null) {
             password.setOnPreferenceChangeListener(this);
             showPassword(password, HomelabSettings.getPassword());
@@ -34,6 +37,23 @@ public class HomelabSettingsFragment extends BasePreferenceFragmentCompat
             url.setOnPreferenceChangeListener(this);
             showUrl(url, Settings.getString(HomelabSettings.KEY_SR_URL, ""));
         }
+        if (target != null) {
+            bindTargets(target);
+        }
+    }
+
+    /** The current value is set here: this ListPreference ignores its XML default. */
+    private void bindTargets(@NonNull ListPreference preference) {
+        ScaleTarget[] targets = ScaleTarget.values();
+        CharSequence[] entries = new CharSequence[targets.length];
+        CharSequence[] values = new CharSequence[targets.length];
+        for (int i = 0; i < targets.length; i++) {
+            entries[i] = targets[i].label(requireContext());
+            values[i] = targets[i].value;
+        }
+        preference.setEntries(entries);
+        preference.setEntryValues(values);
+        preference.setValue(HomelabSettings.getScaleTarget().value);
     }
 
     @Override

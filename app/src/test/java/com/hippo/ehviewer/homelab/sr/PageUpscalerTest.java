@@ -131,6 +131,16 @@ public class PageUpscalerTest {
     }
 
     @Test
+    public void aFixedTargetSendsEvenAPageAsLargeAsTheScreen() throws Exception {
+        Settings.putString(HomelabSettings.KEY_SR_TARGET, ScaleTarget.X2.value);
+
+        upscaler().onPage(0, page(LONG_SIDE, 300));
+
+        assertTrue(mDelivery.await(30, TimeUnit.SECONDS));
+        assertEquals("/v1/upscale?scale=2", mCompanion.target);
+    }
+
+    @Test
     public void closingTheReaderCancelsThePageOnItsWay() throws Exception {
         mCompanion.holdAnswer = true;
         PageUpscaler upscaler = upscaler();

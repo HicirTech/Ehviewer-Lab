@@ -11,6 +11,7 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
 import com.hippo.ehviewer.Settings;
+import com.hippo.ehviewer.homelab.sr.ScaleTarget;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -19,7 +20,7 @@ import org.robolectric.RobolectricTestRunner;
 import org.robolectric.RuntimeEnvironment;
 import org.robolectric.annotation.Config;
 
-/** When pages go to the homelab, and which URLs it may use (#207). */
+/** When pages go to the homelab, which URLs it may use, and what it aims for (#207). */
 @RunWith(RobolectricTestRunner.class)
 @Config(application = android.app.Application.class)
 public class HomelabSettingsTest {
@@ -90,5 +91,14 @@ public class HomelabSettingsTest {
 
         assertEquals("", HomelabSettings.getSuperResolutionUrl());
         assertFalse(HomelabSettings.sendsPagesToHomelab());
+    }
+
+    @Test
+    public void theTargetIsTheDeviceUntilAnotherIsChosen() {
+        assertEquals(ScaleTarget.DEVICE, HomelabSettings.getScaleTarget());
+
+        Settings.putString(HomelabSettings.KEY_SR_TARGET, ScaleTarget.X4.value);
+
+        assertEquals(ScaleTarget.X4, HomelabSettings.getScaleTarget());
     }
 }

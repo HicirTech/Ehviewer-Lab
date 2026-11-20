@@ -34,4 +34,11 @@
         android:key="homelab_sr_url"
         android:title="@string/settings_homelab_sr_url"
         android:inputType="textUri" />
+
+    <com.hippo.preference.ListPreference
+        android:defaultValue="device"
+        android:dependency="homelab_sr_enabled"
+        android:key="homelab_sr_target"
+        android:title="@string/settings_homelab_sr_target"
+        android:summary="%s" />
 </PreferenceScreen>
