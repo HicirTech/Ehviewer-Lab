@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  ~ Copyright 2026 Ehviewer SMB Saver fork
+  ~
+  ~ Licensed under the Apache License, Version 2.0 (the "License");
+  ~ you may not use this file except in compliance with the License.
+  -->
+
+<!-- The homelab settings page (#207). -->
+<resources>
+    <string name="settings_homelab" translatable="false">Homelab</string>
+    <string name="settings_homelab_password">Homelab password</string>
+    <string name="settings_homelab_password_set">Set</string>
+    <string name="settings_homelab_password_unset">Not set. Use HOMELAB_PASS from the .env of the companion</string>
+    <string name="settings_homelab_sr_enable">Upscale pages while reading</string>
+    <string name="settings_homelab_sr_enable_summary">Pages smaller than this screen go to the homelab and come back sharper. Nothing is stored</string>
+    <string name="settings_homelab_sr_local">Upscale on this device</string>
+    <string name="settings_homelab_sr_local_summary">Not available yet; pages go to the homelab</string>
+    <string name="settings_homelab_sr_url">Super-resolution URL</string>
+    <string name="settings_homelab_sr_url_unset">Not set, for example http://192.168.1.10:8790</string>
+    <string name="settings_homelab_sr_url_invalid">Enter an address starting with http:// or https://</string>
+</resources>

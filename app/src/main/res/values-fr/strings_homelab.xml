@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  ~ Copyright 2026 Ehviewer SMB Saver fork
+  ~
+  ~ Licensed under the Apache License, Version 2.0 (the "License");
+  ~ you may not use this file except in compliance with the License.
+  -->
+
+<resources>
+    <string name="settings_homelab_password">Mot de passe du homelab</string>
+    <string name="settings_homelab_password_set">Défini</string>
+    <string name="settings_homelab_password_unset">Non défini. Utilisez HOMELAB_PASS du fichier .env du companion</string>
+    <string name="settings_homelab_sr_enable">Super-résolution pendant la lecture</string>
+    <string name="settings_homelab_sr_enable_summary">Les pages plus petites que l\'écran sont envoyées au homelab et reviennent plus nettes. Rien n\'est enregistré</string>
+    <string name="settings_homelab_sr_local">Traiter sur cet appareil</string>
+    <string name="settings_homelab_sr_local_summary">Pas encore disponible ; les pages sont envoyées au homelab</string>
+    <string name="settings_homelab_sr_url">URL de super-résolution</string>
+    <string name="settings_homelab_sr_url_unset">Non défini, par exemple http://192.168.1.10:8790</string>
+    <string name="settings_homelab_sr_url_invalid">Saisissez une adresse commençant par http:// ou https://</string>
+</resources>

@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  ~ Copyright 2026 Ehviewer SMB Saver fork
+  ~
+  ~ Licensed under the Apache License, Version 2.0 (the "License");
+  ~ you may not use this file except in compliance with the License.
+  -->
+
+<resources>
+    <string name="settings_homelab_password">Homelab のパスワード</string>
+    <string name="settings_homelab_password_set">設定済み</string>
+    <string name="settings_homelab_password_unset">未設定。companion の .env にある HOMELAB_PASS を入力してください</string>
+    <string name="settings_homelab_sr_enable">閲覧中に超解像</string>
+    <string name="settings_homelab_sr_enable_summary">画面より小さいページを homelab に送り、より鮮明にして表示します。保存はしません</string>
+    <string name="settings_homelab_sr_local">この端末で処理</string>
+    <string name="settings_homelab_sr_local_summary">まだ使えません。ページは homelab に送られます</string>
+    <string name="settings_homelab_sr_url">超解像の URL</string>
+    <string name="settings_homelab_sr_url_unset">未設定（例: http://192.168.1.10:8790）</string>
+    <string name="settings_homelab_sr_url_invalid">http:// または https:// で始まるアドレスを入力してください</string>
+</resources>

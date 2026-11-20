@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  ~ Copyright 2026 Ehviewer SMB Saver fork
+  ~
+  ~ Licensed under the Apache License, Version 2.0 (the "License");
+  ~ you may not use this file except in compliance with the License.
+  -->
+
+<resources>
+    <string name="settings_homelab_password">Homelab 密码</string>
+    <string name="settings_homelab_password_set">已设置</string>
+    <string name="settings_homelab_password_unset">未设置，填 companion 的 .env 里 HOMELAB_PASS 的值</string>
+    <string name="settings_homelab_sr_enable">阅读时超分</string>
+    <string name="settings_homelab_sr_enable_summary">比屏幕小的页面会发给 homelab，换成更清晰的图，不会保存</string>
+    <string name="settings_homelab_sr_local">在本机处理</string>
+    <string name="settings_homelab_sr_local_summary">暂不可用，页面会发给 homelab</string>
+    <string name="settings_homelab_sr_url">超分处理 URL</string>
+    <string name="settings_homelab_sr_url_unset">未设置，例如 http://192.168.1.10:8790</string>
+    <string name="settings_homelab_sr_url_invalid">请输入以 http:// 或 https:// 开头的地址</string>
+</resources>

@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  ~ Copyright 2026 Ehviewer SMB Saver fork
+  ~
+  ~ Licensed under the Apache License, Version 2.0 (the "License");
+  ~ you may not use this file except in compliance with the License.
+  -->
+<PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto">
+
+    <com.hippo.preference.EditTextDialogPreference
+        android:key="homelab_password"
+        android:title="@string/settings_homelab_password"
+        android:inputType="textPassword" />
+
+    <com.hippo.preference.SwitchPreference
+        android:defaultValue="false"
+        android:key="homelab_sr_enabled"
+        android:title="@string/settings_homelab_sr_enable"
+        android:summary="@string/settings_homelab_sr_enable_summary"
+        app:allowDividerAbove="true" />
+
+    <!-- The device side comes with #208. -->
+    <com.hippo.preference.SwitchPreference
+        android:defaultValue="false"
+        android:enabled="false"
+        android:dependency="homelab_sr_enabled"
+        android:key="homelab_sr_local"
+        android:title="@string/settings_homelab_sr_local"
+        android:summary="@string/settings_homelab_sr_local_summary" />
+
+    <com.hippo.preference.EditTextDialogPreference
+        android:dependency="homelab_sr_enabled"
+        android:key="homelab_sr_url"
+        android:title="@string/settings_homelab_sr_url"
+        android:inputType="textUri" />
+</PreferenceScreen>
