@@ -1,3 +1,4 @@
+import contextlib
 import http.client
 import io
 import json
@@ -45,6 +46,32 @@ class ReadPasswordTest(unittest.TestCase):
         for environ in ({}, {"HOMELAB_PASS": shortest[1:]}):
             with self.subTest(environ=environ), self.assertRaises(SystemExit):
                 read_password(environ)
+
+
+class HangUpTest(unittest.TestCase):
+    def setUp(self):
+        self.server = Server(("127.0.0.1", 0), GatedUpscaler(), PASSWORD)
+        self.addCleanup(self.server.server_close)
+
+    def handle(self, error):
+        """Handles `error` the way the server does and returns what that wrote to stderr."""
+        stderr = io.StringIO()
+        with contextlib.redirect_stderr(stderr):
+            try:
+                raise error
+            except type(error):
+                self.server.handle_error(None, ("172.16.0.9", 50000))
+        return stderr.getvalue()
+
+    def test_a_client_hanging_up_leaves_one_log_line(self):
+        with self.assertLogs("sr", "INFO") as logs:
+            stderr = self.handle(BrokenPipeError(32, "Broken pipe"))
+
+        self.assertEqual("", stderr)
+        self.assertEqual(["INFO:sr:172.16.0.9 hung up before the response"], logs.output)
+
+    def test_other_errors_still_print_their_traceback(self):
+        self.assertIn("Traceback", self.handle(ValueError("a real fault")))
 
 
 class ServerTest(unittest.TestCase):

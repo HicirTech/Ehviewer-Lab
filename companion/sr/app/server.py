@@ -4,6 +4,7 @@ import io
 import json
 import logging
 import os
+import sys
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
@@ -47,6 +48,13 @@ class Server(ThreadingHTTPServer):
     def server_close(self):
         super().server_close()
         self.worker.shutdown(cancel_futures=True)
+
+    def handle_error(self, request, client_address):
+        # The app hangs up on pages the reader no longer needs; that is not a server fault.
+        if isinstance(sys.exception(), ConnectionError):
+            log.info("%s hung up before the response", client_address[0])
+            return
+        super().handle_error(request, client_address)
 
 
 class Handler(BaseHTTPRequestHandler):
