@@ -31,7 +31,7 @@ android {
         //noinspection ExpiredTargetSdkVersion
         targetSdkVersion 35
         versionCode 22
-        versionName "2.0.2.7-hl.4"
+        versionName "2.0.2.7-hl.5-rc1"
         vectorDrawables.useSupportLibrary = true
         // The launcher label. Because debug carries an applicationIdSuffix the two builds install
         // side by side, and with a single label they arrive as two identical-looking entries on the
