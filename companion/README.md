@@ -26,8 +26,10 @@ docker compose up -d --build
 docker compose logs sr   # "... on <your GPU>, listening on 8790"
 ```
 
-In the app's Homelab settings, enter `http://<host>:8790` as the super-resolution URL and the same password
-(app side: #207). Keep the port on the LAN or behind WireGuard; never expose it to the internet.
+In the app's Homelab settings, enter the super-resolution URL and the same password (app side: #207). The app
+uses plain http only with a LAN address (10.x, 172.16–31.x, 192.168.x), for example `http://192.168.1.10:8790`.
+A domain name needs https: put the service behind an https reverse proxy and enter `https://<domain>`. Keep
+port 8790 on the LAN or behind WireGuard; never expose it to the internet.
 
 ## API
 
@@ -38,8 +40,9 @@ Every request needs `Authorization: Bearer <HOMELAB_PASS>`.
 | `GET /v1/info` | `{"model": "realesr-animevideov3", "scales": [2, 3, 4], "device": "<GPU name or cpu>"}` |
 | `POST /v1/upscale?scale=N`, body: the page (JPEG, PNG, WebP; first frame of a GIF) | the page upscaled N times, as a JPEG of quality 95 |
 
-The app picks N. When the page's short side already reaches the device's long side it does not ask at all;
-otherwise N is the smallest of 2, 3 and 4 that brings the short side to at least the device's long side.
+The app picks N from its target resolution setting. With "Device resolution" it skips pages whose short side
+already reaches the device's long side and otherwise takes the smallest of 2, 3 and 4 that gets there; 2x, 3x
+and 4x upscale every page by that factor.
 
 Failures return `{"error": "..."}`:
 
