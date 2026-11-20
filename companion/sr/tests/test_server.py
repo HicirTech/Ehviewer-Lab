@@ -8,11 +8,11 @@ from pathlib import Path
 import numpy as np
 from PIL import Image
 
-from app.server import MAX_BODY_BYTES, Server
+from app.server import MAX_BODY_BYTES, MIN_PASS_LENGTH, Server, read_password
 from app.upscale import MODEL, Upscaler, pick_gpu
 
 MODELS = Path(__file__).resolve().parent.parent / "models"
-TOKEN = "test-token-0123456789"
+PASSWORD = "test-pass-0123"
 
 
 def png(width, height):
@@ -37,22 +37,32 @@ class GatedUpscaler:
         return np.zeros((h * scale, w * scale, 3), np.uint8)
 
 
+class ReadPasswordTest(unittest.TestCase):
+    def test_the_password_needs_the_minimum_length(self):
+        shortest = "p" * MIN_PASS_LENGTH
+
+        self.assertEqual(shortest, read_password({"HOMELAB_PASS": shortest}))
+        for environ in ({}, {"HOMELAB_PASS": shortest[1:]}):
+            with self.subTest(environ=environ), self.assertRaises(SystemExit):
+                read_password(environ)
+
+
 class ServerTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.upscaler = Upscaler(MODELS, pick_gpu())
 
     def start(self, upscaler=None, **limits):
-        server = Server(("127.0.0.1", 0), upscaler or self.upscaler, TOKEN, **limits)
+        server = Server(("127.0.0.1", 0), upscaler or self.upscaler, PASSWORD, **limits)
         threading.Thread(target=server.serve_forever, daemon=True).start()
         self.addCleanup(server.server_close)
         self.addCleanup(server.shutdown)
         return server.server_address[1]
 
     @staticmethod
-    def call(port, method, path, body=None, token=TOKEN):
+    def call(port, method, path, body=None, password=PASSWORD):
         conn = http.client.HTTPConnection("127.0.0.1", port, timeout=60)
-        headers = {"Authorization": f"Bearer {token}"} if token else {}
+        headers = {"Authorization": f"Bearer {password}"} if password else {}
         conn.request(method, path, body=body, headers=headers)
         response = conn.getresponse()
         return response.status, response.getheader("Content-Type"), response.read()
@@ -61,7 +71,7 @@ class ServerTest(unittest.TestCase):
     def call_with_headers_only(port, headers):
         conn = http.client.HTTPConnection("127.0.0.1", port, timeout=60)
         conn.putrequest("POST", "/v1/upscale?scale=2")
-        conn.putheader("Authorization", f"Bearer {TOKEN}")
+        conn.putheader("Authorization", f"Bearer {PASSWORD}")
         for name, value in headers.items():
             conn.putheader(name, value)
         conn.endheaders()
@@ -76,13 +86,13 @@ class ServerTest(unittest.TestCase):
         self.assertEqual("application/json", content_type)
         self.assertEqual({"model": MODEL, "scales": [2, 3, 4], "device": self.upscaler.device}, json.loads(body))
 
-    def test_requests_without_the_right_token_are_refused(self):
+    def test_requests_without_the_right_password_are_refused(self):
         port = self.start()
 
-        for token in (None, "wrong-token-0123456789"):
-            with self.subTest(token=token):
-                self.assertEqual(401, self.call(port, "GET", "/v1/info", token=token)[0])
-                self.assertEqual(401, self.call(port, "POST", "/v1/upscale?scale=2", png(4, 4), token=token)[0])
+        for password in (None, "wrong-pass-0123"):
+            with self.subTest(password=password):
+                self.assertEqual(401, self.call(port, "GET", "/v1/info", password=password)[0])
+                self.assertEqual(401, self.call(port, "POST", "/v1/upscale?scale=2", png(4, 4), password=password)[0])
 
     def test_upscale_returns_a_jpeg_scaled_by_the_factor(self):
         port = self.start()

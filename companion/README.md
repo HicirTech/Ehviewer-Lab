@@ -20,18 +20,18 @@ either side.
 
 ```sh
 cp .env.example .env
-# SR_TOKEN: a long random string, for example the output of `openssl rand -hex 24`
+# HOMELAB_PASS: the password of every homelab service, at least 8 characters
 # RENDER_GID: the output of `stat -c %g /dev/dri/renderD128`
 docker compose up -d --build
 docker compose logs sr   # "... on <your GPU>, listening on 8790"
 ```
 
-The app connects to `http://<host>:8790` with the token (app side: #207). Keep the port on the LAN or behind
-WireGuard; never expose it to the internet.
+In the app's Homelab settings, enter `http://<host>:8790` as the super-resolution URL and the same password
+(app side: #207). Keep the port on the LAN or behind WireGuard; never expose it to the internet.
 
 ## API
 
-Every request needs `Authorization: Bearer <SR_TOKEN>`.
+Every request needs `Authorization: Bearer <HOMELAB_PASS>`.
 
 | Request | Response |
 |---|---|
@@ -46,7 +46,7 @@ Failures return `{"error": "..."}`:
 | Status | When |
 |---|---|
 | 400 | scale is not 2, 3 or 4, or the body is not an image |
-| 401 | missing or wrong token |
+| 401 | missing or wrong password |
 | 404 | unknown path |
 | 411 | no `Content-Length` |
 | 413 | body over 32 MiB, input over 25 million pixels or output over 40 million pixels |
@@ -56,7 +56,7 @@ Failures return `{"error": "..."}`:
 ## Nothing is stored
 
 Requests are handled in memory. The container has a read-only root, no volumes and a 64 MB tmpfs that only
-holds Mesa's shader cache. The logs carry sizes and timings, never images or the token.
+holds Mesa's shader cache. The logs carry sizes and timings, never images or the password.
 
 ## Measured on the Radeon 780M (2026-11-20)
 

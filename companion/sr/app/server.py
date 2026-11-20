@@ -19,7 +19,7 @@ from app.upscale import MODEL, SCALES, Upscaler, pick_gpu
 
 PORT = 8790
 MODELS_DIR = Path(__file__).resolve().parent.parent / "models"
-MIN_TOKEN_LENGTH = 16
+MIN_PASS_LENGTH = 8
 MAX_BODY_BYTES = 32 * 1024 * 1024
 MAX_INPUT_PIXELS = 25_000_000
 # Long strips would explode: an 800 x 12000 page at x4 is 154 million pixels.
@@ -34,11 +34,11 @@ log = logging.getLogger("sr")
 class Server(ThreadingHTTPServer):
     daemon_threads = True
 
-    def __init__(self, address, upscaler, token, max_input_pixels=MAX_INPUT_PIXELS,
+    def __init__(self, address, upscaler, password, max_input_pixels=MAX_INPUT_PIXELS,
                  max_output_pixels=MAX_OUTPUT_PIXELS, max_queued=MAX_QUEUED):
         super().__init__(address, Handler)
         self.upscaler = upscaler
-        self.expected_auth = f"Bearer {token}".encode()
+        self.expected_auth = f"Bearer {password}".encode()
         self.max_input_pixels = max_input_pixels
         self.max_output_pixels = max_output_pixels
         self.slots = threading.BoundedSemaphore(max_queued)
@@ -110,7 +110,7 @@ class Handler(BaseHTTPRequestHandler):
         given = (self.headers.get("Authorization") or "").encode()
         if hmac.compare_digest(given, self.server.expected_auth):
             return True
-        self._fail(HTTPStatus.UNAUTHORIZED, "missing or wrong token", {"WWW-Authenticate": "Bearer"})
+        self._fail(HTTPStatus.UNAUTHORIZED, "missing or wrong password", {"WWW-Authenticate": "Bearer"})
         return False
 
     def _read_body(self):
@@ -144,13 +144,18 @@ def _scale(query):
     return {str(s): s for s in SCALES}.get(values[0]) if len(values) == 1 else None
 
 
+def read_password(environ):
+    password = environ.get("HOMELAB_PASS", "")
+    if len(password) < MIN_PASS_LENGTH:
+        raise SystemExit(f"HOMELAB_PASS must be at least {MIN_PASS_LENGTH} characters")
+    return password
+
+
 def main():
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
-    token = os.environ.get("SR_TOKEN", "")
-    if len(token) < MIN_TOKEN_LENGTH:
-        raise SystemExit(f"SR_TOKEN must be at least {MIN_TOKEN_LENGTH} characters")
+    password = read_password(os.environ)
     upscaler = Upscaler(MODELS_DIR, pick_gpu())
-    server = Server(("", PORT), upscaler, token)
+    server = Server(("", PORT), upscaler, password)
     log.info("%s on %s, listening on %d", MODEL, upscaler.device, PORT)
     server.serve_forever()
 
