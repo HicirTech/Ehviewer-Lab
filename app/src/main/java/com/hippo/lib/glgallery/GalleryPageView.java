@@ -137,6 +137,14 @@ public class GalleryPageView extends GLFrameLayout {
         }
     }
 
+    public boolean hasImage() {
+        return mImage.isLoaded();
+    }
+
+    public void replaceImage(ImageTexture imageTexture) {
+        mImage.replaceImageTexture(imageTexture);
+    }
+
     public void setPage(int page) {
         mPage.setVisibility(VISIBLE);
         mPage.setText(Integer.toString(page));

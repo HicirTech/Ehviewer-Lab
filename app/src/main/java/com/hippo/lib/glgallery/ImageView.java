@@ -186,7 +186,46 @@ class ImageView extends GLView implements ImageTexture.Callback {
         Arrays.sort(scaleDefault);
     }
 
+    // A sharper copy of the shown image waits here until all its tiles are uploaded (#207).
+    private ImageTexture mPendingTexture;
+
+    /** Shows a larger copy of the same image once it is uploaded, without moving what is on screen. */
+    public void replaceImageTexture(ImageTexture imageTexture) {
+        if (mImageTexture == null) {
+            setImageTexture(imageTexture);
+            return;
+        }
+        dropPendingTexture();
+        mPendingTexture = imageTexture;
+        invalidate();
+    }
+
+    private void dropPendingTexture() {
+        if (mPendingTexture != null) {
+            mPendingTexture.recycle();
+            mPendingTexture = null;
+        }
+    }
+
+    private void swapInPendingTexture() {
+        ImageTexture old = mImageTexture;
+        old.setCallback(null);
+        old.stop();
+        mImageTexture = mPendingTexture;
+        mPendingTexture = null;
+        mImageTexture.setCallback(this);
+        mImageTexture.start();
+        // mDst stays: the same picture, drawn from more pixels.
+        int width = Math.max(1, mImageTexture.getWidth());
+        mScale *= (float) mTextureWidth / width;
+        mTextureWidth = width;
+        mTextureHeight = Math.max(1, mImageTexture.getHeight());
+        mPositionInRootDirty = true;
+        old.recycle();
+    }
+
     public void setImageTexture(ImageTexture imageTexture) {
+        dropPendingTexture();
         // Remove callback
         if (mImageTexture != null) {
             mImageTexture.setCallback(null);
@@ -579,6 +618,9 @@ class ImageView extends GLView implements ImageTexture.Callback {
 
     @Override
     public void onRender(GLCanvas canvas) {
+        if (mPendingTexture != null && mPendingTexture.isReady()) {
+            swapInPendingTexture();
+        }
         Texture texture = mImageTexture;
         if (texture == null) {
             return;
