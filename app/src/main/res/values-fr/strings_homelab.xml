@@ -15,6 +15,6 @@
     <string name="settings_homelab_sr_local">Traiter sur cet appareil</string>
     <string name="settings_homelab_sr_local_summary">Pas encore disponible ; les pages sont envoyées au homelab</string>
     <string name="settings_homelab_sr_url">URL de super-résolution</string>
-    <string name="settings_homelab_sr_url_unset">Non défini, par exemple http://192.168.1.10:8790</string>
-    <string name="settings_homelab_sr_url_invalid">Saisissez une adresse commençant par http:// ou https://</string>
+    <string name="settings_homelab_sr_url_unset">Non défini, par exemple http://192.168.1.10:8790 ou https://sr.example.com</string>
+    <string name="settings_homelab_sr_url_invalid">Le http non chiffré ne fonctionne qu\'avec une adresse du réseau local (10.x, 172.16–31.x, 192.168.x) ; avec un nom de domaine, utilisez https</string>
 </resources>

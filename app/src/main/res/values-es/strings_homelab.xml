@@ -15,6 +15,6 @@
     <string name="settings_homelab_sr_local">Procesar en este dispositivo</string>
     <string name="settings_homelab_sr_local_summary">Aún no disponible; las páginas se envían al homelab</string>
     <string name="settings_homelab_sr_url">URL de superresolución</string>
-    <string name="settings_homelab_sr_url_unset">Sin establecer, por ejemplo http://192.168.1.10:8790</string>
-    <string name="settings_homelab_sr_url_invalid">Introduce una dirección que empiece por http:// o https://</string>
+    <string name="settings_homelab_sr_url_unset">Sin establecer, por ejemplo http://192.168.1.10:8790 o https://sr.example.com</string>
+    <string name="settings_homelab_sr_url_invalid">El http sin cifrar solo funciona con una dirección de la red local (10.x, 172.16–31.x, 192.168.x); con un nombre de dominio usa https</string>
 </resources>

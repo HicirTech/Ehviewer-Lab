@@ -17,8 +17,6 @@ import com.hippo.ehviewer.R;
 import com.hippo.ehviewer.Settings;
 import com.hippo.ehviewer.homelab.HomelabSettings;
 
-import okhttp3.HttpUrl;
-
 /** The homelab page (#207): one password for every homelab service, and super-resolution while reading. */
 public class HomelabSettingsFragment extends BasePreferenceFragmentCompat
         implements Preference.OnPreferenceChangeListener {
@@ -42,7 +40,7 @@ public class HomelabSettingsFragment extends BasePreferenceFragmentCompat
     public boolean onPreferenceChange(@NonNull Preference preference, Object newValue) {
         String value = newValue == null ? "" : newValue.toString();
         if (HomelabSettings.KEY_SR_URL.equals(preference.getKey())) {
-            if (!value.trim().isEmpty() && HttpUrl.parse(value.trim()) == null) {
+            if (!value.trim().isEmpty() && !HomelabSettings.isAllowedUrl(value)) {
                 Toast.makeText(requireContext(), R.string.settings_homelab_sr_url_invalid, Toast.LENGTH_SHORT).show();
                 return false;
             }

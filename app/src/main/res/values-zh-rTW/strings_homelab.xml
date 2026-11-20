@@ -15,6 +15,6 @@
     <string name="settings_homelab_sr_local">在本機處理</string>
     <string name="settings_homelab_sr_local_summary">暫不可用，頁面會傳給 homelab</string>
     <string name="settings_homelab_sr_url">超解析度處理 URL</string>
-    <string name="settings_homelab_sr_url_unset">未設定，例如 http://192.168.1.10:8790</string>
-    <string name="settings_homelab_sr_url_invalid">請輸入以 http:// 或 https:// 開頭的位址</string>
+    <string name="settings_homelab_sr_url_unset">未設定，例如 http://192.168.1.10:8790 或 https://sr.example.com</string>
+    <string name="settings_homelab_sr_url_invalid">http 只能用於區域網路位址（10.x、172.16–31.x、192.168.x），使用網域名稱時請用 https</string>
 </resources>

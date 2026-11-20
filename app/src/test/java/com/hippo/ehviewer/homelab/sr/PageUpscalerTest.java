@@ -60,7 +60,7 @@ public class PageUpscalerTest {
         mCompanion = new FakeCompanion();
         mCompanion.answer = jpeg(200, 320);
         Settings.putBoolean(HomelabSettings.KEY_SR_ENABLED, true);
-        Settings.putString(HomelabSettings.KEY_SR_URL, mCompanion.baseUrl());
+        Settings.putString(HomelabSettings.KEY_SR_URL, mCompanion.lanUrl());
         Settings.putString(HomelabSettings.KEY_PASSWORD, "pass-1234");
         mWorkers = Executors.newSingleThreadExecutor();
     }
@@ -72,7 +72,8 @@ public class PageUpscalerTest {
     }
 
     private PageUpscaler upscaler() {
-        return new PageUpscaler(this::record, mResources, new CompanionClient(), mWorkers, LONG_SIDE);
+        return new PageUpscaler(this::record, mResources, new CompanionClient(FakeCompanion.LOOPBACK_DNS), mWorkers,
+                LONG_SIDE);
     }
 
     private void record(int index, @NonNull Image image) {

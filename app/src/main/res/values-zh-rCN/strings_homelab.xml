@@ -15,6 +15,6 @@
     <string name="settings_homelab_sr_local">在本机处理</string>
     <string name="settings_homelab_sr_local_summary">暂不可用，页面会发给 homelab</string>
     <string name="settings_homelab_sr_url">超分处理 URL</string>
-    <string name="settings_homelab_sr_url_unset">未设置，例如 http://192.168.1.10:8790</string>
-    <string name="settings_homelab_sr_url_invalid">请输入以 http:// 或 https:// 开头的地址</string>
+    <string name="settings_homelab_sr_url_unset">未设置，例如 http://192.168.1.10:8790 或 https://sr.example.com</string>
+    <string name="settings_homelab_sr_url_invalid">http 只能用于局域网地址（10.x、172.16–31.x、192.168.x），用域名时请用 https</string>
 </resources>

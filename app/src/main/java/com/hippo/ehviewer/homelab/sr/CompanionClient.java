@@ -11,6 +11,7 @@ import androidx.annotation.NonNull;
 import java.io.IOException;
 import java.util.concurrent.TimeUnit;
 
+import okhttp3.Dns;
 import okhttp3.HttpUrl;
 import okhttp3.MediaType;
 import okhttp3.OkHttpClient;
@@ -26,11 +27,21 @@ final class CompanionClient {
     private static final int CONNECT_TIMEOUT_SECONDS = 3;
     private static final int TRANSFER_TIMEOUT_SECONDS = 30;
 
-    private final OkHttpClient mClient = new OkHttpClient.Builder()
-            .connectTimeout(CONNECT_TIMEOUT_SECONDS, TimeUnit.SECONDS)
-            .readTimeout(TRANSFER_TIMEOUT_SECONDS, TimeUnit.SECONDS)
-            .writeTimeout(TRANSFER_TIMEOUT_SECONDS, TimeUnit.SECONDS)
-            .build();
+    private final OkHttpClient mClient;
+
+    CompanionClient() {
+        this(Dns.SYSTEM);
+    }
+
+    /** Tests resolve a LAN address to their local fake. */
+    CompanionClient(@NonNull Dns dns) {
+        mClient = new OkHttpClient.Builder()
+                .dns(dns)
+                .connectTimeout(CONNECT_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+                .readTimeout(TRANSFER_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+                .writeTimeout(TRANSFER_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+                .build();
+    }
 
     /** The page upscaled {@code scale} times, as image bytes; throws when the companion is unreachable or refuses. */
     @NonNull

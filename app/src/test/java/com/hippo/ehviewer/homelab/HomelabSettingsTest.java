@@ -19,7 +19,7 @@ import org.robolectric.RobolectricTestRunner;
 import org.robolectric.RuntimeEnvironment;
 import org.robolectric.annotation.Config;
 
-/** When pages go to the homelab, and how its URL is read (#207). */
+/** When pages go to the homelab, and which URLs it may use (#207). */
 @RunWith(RobolectricTestRunner.class)
 @Config(application = android.app.Application.class)
 public class HomelabSettingsTest {
@@ -52,5 +52,43 @@ public class HomelabSettingsTest {
         Settings.putString(HomelabSettings.KEY_SR_URL, "  http://10.0.0.5:8790// ");
 
         assertEquals("http://10.0.0.5:8790", HomelabSettings.getSuperResolutionUrl());
+    }
+
+    @Test
+    public void plainHttpIsAllowedOnlyForALanAddress() {
+        String[] allowed = {
+                "http://10.0.0.5:8790",
+                "http://172.16.0.1",
+                "http://172.31.255.254:8790",
+                "http://192.168.1.10:8790/",
+                "https://sr.example.com",
+                "https://8.8.8.8:8790",
+        };
+        String[] refused = {
+                "http://172.15.255.254",
+                "http://172.32.0.1",
+                "http://192.167.1.1",
+                "http://192.169.1.1",
+                "http://8.8.8.8:8790",
+                "http://sr.example.com:8790",
+                "http://[fd00::1]:8790",
+                "ftp://192.168.1.10",
+                "192.168.1.10:8790",
+        };
+        for (String url : allowed) {
+            assertTrue(url, HomelabSettings.isAllowedUrl(url));
+        }
+        for (String url : refused) {
+            assertFalse(url, HomelabSettings.isAllowedUrl(url));
+        }
+    }
+
+    @Test
+    public void aStoredUrlThatBreaksTheRuleIsNotUsed() {
+        Settings.putBoolean(HomelabSettings.KEY_SR_ENABLED, true);
+        Settings.putString(HomelabSettings.KEY_SR_URL, "http://sr.example.com:8790");
+
+        assertEquals("", HomelabSettings.getSuperResolutionUrl());
+        assertFalse(HomelabSettings.sendsPagesToHomelab());
     }
 }

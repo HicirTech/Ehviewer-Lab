@@ -17,6 +17,6 @@
     <string name="settings_homelab_sr_local">Upscale on this device</string>
     <string name="settings_homelab_sr_local_summary">Not available yet; pages go to the homelab</string>
     <string name="settings_homelab_sr_url">Super-resolution URL</string>
-    <string name="settings_homelab_sr_url_unset">Not set, for example http://192.168.1.10:8790</string>
-    <string name="settings_homelab_sr_url_invalid">Enter an address starting with http:// or https://</string>
+    <string name="settings_homelab_sr_url_unset">Not set, for example http://192.168.1.10:8790 or https://sr.example.com</string>
+    <string name="settings_homelab_sr_url_invalid">Plain http only works with a LAN address (10.x, 172.16–31.x, 192.168.x); use https with a domain name</string>
 </resources>

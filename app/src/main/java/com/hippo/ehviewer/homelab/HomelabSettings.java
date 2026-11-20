@@ -8,7 +8,13 @@ package com.hippo.ehviewer.homelab;
 
 import androidx.annotation.NonNull;
 
+import com.hippo.ehviewer.Hosts;
 import com.hippo.ehviewer.Settings;
+
+import java.net.Inet4Address;
+import java.net.InetAddress;
+
+import okhttp3.HttpUrl;
 
 /** The homelab services: one password for all of them, and super-resolution while reading (#207). */
 public final class HomelabSettings {
@@ -27,9 +33,24 @@ public final class HomelabSettings {
         return Settings.getString(KEY_PASSWORD, "");
     }
 
+    /** Empty when unset or when {@link #isAllowedUrl} refuses it. */
     @NonNull
     public static String getSuperResolutionUrl() {
-        return normalizeUrl(Settings.getString(KEY_SR_URL, ""));
+        String url = normalizeUrl(Settings.getString(KEY_SR_URL, ""));
+        return isAllowedUrl(url) ? url : "";
+    }
+
+    /** https to any host; plain http only to a LAN address: 10/8, 172.16/12 or 192.168/16. */
+    public static boolean isAllowedUrl(@NonNull String url) {
+        HttpUrl parsed = HttpUrl.parse(url.trim());
+        if (parsed == null) {
+            return false;
+        }
+        if (parsed.isHttps()) {
+            return true;
+        }
+        InetAddress address = Hosts.toInetAddress(parsed.host(), parsed.host());
+        return address instanceof Inet4Address && address.isSiteLocalAddress();
     }
 
     /** Pages go to the homelab only when super-resolution is on, not local, and has a URL. */

@@ -15,6 +15,6 @@
     <string name="settings_homelab_sr_local">この端末で処理</string>
     <string name="settings_homelab_sr_local_summary">まだ使えません。ページは homelab に送られます</string>
     <string name="settings_homelab_sr_url">超解像の URL</string>
-    <string name="settings_homelab_sr_url_unset">未設定（例: http://192.168.1.10:8790）</string>
-    <string name="settings_homelab_sr_url_invalid">http:// または https:// で始まるアドレスを入力してください</string>
+    <string name="settings_homelab_sr_url_unset">未設定（例: http://192.168.1.10:8790 または https://sr.example.com）</string>
+    <string name="settings_homelab_sr_url_invalid">http は LAN のアドレス（10.x、172.16–31.x、192.168.x）でのみ使えます。ドメイン名には https を使ってください</string>
 </resources>

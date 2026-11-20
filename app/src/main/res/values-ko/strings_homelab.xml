@@ -15,6 +15,6 @@
     <string name="settings_homelab_sr_local">이 기기에서 처리</string>
     <string name="settings_homelab_sr_local_summary">아직 사용할 수 없습니다. 페이지는 homelab으로 보내집니다</string>
     <string name="settings_homelab_sr_url">초해상도 URL</string>
-    <string name="settings_homelab_sr_url_unset">설정 안 됨, 예: http://192.168.1.10:8790</string>
-    <string name="settings_homelab_sr_url_invalid">http:// 또는 https://로 시작하는 주소를 입력하세요</string>
+    <string name="settings_homelab_sr_url_unset">설정 안 됨, 예: http://192.168.1.10:8790 또는 https://sr.example.com</string>
+    <string name="settings_homelab_sr_url_invalid">http는 LAN 주소(10.x, 172.16–31.x, 192.168.x)에서만 쓸 수 있습니다. 도메인 이름에는 https를 사용하세요</string>
 </resources>

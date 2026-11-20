@@ -14,12 +14,18 @@ import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.nio.charset.StandardCharsets;
+import java.util.Collections;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import okhttp3.Dns;
+
 /** A stand-in for the companion on a plain socket, one request at a time; it records what it was sent. */
 final class FakeCompanion implements AutoCloseable {
+
+    /** Sends every host to this machine, so {@link #lanUrl()} reaches the fake. */
+    static final Dns LOOPBACK_DNS = host -> Collections.singletonList(InetAddress.getByName("127.0.0.1"));
 
     final AtomicInteger requests = new AtomicInteger();
     final CountDownLatch requested = new CountDownLatch(1);
@@ -43,6 +49,11 @@ final class FakeCompanion implements AutoCloseable {
 
     String baseUrl() {
         return "http://127.0.0.1:" + mSocket.getLocalPort();
+    }
+
+    /** A LAN address, as the Homelab settings require for plain http; needs {@link #LOOPBACK_DNS}. */
+    String lanUrl() {
+        return "http://192.168.0.2:" + mSocket.getLocalPort();
     }
 
     private void serve() {
