@@ -44,3 +44,5 @@ jobs:
         with:
           files: app/build/outputs/apk/appRelease/release/*.apk
           generate_release_notes: true
+          # A release candidate (vX.Y.Z-hl.N-rcM) is a pre-release, so it never becomes the latest release.
+          prerelease: ${{ contains(github.ref_name, '-rc') }}
