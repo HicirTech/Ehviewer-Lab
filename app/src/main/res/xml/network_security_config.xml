@@ -16,7 +16,8 @@
   -->
 
 <network-security-config>
-    <base-config>
+    <!-- Homelab services speak plain HTTP on the LAN or over WireGuard (#207). -->
+    <base-config cleartextTrafficPermitted="true">
         <trust-anchors>
             <certificates src="system"/>
             <certificates src="user"/>
