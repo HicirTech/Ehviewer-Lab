@@ -48,6 +48,12 @@
         app:fragment="com.hippo.ehviewer.ui.fragment.NetworkStorageSettingsFragment" />
 
     <com.hippo.ehviewer.ui.fragment.BasePreference
+        android:icon="@drawable/v_homelab_primary_x24"
+        android:title="@string/settings_homelab"
+        app:allowDividerAbove="true"
+        app:fragment="com.hippo.ehviewer.ui.fragment.HomelabSettingsFragment" />
+
+    <com.hippo.ehviewer.ui.fragment.BasePreference
         android:icon="@drawable/v_sec_primary_x24"
         android:title="@string/settings_privacy"
         app:allowDividerAbove="true"
