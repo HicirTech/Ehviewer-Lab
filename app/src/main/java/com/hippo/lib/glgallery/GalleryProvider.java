@@ -235,8 +235,10 @@ public abstract class GalleryProvider {
         }
 
         public void add(Integer key, ImageWrapper value) {
-            // Larger than the whole cache, it would be evicted and recycled before the reader shows it (#207).
-            if (!value.getAnimated() && sizeOf(key, value) <= maxSize() && value.obtain()) {
+            // Too big to cache (#207): it would be recycled at once, and the older copy must not stand in for it.
+            if (sizeOf(key, value) > maxSize()) {
+                remove(key);
+            } else if (!value.getAnimated() && value.obtain()) {
                 put(key, value);
             }
 //            if (value.getFormat() != Image1.FORMAT_GIF && value.getFormat() == Image1.FORMAT_WEBP && value.obtain()) {

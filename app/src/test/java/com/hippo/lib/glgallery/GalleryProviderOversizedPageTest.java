@@ -26,7 +26,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
-/** A page larger than the whole reader cache reaches the reader instead of being recycled on arrival (U23, #207). */
+/** A page larger than the whole reader cache reaches the reader, and no older copy stands in for it (U23, #207). */
 @RunWith(RobolectricTestRunner.class)
 @Config(application = android.app.Application.class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
@@ -54,6 +54,16 @@ public class GalleryProviderOversizedPageTest {
 
         assertFalse(page.isRecycled());
         mProvider.request(0);
+        assertEquals(Collections.singletonList(0), mProvider.requested);
+    }
+
+    @Test
+    public void aPageLargerThanTheCacheDropsTheCopyCachedBeforeIt() {
+        mProvider.notifyPageSucceed(0, imageOf(page(ORDINARY_SIDE)));
+        mProvider.notifyPageSucceed(0, imageOf(page(OVERSIZED_SIDE)));
+
+        mProvider.request(0);
+
         assertEquals(Collections.singletonList(0), mProvider.requested);
     }
 
