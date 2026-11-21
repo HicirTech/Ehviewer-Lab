@@ -40,7 +40,18 @@ jobs:
         run: ./gradlew :app:assembleAppReleaseRelease --no-daemon
 
       - name: Create GitHub release
+        id: release
         uses: softprops/action-gh-release@v3
         with:
           files: app/build/outputs/apk/appRelease/release/*.apk
           generate_release_notes: true
+          # A release candidate (vX.Y.Z-hl.N-rcM) is a pre-release, never the latest release. Releases here are
+          # immutable and take assets only as a draft, so it goes up as one and the next step publishes it.
+          prerelease: ${{ contains(github.ref_name, '-rc') }}
+          draft: ${{ contains(github.ref_name, '-rc') }}
+
+      - name: Publish the release candidate
+        if: contains(github.ref_name, '-rc')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh api -X PATCH "repos/${{ github.repository }}/releases/${{ steps.release.outputs.id }}" -F draft=false
