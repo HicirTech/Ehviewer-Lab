@@ -1,0 +1,24 @@
+services:
+  sr:
+    build: ./sr
+    image: ehviewer-lab-sr:local
+    init: true
+    restart: unless-stopped
+    ports:
+      - "${SR_PORT:-8790}:8790"
+    environment:
+      HOMELAB_PASS: ${HOMELAB_PASS:?set HOMELAB_PASS in .env}
+    # The GPU. On a host without one, drop devices and group_add: the service then runs on the CPU.
+    devices:
+      - /dev/dri:/dev/dri
+    group_add:
+      - "${RENDER_GID:-44}"
+    # Nothing is stored: no volumes, a read-only root and a small tmpfs.
+    read_only: true
+    tmpfs:
+      - /tmp:size=64m
+    healthcheck:
+      test: ["CMD", "python", "-c", "import os, urllib.request as r; r.urlopen(r.Request('http://127.0.0.1:8790/v1/info', headers={'Authorization': 'Bearer ' + os.environ['HOMELAB_PASS']}), timeout=5)"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
