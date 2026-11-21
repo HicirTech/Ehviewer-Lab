@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  ~ Copyright 2026 Ehviewer SMB Saver fork
+  ~
+  ~ Licensed under the Apache License, Version 2.0 (the "License");
+  ~ you may not use this file except in compliance with the License.
+  -->
+
+<resources>
+    <string name="settings_homelab_password">Contraseña del homelab</string>
+    <string name="settings_homelab_password_set">Establecida</string>
+    <string name="settings_homelab_password_unset">Sin establecer. Usa HOMELAB_PASS del .env del companion</string>
+    <string name="settings_homelab_sr_enable">Superresolución al leer</string>
+    <string name="settings_homelab_sr_enable_summary">Las páginas se envían al homelab y vuelven más nítidas. No se guarda nada</string>
+    <string name="settings_homelab_sr_local">Procesar en este dispositivo</string>
+    <string name="settings_homelab_sr_local_summary">Aún no disponible; las páginas se envían al homelab</string>
+    <string name="settings_homelab_sr_url">URL de superresolución</string>
+    <string name="settings_homelab_sr_url_unset">Sin establecer, por ejemplo http://192.168.1.10:8790 o https://sr.example.com</string>
+    <string name="settings_homelab_sr_url_invalid">El http sin cifrar solo funciona con una dirección de la red local (10.x, 172.16–31.x, 192.168.x); con un nombre de dominio usa https</string>
+    <string name="settings_homelab_sr_target">Resolución objetivo</string>
+    <string name="settings_homelab_sr_target_device">Resolución del dispositivo</string>
+</resources>

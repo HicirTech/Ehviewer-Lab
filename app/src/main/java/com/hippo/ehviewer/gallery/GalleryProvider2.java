@@ -18,10 +18,27 @@ package com.hippo.ehviewer.gallery;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import com.hippo.ehviewer.homelab.sr.PageUpscaler;
 import com.hippo.lib.glgallery.GalleryProvider;
+import com.hippo.lib.image.Image;
 import com.hippo.unifile.UniFile;
 
 public abstract class GalleryProvider2 extends GalleryProvider {
+
+    // Super-resolution while reading (#207): the sharper copy comes back through the base class.
+    private final PageUpscaler mUpscaler = new PageUpscaler(super::notifyPageSucceed);
+
+    @Override
+    public void notifyPageSucceed(int index, Image image) {
+        mUpscaler.onPage(index, image);
+        super.notifyPageSucceed(index, image);
+    }
+
+    @Override
+    public void stop() {
+        mUpscaler.stop();
+        super.stop();
+    }
 
     // With dot
     public static final String[] SUPPORT_IMAGE_EXTENSIONS = {

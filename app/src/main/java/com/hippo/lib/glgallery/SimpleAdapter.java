@@ -116,7 +116,12 @@ public class SimpleAdapter extends GalleryView.Adapter implements GalleryProvide
                 ImageTexture imageTexture = new ImageTexture(image);
                 mUploader.addTexture(imageTexture);
                 page.showImage();
-                page.setImage(imageTexture);
+                // A page already on screen gets a sharper copy (#207): keep its zoom and position.
+                if (page.hasImage()) {
+                    page.replaceImage(imageTexture);
+                } else {
+                    page.setImage(imageTexture);
+                }
                 if (mShowIndex) {
                     page.setPage(index + 1);
                 } else {

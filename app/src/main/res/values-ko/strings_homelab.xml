@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  ~ Copyright 2026 Ehviewer SMB Saver fork
+  ~
+  ~ Licensed under the Apache License, Version 2.0 (the "License");
+  ~ you may not use this file except in compliance with the License.
+  -->
+
+<resources>
+    <string name="settings_homelab_password">Homelab 비밀번호</string>
+    <string name="settings_homelab_password_set">설정됨</string>
+    <string name="settings_homelab_password_unset">설정 안 됨. companion의 .env에 있는 HOMELAB_PASS 값을 입력하세요</string>
+    <string name="settings_homelab_sr_enable">읽는 동안 초해상도</string>
+    <string name="settings_homelab_sr_enable_summary">페이지를 homelab으로 보내 더 선명하게 표시합니다. 저장하지 않습니다</string>
+    <string name="settings_homelab_sr_local">이 기기에서 처리</string>
+    <string name="settings_homelab_sr_local_summary">아직 사용할 수 없습니다. 페이지는 homelab으로 보내집니다</string>
+    <string name="settings_homelab_sr_url">초해상도 URL</string>
+    <string name="settings_homelab_sr_url_unset">설정 안 됨, 예: http://192.168.1.10:8790 또는 https://sr.example.com</string>
+    <string name="settings_homelab_sr_url_invalid">http는 LAN 주소(10.x, 172.16–31.x, 192.168.x)에서만 쓸 수 있습니다. 도메인 이름에는 https를 사용하세요</string>
+    <string name="settings_homelab_sr_target">목표 해상도</string>
+    <string name="settings_homelab_sr_target_device">기기 해상도</string>
+</resources>

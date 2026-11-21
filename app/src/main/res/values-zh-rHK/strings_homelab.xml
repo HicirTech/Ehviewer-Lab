@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  ~ Copyright 2026 Ehviewer SMB Saver fork
+  ~
+  ~ Licensed under the Apache License, Version 2.0 (the "License");
+  ~ you may not use this file except in compliance with the License.
+  -->
+
+<resources>
+    <string name="settings_homelab_password">Homelab 密碼</string>
+    <string name="settings_homelab_password_set">已設定</string>
+    <string name="settings_homelab_password_unset">未設定，填入 companion 的 .env 裡 HOMELAB_PASS 的值</string>
+    <string name="settings_homelab_sr_enable">閱讀時超解像</string>
+    <string name="settings_homelab_sr_enable_summary">頁面會傳到 homelab，換成更清晰的圖，不會儲存</string>
+    <string name="settings_homelab_sr_local">在本機處理</string>
+    <string name="settings_homelab_sr_local_summary">暫時未能使用，頁面會傳到 homelab</string>
+    <string name="settings_homelab_sr_url">超解像處理 URL</string>
+    <string name="settings_homelab_sr_url_unset">未設定，例如 http://192.168.1.10:8790 或 https://sr.example.com</string>
+    <string name="settings_homelab_sr_url_invalid">http 只可用於區域網絡地址（10.x、172.16–31.x、192.168.x），使用域名時請用 https</string>
+    <string name="settings_homelab_sr_target">目標解像度</string>
+    <string name="settings_homelab_sr_target_device">裝置解像度</string>
+</resources>
