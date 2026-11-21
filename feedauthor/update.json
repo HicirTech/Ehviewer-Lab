@@ -1,14 +1,14 @@
 {
-  "version": "2.0.2.7-hl.4",
-  "versionCode": 22,
+  "version": "2.0.2.7-hl.5",
+  "versionCode": 23,
   "mustUpdate": false,
   "updateContent": {
-    "fileDownloadUrl": "https://github.com/HicirTech/Ehviewer-Lab/releases/tag/v2.0.2.7-hl.4",
-    "title": "EhViewer@Lab 2.0.2.7-hl.4",
+    "fileDownloadUrl": "https://github.com/HicirTech/Ehviewer-Lab/releases/tag/v2.0.2.7-hl.5",
+    "title": "EhViewer@Lab 2.0.2.7-hl.5",
     "content": [
-      "库里新增缺失文件检查:找出缺页、缺封面或缺元数据的画廊,可全选后一起修复",
-      "保存到共享时缺页不再算作完成,任务会暂停并提示,可在下载列表里继续",
-      "修复在库里点封面有时进了详情页而不是阅读器的问题"
+      "阅读时超分:设置里新增「Homelab」页,填上 homelab 超分服务的地址和密码并打开后,页面会换成更清晰的图,不保存",
+      "可以选目标分辨率:设备分辨率(默认)、2x、3x、4x",
+      "超分服务地址用局域网 IP 时可以用 http,用域名时必须用 https"
     ]
   }
 }
